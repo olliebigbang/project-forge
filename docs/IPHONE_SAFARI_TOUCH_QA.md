@@ -241,7 +241,7 @@ correctly and are the accepted automation path.
 | ID | Severity | Finding | Fix and independent retest |
 | --- | --- | --- | --- |
 | IOS-QA-001 | **P0** | v7 `OptionButton` opened a modal `PopupMenu` that ignored outside/action touches on physical iPhone, Chromium, and WebKit | `2c7c297` removes that path. Five persistent buttons complete 30 switches plus all actions in both browsers. **CLOSED LOCALLY** |
-| IOS-QA-002 | **P1** | First implementation evidence showed approximately 28px mode rows | Pre-commit selector height was raised to 90 logical px; compact screenshots and assertions prove at least 48 CSS px. **CLOSED LOCALLY** |
+| IOS-QA-002 | **P1** | First implementation evidence showed approximately 28px mode rows | Selector height was raised to 102 logical px; compact screenshots and assertions prove at least 48 CSS px even in the 734×343 WebKit visual viewport. **CLOSED LOCALLY** |
 | IOS-QA-003 | **P1** | Initial portrait overlay was translucent, leaving the stretched compiler visible | `8cdea56` makes the backdrop opaque. Fresh Chromium and WebKit portrait captures show no compiler content. **CLOSED LOCALLY** |
 | IOS-QA-004 | **P2** | Windows Playwright WebKit emits repeated WebGL validation noise despite successful rendering/interactions | Recorded above; must be compared with real-device Safari diagnostics if available. **OPEN KNOWN TOOL LIMITATION** |
 

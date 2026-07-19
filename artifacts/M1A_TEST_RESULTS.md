@@ -1,5 +1,10 @@
 # Project Forge M1A Test Results
 
+> **Superseded acceptance status (2026-07-19):** the v7 public build documented
+> below fails the physical iPhone Safari attack-selector flow. M1A is reopened and
+> remains **TO VALIDATE** until the replacement touch fix is deployed and accepted
+> on the user's real device. See `artifacts/IPHONE_SAFARI_FIX_RESULTS.md`.
+
 Run date: 2026-07-19 (Australia/Sydney)  
 Engine: Godot 4.7.1 stable, GL Compatibility renderer  
 Public deployment: Sites version 7, production publish  
@@ -122,8 +127,6 @@ the uncompressed WebAssembly payload is approximately 39.5 MB. SHA-256:
 
 ## Recommendation
 
-**Recommend proceeding beyond M1A, with scope discipline.** The deterministic
-compiler, repair boundary, budget enforcement, attack modules, elements, Web path,
-and target behaviors have no known blocking defect. The next milestone should
-focus on playfeel/balance and a small combat loop; a paid AI integration should
-remain deferred until physical-device and product-safety requirements are defined.
+**Do not proceed to M1B yet.** The deterministic compiler and local replacement
+touch flow pass automated checks, but the reopened physical iPhone Safari gate and
+replacement public deployment must be accepted first. Paid AI remains deferred.
