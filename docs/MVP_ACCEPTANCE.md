@@ -10,7 +10,7 @@ iPhone Safari acceptance; browser emulation is evidence, not a substitute.
 
 | ID | Acceptance criterion | Status | Evidence target |
 | --- | --- | --- | --- |
-| M1A-01 | Public, phone-accessible Web URL; not localhost | **TO VALIDATE (v9 deployment)** | Sites v9 must return HTTP 200 with a new PCK hash; v8 remains the last deployed build until replacement |
+| M1A-01 | Public, phone-accessible Web URL; not localhost | **CONFIRMED (v9)** | Sites version 9 returns HTTP 200; public `index.pck` exactly matches the new local SHA-256 `0BDD31A3…` and differs from v8 |
 | M1A-02 | Public flow covers draw, edit description, reset, generate, move, attack, and re-forge | **TO VALIDATE (real iPhone v9)** | v8 passed mode switching and combat but failed compact layout, text input, `×`, `RESET`, and keyboard; v9 browser automation plus physical acceptance are required |
 | M1A-03 | Five attack modules execute and look/behave differently | **CONFIRMED** | Five browser combat runs |
 | M1A-04 | Normal, fire, ice, and electric compile and execute | **CONFIRMED** | Matrix plus combat effect checks |

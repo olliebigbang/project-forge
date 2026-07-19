@@ -6,6 +6,10 @@ Implementation source: `0dcc4a6`
 
 Web package SHA-256: `0BDD31A387B3373C90C88D8F4DB19F8F9369BA0B143900324810F7F9BF4191F9`
 
+Public v9 URL: <https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?release=v9-f309f28>
+
+Sites version: `9`; deployed source: `f309f28da1ff1e62e9a11b10fb66a55f737c5d5a`
+
 ## Root cause and corrective boundary
 
 - v8 sized phone controls in Godot logical pixels. The Web canvas then scaled
@@ -34,6 +38,10 @@ Web package SHA-256: `0BDD31A387B3373C90C88D8F4DB19F8F9369BA0B143900324810F7F9BF
 | Safe-area viewport metadata | **PASS — `viewport-fit=cover`** |
 | Chromium touch regression | **PASS** |
 | WebKit touch regression | **PASS** |
+| Public index and PCK HTTP status | **PASS — HTTP 200** |
+| Public PCK identity | **PASS — exact local/public SHA-256 match** |
+| Public Chromium full regression | **PASS — no console warning/error** |
+| Public WebKit full functional regression | **PASS — no application warning/error** |
 
 Chromium and WebKit both passed Description load/focus/edit/delete/clear,
 RESET/redraw/re-entry, 30 sequential selector changes, three portrait/landscape
@@ -45,6 +53,12 @@ The Windows Playwright WebKit renderer logs its known Godot/WebGL
 functional regression completed with no GDScript/JavaScript error and no new
 console message. This desktop renderer artifact is not treated as proof of real
 iPhone rendering or keyboard behavior.
+
+The public build was fetched without relying on an old resource body: its
+95,800-byte `index.pck` hashes to
+`0BDD31A387B3373C90C88D8F4DB19F8F9369BA0B143900324810F7F9BF4191F9`,
+different from v8's `806B6E27...`. Public Chromium and WebKit then repeated the
+complete v9 browser suites against Sites version 9.
 
 ## Compact layout measurements
 

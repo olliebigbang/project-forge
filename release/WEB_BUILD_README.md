@@ -16,4 +16,7 @@ This v9 bundle contains Compact Landscape, the native Web Description input,
 explicit text clear, and RESET behavior. It is the offline fallback for the same
 build deployed after PR/CI.
 
+Public Sites v9:
+<https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?release=v9-f309f28>
+
 This bundle contains no API key and makes no paid AI request.
