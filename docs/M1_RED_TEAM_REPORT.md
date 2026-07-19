@@ -1,8 +1,8 @@
 # M1A QA / Red-Team Report
 
-Document state: **Pre-implementation acceptance plan**  
+Document state: **Final regression report**  
 Prepared on: 2026-07-19  
-Regression execution: **PENDING — run after the M1A integration branch is supplied**
+Regression execution: **COMPLETE — final runtime revision `214aa14`**
 
 ## 1. Scope and independence
 
@@ -327,17 +327,103 @@ Regression execution sequence after the integration branch is supplied:
 7. Update this document with actual totals and a clear `PASS`, `PASS WITH KNOWN
    LIMITATIONS`, or `FAIL` recommendation.
 
-## 12. Current result summary
+## 12. Final regression result
 
-| Area | Planned cases | Executed | Result |
-| --- | ---: | ---: | --- |
-| Deterministic text/drawing inputs | 30 | 0 | **PENDING** |
-| Raw `WeaponSpec` fault injection | 15 | 0 | **PENDING** |
-| Power metamorphic pairs | 12 plus boundaries | 0 | **PENDING** |
-| Five attack behaviors / four target fixtures | 5 / 4 | 0 | **PENDING** |
-| Four element behaviors | 4 | 0 | **PENDING** |
-| Desktop/mobile/public-Web flows | 4 viewport/device classes | 0 | **PENDING** |
+### 12.1 Integrated revision and automated checks
 
-**Pre-implementation disposition: TO VALIDATE.** No M1A pass/fail claim is made
-yet. The plan is ready for regression once the main agent supplies the integrated
-implementation and public preview revision.
+- **CONFIRMED** Final gameplay/runtime revision under test: `214aa14` (including
+  the power-budget fix `e5be249`, fresh-checkout test fix `d2368eb`, and stable
+  Web-asset revalidation fix `997fe0c`).
+- **CONFIRMED** Godot 4.7.1 project import and warning-as-error script parse pass.
+- **CONFIRMED** `./scripts/test.ps1` passes from the final integrated revision:
+  **32 deterministic matrix cases, 347 assertions, 0 failures**.
+- **CONFIRMED** Main-scene runtime smoke passes.
+- **CONFIRMED** Hosting worker tests pass (3/3) and WASM chunk-loader tests pass
+  (1/1).
+- **CONFIRMED** `./scripts/build_web.ps1` and the Sites preview bundle build pass;
+  the required HTML, JavaScript, WASM, and PCK outputs are present.
+
+| Area | Executed evidence | Final result |
+| --- | --- | --- |
+| Deterministic input matrix | 32/32 cases; normal, multilingual, empty, blocked, ambiguous, and extreme inputs | **PASS** |
+| Contract repair and double validation | Missing, unsupported, extra, non-finite, out-of-range, overlong, class/pattern, and drawback-semantic cases inside the 347-assertion suite | **PASS** |
+| Power budget | Component-sum assertions for all 32 cases plus independent maximal hostile and contradictory-drawback probes | **PASS** |
+| Attack modules | `melee_slash`, `straight_projectile`, `boomerang`, `area_blast`, and `piercing` automation/browser evidence | **PASS** |
+| Elements | `normal`, `fire`, `ice`, and `electric` across the matrix, visuals, and runtime status behavior | **PASS** |
+| Target lab | Stationary, deterministic mover, frontal shield, and three grouped targets; shield/pierce/ice rules asserted | **PASS** |
+| Web/mobile | 1280×720 desktop plus 844×390 and 915×412 landscape browser contexts | **PASS** |
+| Physical iOS/Android hardware | Not an M1A native-device gate | **TO VALIDATE (M3)** |
+
+### 12.2 Defect log and closure evidence
+
+| ID | Severity | Finding | Fix | Independent retest / status |
+| --- | --- | --- | --- | --- |
+| QA-001 | **P1 Major** | A fresh worktree failed on the first `./scripts/test.ps1` run because deterministic tests loaded global `class_name` types before Godot created its import cache. | `d2368eb` moves project import/parse before unit tests. | Existing `.godot` was moved out of the worktree, then the script passed on its first run; the final suite later passed 347/347. **CLOSED** |
+| QA-002 | **P1 Major** | A maximal hostile `piercing + electric + chain_arc + shock` raw spec recalculated to 104.5 while `after.total`, `power_score`, and `within_budget` falsely reported 100/valid. `short_reach` could also retain range 900 and claim a credit. | `e5be249` enforces semantic drawbacks, continues deterministic reductions until the actual component sum is at most 100, and validates score/total parity. | Maximal probe now has actual and reported total **99.5**, `power_score=100=ceil(99.5)`, `within_budget=true`, and runtime valid; repairs record damage 100→1 and speed 3.00→0.85. Contradictory `short_reach + range900` becomes range **180** with an explicit correction and total 56.5/score 57. **CLOSED** |
+| QA-003 | **P1 Delivery Gate** | Public v6 served a stale PCK (103,980 bytes; SHA-256 `3BBB8C238028984A93F810EEC2949E9BF824BE7D18FBB060C048AB78226E5DEC`) and therefore did not contain the final power fix. | Final Sites v7 was deployed after cache-revalidation changes. | A fresh browser context downloaded 107,692 bytes with SHA-256 `1A40F507D01BD9AAD65C4C58C7A7B025A4FC1F2D1186E878BD7F294685914002`, matching the final delivery build. **CLOSED** |
+| QA-004 | **P2 Moderate** | Entering REFORGE did not remove an active boomerang or cancel pending statuses; old damage and hit messages could modify/overwrite the new forge state. | `214aa14` gates combat while forging, removes transient attack nodes, cancels old statuses, and suppresses overlay-time combat messages. | Local Web and public v7 both ran boomerang attack → REFORGE after 50 ms → wait → BACK. All target health stayed at 180/135/210/90/90/90, status stayed `Boomerang ready`, and console remained clean. **CLOSED** |
+
+No P0, P1, or P2 finding remains open.
+
+### 12.3 Final public preview regression
+
+Public URL:
+[Project Forge M1A final preview](https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?qa=v7-final-214aa14)
+
+- **CONFIRMED** Fresh in-memory Chromium context; no prior profile/cache reused.
+- **CONFIRMED** Entry document and all Godot runtime requests returned HTTP 200.
+- **CONFIRMED** HTML and PCK use `Cache-Control: public, max-age=0,
+  must-revalidate`.
+- **CONFIRMED** Public PCK is 107,692 bytes; SHA-256 is
+  `1A40F507D01BD9AAD65C4C58C7A7B025A4FC1F2D1186E878BD7F294685914002`.
+- **CONFIRMED** Browser console from cold load through interaction: **0 errors,
+  0 warnings** (three expected Godot/WebGL build-information logs).
+- **CONFIRMED** At 844×390, real CDP touch events drew a recognizable stroke;
+  touch compiled the weapon, held movement, attacked, entered REFORGE, and
+  returned to combat without clipping or duplicate input.
+- **CONFIRMED** The 50 ms boomerang/reforge isolation check passed on public v7.
+- **CONFIRMED** Prior desktop and 915×412 runs also completed drawing, text/preset
+  selection, compile, movement, damaging attacks, and re-forging.
+
+Durable repository evidence includes:
+
+- `output/playwright/m1a-melee-slash.png`
+- `output/playwright/m1a-straight-projectile.png`
+- `output/playwright/m1a-boomerang.png`
+- `output/playwright/m1a-area-blast.png`
+- `output/playwright/m1a-piercing.png`
+- `output/playwright/14-mobile-844x390-hit-final.png`
+- `output/playwright/15-mobile-915x412-combat.png`
+
+### 12.4 Known limitations and residual validation
+
+- **TO VALIDATE (M3):** physical iOS/Android safe areas, software-keyboard
+  variants, browser resume/orientation behavior, thermal performance, and touch
+  latency. M1A browser emulation is not a native-device certification.
+- **TO VALIDATE:** final balance feel and whether players invent meaningfully
+  different second/third weapons; deterministic component math is correct, but
+  the curves remain prototype values.
+- **TO VALIDATE (future backend):** real provider timeout, network failure,
+  production moderation, authentication, telemetry, privacy, caching, and cost.
+  M1A intentionally uses an offline deterministic compiler.
+- **CONFIRMED limitation:** the Web WASM is approximately 39.5 MB and requires the
+  tested two-chunk hosting loader; first load depends on device/network speed.
+- **CONFIRMED scope boundary:** visuals, levels, enemies, audio, accounts,
+  commerce, advertising, voice, and multiplayer remain placeholder/deferred by
+  explicit M1A scope.
+
+## 13. Final disposition
+
+**PASS WITH KNOWN LIMITATIONS — GO.**
+
+M1A satisfies the deterministic weapon-compiler gate: 32 acceptance inputs, five
+executable and visually distinct attack patterns, four runtime-distinct elements,
+four target behaviors, schema/runtime repair, explicit and independently
+recomputed power accounting, strong-capability tradeoffs, audit output, Web build,
+and a verified public mobile preview. All QA-discovered P1/P2 issues were fixed and
+independently retested.
+
+**Recommendation:** proceed to the next milestone without reopening M1A core
+scope. Carry the residual `TO VALIDATE` items as explicit M2/M3/backend gates; do
+not treat this result as approval for paid AI integration or production mobile
+release.
