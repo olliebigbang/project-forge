@@ -43,4 +43,10 @@ Invoke-GodotCheck "Main-scene runtime smoke" @(
     "--headless", "--path", $repoRoot, "--quit-after", "120"
 )
 
+Write-Host "`n== Sites static worker tests ==" -ForegroundColor Cyan
+& node --test (Join-Path $repoRoot "tests\static_worker.test.mjs")
+if ($LASTEXITCODE -ne 0) {
+    throw "Sites static worker tests failed with exit code $LASTEXITCODE"
+}
+
 Write-Host "`nAll Project Forge M0 checks passed." -ForegroundColor Green
