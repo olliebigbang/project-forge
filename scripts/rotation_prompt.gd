@@ -1,7 +1,8 @@
 class_name RotationPrompt
 extends Control
 
-const BACKGROUND := Color("#07101ee8")
+# Portrait must never reveal the stretched forge beneath the rotation gate.
+const BACKGROUND := Color("#07101e")
 const PANEL := Color("#12233b")
 const ACCENT := Color("#65d9ff")
 const TEXT := Color("#edf4ff")
