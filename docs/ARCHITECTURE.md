@@ -2,125 +2,106 @@
 
 ## Scope and principles
 
-- **CONFIRMED** Godot 4.7.1, GDScript, 2D landscape, Web-first technical probe.
-- **CONFIRMED** Player intent crosses a structured data boundary; AI never returns
-  executable game code.
-- **CONFIRMED** M0 is offline and deterministic. A mock service stands in for the
-  future secure backend.
-- **CONFIRMED** Runtime systems consume only a validated, clamped `WeaponSpec`.
-- **CONFIRMED** Rendering reuses the player's original stroke geometry.
+- **CONFIRMED** Godot 4.7.1, GDScript, 2D landscape, Web-first prototype.
+- **CONFIRMED** Player intent crosses a structured-data boundary; model output can
+  never introduce executable game code.
+- **CONFIRMED** M1A remains offline and deterministic. No paid API or secret exists
+  in the client.
+- **CONFIRMED** Gameplay consumes only a repaired, runtime-valid `WeaponSpec` whose
+  calculated power does not exceed 100.
+- **CONFIRMED** The generated visual preserves the player's stroke geometry.
 
-## Runtime flow
+## M1A runtime flow
 
 ```mermaid
 flowchart LR
-    A["DrawingCanvas\nmouse + touch strokes"] --> C["ForgeController"]
+    A["DrawingCanvas\nmouse + touch"] --> C["WeaponCompiler"]
     B["One-line description"] --> C
-    C --> M["MockAIService"]
-    M --> V["WeaponSpec validation\nand numeric clamping"]
-    V --> W["WeaponVisual\nnormalized player strokes"]
-    V --> P["Player attack strategy"]
-    P -->|"melee overlap"| D["TrainingDummy"]
-    P -->|"projectile travel"| D
-    V --> U["Weapon readout"]
+    C --> K["Deterministic keyword profile"]
+    K --> R["Runtime repair\ntype + enum + finite + bounds"]
+    R --> P["PowerBudget\ncomponent cost + tradeoff"]
+    P --> V["Validated WeaponSpec"]
+    V --> J["JSONL audit\nraw + budget + repairs"]
+    V --> D{"Attack dispatcher"}
+    D --> M["Melee arc"]
+    D --> S["Straight projectile"]
+    D --> O["Outbound + return boomerang"]
+    D --> X["Expanding area blast"]
+    D --> I["Multi-hit piercing lance"]
+    M & S & O & X & I --> T["Stationary / moving / shield / group targets"]
 ```
+
+## Contract and double validation
+
+`schema/weapon_spec.schema.json` is the portable Draft 2020-12 contract.
+`WeaponSpec.repair_dict()` is the runtime boundary. Automated parity tests require
+the same 16 fields, five attack enums, and four element enums in both layers.
+
+Runtime repair handles missing values, wrong types, unsupported enums, non-finite
+numbers, numeric bounds, class/pattern mismatches, overlong names, and unknown
+fields. Repairs never mutate executable behavior outside the allow-list and every
+reason is retained in `WeaponSpec.corrections`.
+
+## Explicit power budget
+
+`PowerBudget.calculate()` records separate costs for damage, attack speed, range,
+attack pattern, element, special ability, status effect, projectile speed, area
+radius, and pierce count. The drawback is a negative credit. The sum is shown in
+the HUD and stored with the generation audit.
+
+`PowerBudget.balance()` performs deterministic correction in this order:
+
+1. Repair the raw contract.
+2. Add a pattern-appropriate drawback if a strong capability has none.
+3. Reduce damage, then attack speed, then range when still over 100.
+4. Apply `cooldown_lock` and a final damage clamp only if required.
+
+The runtime executes recovery-related drawbacks as longer attack cooldowns.
+`low_impact`, `narrow_arc`, and projectile tradeoffs are expressed in profile
+statistics and module geometry.
+
+## Attack and element behavior
+
+| Module | Visible and combat distinction |
+| --- | --- |
+| `melee_slash` | Short-lived arc; closest forward target only; requires proximity |
+| `straight_projectile` | Fast linear bolt; stops at first body |
+| `boomerang` | Rotating crescent; reverses and may hit again on return |
+| `area_blast` | Expanding double ring; damages every target in radius |
+| `piercing` | Narrow lance; continues through bodies up to `pierce_count`; bypasses shields |
+
+| Element | Palette | Runtime behavior |
+| --- | --- | --- |
+| `normal` | Ink/ivory | No elemental modifier |
+| `fire` | Ember orange | Two delayed burn ticks |
+| `ice` | Cyan | Temporarily slows moving targets |
+| `electric` | Yellow | Temporarily staggers moving targets |
 
 ## Source layout
 
 ```text
-project.godot                  Godot project and viewport/input settings
-scenes/main.tscn               Composition root
-scripts/main.gd                UI/state orchestration
-scripts/drawing_canvas.gd      Pointer/touch capture and stroke rendering
-scripts/weapon_spec.gd         Canonical fields, validation, clamping, display
-scripts/mock_ai_service.gd     Deterministic M0 interpreter/fallback
-scripts/weapon_visual.gd       Stroke-preserving in-world rendering
-scripts/player.gd              Movement and attack dispatch
-scripts/projectile.gd          Straight projectile behavior
-scripts/training_dummy.gd      Damage target and reset behavior
-schema/weapon_spec.schema.json Portable contract for future backend
-tests/                         Headless deterministic checks
-scripts/*.ps1                  Run, test, build, and local Web serving
+scripts/weapon_compiler.gd  deterministic input interpreter and audit
+scripts/weapon_spec.gd      contract repair, runtime validation, display
+scripts/power_budget.gd     explicit calculator and deterministic balancing
+scripts/main.gd             UI, target lab, attack dispatch
+scripts/projectile.gd       straight, boomerang, and piercing behaviors
+scripts/area_blast.gd       radius-based multi-target attack
+scripts/slash_effect.gd     melee attack feedback
+scripts/training_dummy.gd   stationary/moving/shield/group target rules
+schema/                     portable JSON Schema
+tests/                      32-case matrix and headless checks
+hosting/                    public static worker and WASM chunk loader
 ```
 
-## `WeaponSpec` contract
+## Hosting boundary
 
-Required M0 fields:
+Godot's WebAssembly file is larger than the hosting service's single-file limit.
+`scripts/build_sites_preview.ps1` splits it into two ordered chunks and injects a
+small browser loader that reconstructs the exact bytes before Godot compilation.
+Node tests verify chunk order and WebAssembly magic bytes. The hosting worker adds
+COOP/COEP/CORP and cache headers.
 
-| Field | Type / bounds | M0 use |
-| --- | --- | --- |
-| `name` | non-empty string, max 48 chars | Weapon card |
-| `weapon_class` | `melee` or `ranged` | Readout and strategy |
-| `attack_pattern` | `melee_slash` or `straight_projectile` | Attack dispatch |
-| `element` | `normal`, `fire`, `ice`, `electric` | Visual palette |
-| `damage` | integer 1–100 | Dummy damage |
-| `attack_speed` | float 0.2–3.0 attacks/sec | Cooldown |
-| `range` | float 40–900 pixels | Hit reach / projectile life |
-| `special_ability` | supported string | Readout; not activated in M0 |
-| `status_effect` | supported string | Readout and light visual feedback |
-| `drawback` | supported string | Weakness readout |
-| `visual_material` | supported string | Palette hint |
-| `power_score` | integer 1–100 | Budget/readout |
-
-`WeaponSpec.from_dict()` owns coercion, allow-list fallback, and clamping. Both the
-mock and a future network adapter must pass through it before gameplay.
-
-## Service boundary
-
-### M0
-
-`MockAIService.generate(description, drawing_summary)` returns locally and
-deterministically. Keywords select melee/projectile and element modules. Values are
-chosen from fixed bounded profiles, not randomly re-rolled. This keeps tests stable
-and prevents the prototype from rewarding repeated generation for raw stats.
-
-### Target backend
-
-```text
-Godot client
-  -> authenticated HTTPS endpoint
-  -> input moderation
-  -> model interpretation
-  -> JSON Schema validation
-  -> server-owned power-budget clamp
-  -> cache and telemetry
-  -> WeaponSpec response or safe fallback
-```
-
-- **CONFIRMED** Secrets stay server-side and combat never depends on an AI call.
-- **TBD** Authentication, backend language, vendor, model, moderation, cache,
-  telemetry, storage, rate limits, and data retention.
-- **TO VALIDATE** M1 must simulate timeout, malformed response, rejection, and
-  fallback before connecting a paid provider.
-
-## Input and responsive layout
-
-- Godot renders a 1280×720 logical viewport with `canvas_items` stretch and expands
-  for wider aspect ratios.
-- Drawing consumes mouse button/motion and screen touch/drag events.
-- Movement uses keyboard actions plus held on-screen buttons; attack is a large
-  on-screen button usable without hover.
-- Controls sit inside a 24-pixel logical safe margin. **TO VALIDATE:** native iOS
-  and Android safe-area APIs are deferred until M3 device builds; Web M0 checks
-  representative viewport dimensions only.
-
-## Error handling and observability
-
-- Blank/malformed input yields a bounded fallback weapon instead of a crash.
-- Each M0 generation records elapsed milliseconds, mode, and fallback reason to
-  the Godot log and status UI.
-- Gameplay owns a complete immutable copy of the spec; re-forging replaces it only
-  after successful validation.
-- **TO VALIDATE:** production telemetry, privacy review, cost accounting, and error
-  aggregation remain backend work.
-
-## Test strategy
-
-- Headless unit tests: schema-required fields, clamps, deterministic melee/ranged
-  mapping, fallback, drawing summary.
-- Parse/static check: headless Godot editor import and script compilation.
-- Runtime smoke: main scene runs headlessly for a fixed frame count.
-- Export check: release Web export produces HTML, JavaScript/WASM, PCK, and icon.
-- Browser check: serve over HTTP, load with Chromium, exercise creation/combat, and
-  capture desktop plus mobile landscape views.
-
+- **TO VALIDATE** Physical iOS/Android safe areas, virtual keyboards, thermal/GPU
+  performance, and browser-specific audio remain device-stage work.
+- **TBD** Any future real-model backend, provider, authentication, moderation,
+  telemetry, cost controls, retention, and privacy policy.

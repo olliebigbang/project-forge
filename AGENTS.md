@@ -2,68 +2,54 @@
 
 ## Project identity
 
-This repository is a new, standalone game project. Do not import or reuse code,
-names, lore, art, assets, balance data, or development direction from Cat Battle
-or any other previous project.
+This is a new, standalone game. Never import or reuse code, names, lore, art,
+assets, balance data, or development direction from Cat Battle or another project.
 
 ## Source of truth
 
-- `docs/GDD.md` preserves the product vision and full milestone scope.
-- `docs/MVP_ACCEPTANCE.md` defines the current milestone gate.
-- `docs/ARCHITECTURE.md` defines technical boundaries and data flow.
-- `docs/DECISIONS.md` records confirmed decisions, assumptions, validation items,
-  and unresolved decisions.
-- When a requirement is uncertain, mark it exactly `CONFIRMED`, `ASSUMPTION`,
-  `TO VALIDATE`, or `TBD`; do not silently resolve product questions.
+- `docs/GDD.md` preserves the product vision and milestone scope.
+- `docs/MVP_ACCEPTANCE.md` defines the current gate.
+- `docs/ARCHITECTURE.md` defines the data and runtime boundaries.
+- `docs/DECISIONS.md` records settled and unsettled decisions.
+- Uncertainty must be marked exactly `CONFIRMED`, `ASSUMPTION`, `TO VALIDATE`, or
+  `TBD`; do not silently resolve product questions.
 
-## Current scope
+## Current scope: M1A
 
-The current target is M0, a technical spike. Keep changes intentionally small:
+- Godot 4.7.1, 2D landscape, Web-first.
+- Drawing and one text line feed a deterministic local `WeaponCompiler`.
+- Five attack modules and four elements must remain executable.
+- Every `WeaponSpec` passes JSON Schema parity checks and runtime repair.
+- Power cost must be explicit, deterministic, capped at 100, and logged.
+- Strong capabilities must have a visible drawback or deterministic stat cost.
+- Test against stationary, moving, shield, and grouped targets.
 
-- Godot 4, 2D landscape, Web-playable.
-- Mouse and touch drawing plus one text description.
-- A local deterministic mock service returning a validated `WeaponSpec`.
-- A visible weapon made from the player's strokes.
-- One player and one training dummy.
-- Melee and projectile attacks, weapon readout, and re-forging.
-
-Do not add paid AI APIs, secrets, production levels or art, voice, accounts, cloud
-saves, community features, monetization, multiplayer, or store submission during
-M0.
+Do not add paid AI, secrets, production levels or art, voice, accounts, cloud
+saves, sharing, monetization, multiplayer, or store submission in M1A.
 
 ## Engineering rules
 
-- Use typed GDScript where practical and keep reusable logic out of scene scripts.
+- Use typed GDScript where practical; warnings are treated as parse failures.
 - AI output is data only. Never generate or execute gameplay code.
-- Validate and clamp every `WeaponSpec` before gameplay consumes it.
-- Do not place API keys in the Godot client. A future real service must sit behind
-  a secure backend.
+- Keep JSON Schema and `WeaponSpec` runtime allow-lists/bounds in parity.
 - Preserve player strokes in the generated weapon visual.
-- Touch interactions must not depend on hover, right-click, or a keyboard.
-- Keep generated engine state (`.godot/`), downloaded tools (`.tools/`), and Web
-  exports (`build/web/`) out of version control.
-- Add tests for deterministic data transforms and boundary rules.
+- Touch interactions cannot depend on hover, right-click, or keyboard.
+- Add deterministic matrix cases for compiler or budget changes.
+- Retain repair reasons and budget breakdowns in the generation audit.
+- Keep `.godot/`, `.tools/`, `build/web/`, `dist/`, and release archives out of Git.
 
-## Commands
-
-From PowerShell at the repository root:
+## Verification commands
 
 ```powershell
 ./scripts/test.ps1
 ./scripts/build_web.ps1
-./scripts/serve_web.ps1
+./scripts/build_sites_preview.ps1
 ```
 
-For an editor run, open `project.godot` with Godot 4.7.1 or run:
+## Git and agent workflow
 
-```powershell
-./scripts/run_editor.ps1
-```
-
-## Git workflow
-
-- Work on a dedicated `feat/*` branch; M0 uses `feat/m0-technical-spike`.
-- Make focused commits after tests and builds pass.
-- Never merge, delete branches, or clean the worktree without user confirmation.
-- Push and open a PR only when a remote is configured.
-
+- Main integration branch: `codex/m1a-deterministic-compiler`.
+- QA and art work remain isolated in their assigned worktrees/branches.
+- Only the main integrator selects changes into the delivery branch.
+- Never merge, delete branches/worktrees, or clean user work without confirmation.
+- Push/open a PR only when a normal Git remote is configured.

@@ -47,6 +47,7 @@ func _physics_process(delta: float) -> void:
 
 func equip(spec: WeaponSpec, strokes: Array[PackedVector2Array]) -> void:
 	current_spec = spec
+	attack_cooldown = 0.0
 	current_strokes.clear()
 	for stroke in strokes:
 		current_strokes.append(stroke.duplicate())
@@ -60,7 +61,10 @@ func set_touch_axis(value: float) -> void:
 func attack() -> void:
 	if current_spec == null or attack_cooldown > 0.0:
 		return
-	attack_cooldown = 1.0 / maxf(current_spec.attack_speed, 0.2)
+	var drawback_multiplier: float = {
+		"slow_recovery": 1.25, "self_stagger": 1.30, "cooldown_lock": 1.45
+	}.get(current_spec.drawback, 1.0)
+	attack_cooldown = (1.0 / maxf(current_spec.attack_speed, 0.2)) * float(drawback_multiplier)
 	_play_attack_motion()
 	var direction := Vector2(facing, 0.0)
 	attack_requested.emit(current_spec, global_position + Vector2(28.0 * facing, -14.0), direction, current_strokes)

@@ -23,6 +23,14 @@ output/playwright/*
 !output/playwright/19-desktop-reforge-final.png
 !output/playwright/20-desktop-projectile-flight-final.png
 !output/playwright/21-desktop-projectile-hit-final.png
+!output/playwright/m1a-forge-start.png
+!output/playwright/m1a-melee-slash.png
+!output/playwright/m1a-straight-projectile.png
+!output/playwright/m1a-boomerang.png
+!output/playwright/m1a-area-blast.png
+!output/playwright/m1a-piercing.png
+!output/playwright/m1a-piercing-result.png
+!output/playwright/m1a-public-mobile.png
 
 # OS/editor noise
 .DS_Store

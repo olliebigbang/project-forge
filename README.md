@@ -1,29 +1,35 @@
-# Project Forge — M0 Technical Spike
+# Project Forge — M1A Deterministic Weapon Compiler
 
-An independent Godot 4 experiment for turning a player's drawing and one-line
-description into a bounded `WeaponSpec`, rendering the original strokes as a
-weapon, and testing it against a training dummy.
+An independent Godot 4 experiment that turns a player's drawing and one-line
+description into a validated, power-budgeted `WeaponSpec`, renders the original
+strokes as a weapon, and runs it against a behavior-focused target lab.
 
-This repository does not reuse code, design, art, names, or direction from Cat
+This repository does not reuse code, settings, art, names, or direction from Cat
 Battle or any previous game.
 
-## What M0 contains
+## Public trial
 
-- Mouse and phone-touch drawing board.
-- One-line description and deterministic local mock AI service.
-- Schema-backed, clamped `WeaponSpec` boundary with generation metadata.
-- Stroke-preserving visible weapon.
-- Test pilot, training dummy, movement, melee slash, and straight projectile.
-- Weapon name, damage, attack form, special effect, weakness, and re-forging.
-- Godot headless checks, Web export, local HTTP server, and browser evidence.
+[Open the phone-accessible Web preview](https://project-forge-weapon-lab.hongningliu0130.chatgpt.site)
 
-No paid AI, production backend, formal level, boss, voice, accounts, cloud save,
-community/sharing, ads, purchases, multiplayer, or store submission is included.
+The preview is a landscape Web build. It contains no paid AI call, API key,
+account, store, advertising, multiplayer, or production art.
+
+## M1A contents
+
+- Mouse and phone-touch drawing plus a one-line description.
+- Deterministic local compiler for `melee_slash`, `straight_projectile`,
+  `boomerang`, `area_blast`, and `piercing`.
+- `normal`, `fire`, `ice`, and `electric` palettes and combat effects.
+- JSON Schema plus runtime allow-list, type, finite-number, and bounds validation.
+- Automatic repair records and an explicit component-by-component power budget.
+- Automatic tradeoffs for strong abilities and over-budget stat reduction.
+- Stationary, moving, shielded, and grouped test targets.
+- Runtime JSONL generation audit and a 32-case executable acceptance matrix.
 
 ## Run locally
 
-Requirements: Godot 4.7.1 (the workspace-local executable under `.tools/` is used
-automatically when present).
+Requirements: Godot 4.7.1. The scripts use `.tools/Godot_v4.7.1-stable_win64_console.exe`
+when present, then fall back to `godot4` or `godot` on `PATH`.
 
 ```powershell
 ./scripts/run_game.ps1
@@ -31,12 +37,11 @@ automatically when present).
 
 Controls:
 
-- Draw: left mouse or finger drag.
-- Move: `A` / `D`, arrow keys, or hold the on-screen `LEFT` / `RIGHT` buttons.
+- Draw: left mouse or one-finger drag.
+- Describe: type a sentence, or choose one of the five deterministic examples.
+- Move: `A` / `D`, arrow keys, or the on-screen `LEFT` / `RIGHT` buttons.
 - Attack: `Space` or the on-screen `ATTACK` button.
-- Generate both attack forms with the `MELEE IDEA` and `PROJECTILE IDEA` text
-  helpers, then press `GENERATE WEAPON` after drawing.
-- Press `REFORGE` to clear the canvas and create another weapon.
+- Replace the active weapon: `REFORGE`.
 
 ## Test and build
 
@@ -46,14 +51,16 @@ Controls:
 ./scripts/serve_web.ps1
 ```
 
-Then open [http://localhost:8060](http://localhost:8060). Web builds must be served
-over HTTP; opening `index.html` directly is not supported by browser WASM rules.
+The local server uses [http://localhost:8060](http://localhost:8060). This local
+address is for development only; use the public trial link on a phone.
 
 ## Documentation
 
-- Product and milestone scope: `docs/GDD.md`
-- Current acceptance and full-MVP traceability: `docs/MVP_ACCEPTANCE.md`
-- Runtime and future backend architecture: `docs/ARCHITECTURE.md`
-- Confirmed decisions, assumptions, validation items, and TBDs: `docs/DECISIONS.md`
-- Repository agent guidance: `AGENTS.md`
-
+- Product scope: `docs/GDD.md`
+- Current acceptance: `docs/MVP_ACCEPTANCE.md`
+- Technical boundaries: `docs/ARCHITECTURE.md`
+- Decisions and open questions: `docs/DECISIONS.md`
+- QA / red-team report: `docs/M1_RED_TEAM_REPORT.md`
+- Original visual direction: `docs/ART_DIRECTION.md`
+- M1A handoff: `docs/M1A_HANDOFF.md`
+- Repository guidance: `AGENTS.md`

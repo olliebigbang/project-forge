@@ -47,6 +47,13 @@ func _draw() -> void:
 	draw_circle(Vector2.ZERO, 5.0, _main_color)
 	if _attack_pattern == "straight_projectile":
 		draw_line(Vector2(102, 0), Vector2(122, 0), _main_color, 3.0, true)
+	elif _attack_pattern == "boomerang":
+		draw_arc(Vector2(92, 0), 22, -2.4, 0.8, 16, _main_color, 5.0, true)
+	elif _attack_pattern == "area_blast":
+		draw_circle(Vector2(94, 0), 18, Color(_main_color, 0.16))
+		draw_arc(Vector2(94, 0), 18, 0, TAU, 24, _main_color, 3.0, true)
+	elif _attack_pattern == "piercing":
+		draw_colored_polygon(PackedVector2Array([Vector2(128, 0), Vector2(102, -10), Vector2(102, 10)]), _main_color)
 
 
 static func _color_for_element(element: String) -> Color:

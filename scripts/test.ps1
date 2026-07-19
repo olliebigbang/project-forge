@@ -53,4 +53,4 @@ if ($LASTEXITCODE -ne 0) {
     throw "WASM chunk loader tests failed with exit code $LASTEXITCODE"
 }
 
-Write-Host "`nAll Project Forge M0 checks passed." -ForegroundColor Green
+Write-Host "`nAll Project Forge M1A checks passed." -ForegroundColor Green

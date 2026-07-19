@@ -7,18 +7,27 @@ const TEXT := Color("#edf4ff")
 const MUTED := Color("#9bb0cf")
 const CYAN := Color("#65d9ff")
 const ORANGE := Color("#ffb65c")
+const IDEA_TEXT := [
+	"a solid normal blade for close combat",
+	"a fast ice projectile launcher",
+	"a returning fire boomerang",
+	"an electric area blast for a crowd",
+	"a piercing normal lance that breaks shields",
+]
 
 var service := MockAIService.new()
 var world: Node2D
 var player: ForgePlayer
-var dummy: TrainingDummy
+var targets: Array[TrainingDummy] = []
 var drawing_canvas: DrawingCanvas
 var description_input: LineEdit
+var idea_selector: OptionButton
 var forge_overlay: Control
 var forge_status: Label
 var stats_label: Label
+var budget_label: Label
 var combat_status: Label
-var dummy_health_label: Label
+var target_health_label: Label
 var reforge_button: Button
 var attack_button: Button
 var current_spec: WeaponSpec
@@ -37,12 +46,12 @@ func _ready() -> void:
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), NAVY, true)
-	var horizon := size.y * 0.70
+	var horizon := size.y * 0.69
 	draw_rect(Rect2(0, horizon, size.x, size.y - horizon), Color("#14243b"), true)
 	draw_line(Vector2(0, horizon), Vector2(size.x, horizon), Color("#355174"), 3.0)
 	for x in range(0, int(size.x) + 1, 96):
 		draw_line(Vector2(x, horizon), Vector2(x - 55, size.y), Color("#1e3552"), 2.0)
-	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.5 - 175, horizon - 30), "M0 COMBAT PROVING GROUND", HORIZONTAL_ALIGNMENT_CENTER, 350, 18, Color("#395a7f"))
+	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.5 - 190, horizon - 20), "M1A DETERMINISTIC COMBAT LAB", HORIZONTAL_ALIGNMENT_CENTER, 380, 17, Color("#44698f"))
 
 
 func _build_world() -> void:
@@ -53,90 +62,107 @@ func _build_world() -> void:
 	player.name = "TestPilot"
 	player.attack_requested.connect(_on_player_attack)
 	world.add_child(player)
-	dummy = TrainingDummy.new()
-	dummy.name = "TrainingDummy"
-	dummy.health_changed.connect(_on_dummy_health_changed)
-	dummy.defeated.connect(_on_dummy_defeated)
-	world.add_child(dummy)
+	_add_target("stationary", "STANDARD", 180)
+	_add_target("moving", "MOVER", 135)
+	_add_target("shield", "SHIELD", 210)
+	for index in 3: _add_target("group", "GROUP %d" % (index + 1), 90)
+
+
+func _add_target(kind: String, label_text: String, maximum: int) -> void:
+	var target := TrainingDummy.new()
+	target.name = label_text.replace(" ", "")
+	target.configure(kind, label_text, maximum)
+	target.damage_report.connect(_on_target_damage)
+	target.health_changed.connect(func(_current: int, _maximum: int): _refresh_target_health())
+	target.defeated.connect(func(): combat_status.text = "%s defeated; automatic reset armed." % label_text)
+	world.add_child(target)
+	targets.append(target)
 
 
 func _build_hud() -> void:
 	var top_panel := PanelContainer.new()
 	top_panel.name = "WeaponReadout"
-	top_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-	top_panel.position = Vector2(24, 20)
-	top_panel.size = Vector2(510, 176)
+	top_panel.position = Vector2(18, 16)
+	top_panel.size = Vector2(500, 184)
 	top_panel.add_theme_stylebox_override("panel", _panel_style(PANEL, CYAN, 2))
 	add_child(top_panel)
 	var top_margin := MarginContainer.new()
-	top_margin.add_theme_constant_override("margin_left", 18)
-	top_margin.add_theme_constant_override("margin_right", 18)
-	top_margin.add_theme_constant_override("margin_top", 14)
-	top_margin.add_theme_constant_override("margin_bottom", 14)
+	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]: top_margin.add_theme_constant_override(side, 12)
 	top_panel.add_child(top_margin)
 	stats_label = Label.new()
-	stats_label.text = "NO WEAPON FORGED\nDraw an idea to begin the M0 probe."
+	stats_label.text = "NO WEAPON FORGED\nDraw an idea to start the M1A compiler."
 	stats_label.add_theme_color_override("font_color", TEXT)
-	stats_label.add_theme_font_size_override("font_size", 18)
+	stats_label.add_theme_font_size_override("font_size", 15)
 	stats_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	top_margin.add_child(stats_label)
 
-	reforge_button = _button("REFORGE", ORANGE, 18)
+	var budget_panel := PanelContainer.new()
+	budget_panel.name = "BudgetReadout"
+	budget_panel.position = Vector2(534, 16)
+	budget_panel.size = Vector2(450, 184)
+	budget_panel.add_theme_stylebox_override("panel", _panel_style(PANEL, Color("#b392ff"), 2))
+	add_child(budget_panel)
+	var budget_margin := MarginContainer.new()
+	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]: budget_margin.add_theme_constant_override(side, 12)
+	budget_panel.add_child(budget_margin)
+	budget_label = Label.new()
+	budget_label.text = "POWER BUDGET  —  WAITING\nExplicit component costs and repair reasons appear here."
+	budget_label.add_theme_color_override("font_color", TEXT)
+	budget_label.add_theme_font_size_override("font_size", 14)
+	budget_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	budget_margin.add_child(budget_label)
+
+	reforge_button = _button("REFORGE", ORANGE, 17)
 	reforge_button.name = "ReforgeButton"
-	reforge_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	reforge_button.position = Vector2(size.x - 190, 24)
-	reforge_button.size = Vector2(166, 82)
+	reforge_button.position = Vector2(size.x - 174, 20)
+	reforge_button.size = Vector2(156, 74)
 	reforge_button.pressed.connect(_open_reforge)
 	reforge_button.disabled = true
 	add_child(reforge_button)
 
 	combat_status = Label.new()
-	combat_status.text = "Forge a weapon, then move into range and attack."
+	combat_status.text = "Forge a weapon, then test it against four target behaviors."
 	combat_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	combat_status.add_theme_color_override("font_color", MUTED)
-	combat_status.add_theme_font_size_override("font_size", 16)
+	combat_status.add_theme_font_size_override("font_size", 15)
 	combat_status.anchor_right = 1.0
-	combat_status.offset_left = 0.0
-	combat_status.offset_top = 210.0
-	combat_status.offset_right = 0.0
-	combat_status.offset_bottom = 244.0
+	combat_status.offset_top = 208.0
+	combat_status.offset_bottom = 236.0
 	add_child(combat_status)
 
-	dummy_health_label = Label.new()
-	dummy_health_label.text = "DUMMY 160 / 160"
-	dummy_health_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	dummy_health_label.add_theme_color_override("font_color", Color("#78eea6"))
-	dummy_health_label.add_theme_font_size_override("font_size", 16)
-	dummy_health_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	dummy_health_label.position = Vector2(size.x - 264, 118)
-	dummy_health_label.size = Vector2(240, 30)
-	add_child(dummy_health_label)
+	target_health_label = Label.new()
+	target_health_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	target_health_label.add_theme_color_override("font_color", Color("#78eea6"))
+	target_health_label.add_theme_font_size_override("font_size", 13)
+	target_health_label.anchor_right = 1.0
+	target_health_label.offset_top = 238.0
+	target_health_label.offset_bottom = 266.0
+	add_child(target_health_label)
+	_refresh_target_health()
 
 	var movement := HBoxContainer.new()
 	movement.name = "TouchMovement"
-	movement.add_theme_constant_override("separation", 12)
-	movement.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	movement.position = Vector2(24, size.y - 108)
-	movement.size = Vector2(276, 84)
+	movement.add_theme_constant_override("separation", 10)
+	movement.position = Vector2(18, size.y - 96)
+	movement.size = Vector2(252, 76)
 	add_child(movement)
-	var left_button := _button("LEFT", CYAN, 18)
+	var left_button := _button("LEFT", CYAN, 17)
 	left_button.name = "MoveLeftButton"
-	left_button.custom_minimum_size = Vector2(132, 84)
+	left_button.custom_minimum_size = Vector2(121, 76)
 	left_button.button_down.connect(func(): player.set_touch_axis(-1.0))
 	left_button.button_up.connect(func(): player.set_touch_axis(0.0))
 	movement.add_child(left_button)
-	var right_button := _button("RIGHT", CYAN, 18)
+	var right_button := _button("RIGHT", CYAN, 17)
 	right_button.name = "MoveRightButton"
-	right_button.custom_minimum_size = Vector2(132, 84)
+	right_button.custom_minimum_size = Vector2(121, 76)
 	right_button.button_down.connect(func(): player.set_touch_axis(1.0))
 	right_button.button_up.connect(func(): player.set_touch_axis(0.0))
 	movement.add_child(right_button)
 
-	attack_button = _button("ATTACK", ORANGE, 21)
+	attack_button = _button("ATTACK", ORANGE, 20)
 	attack_button.name = "AttackButton"
-	attack_button.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	attack_button.position = Vector2(size.x - 202, size.y - 114)
-	attack_button.size = Vector2(178, 90)
+	attack_button.position = Vector2(size.x - 180, size.y - 102)
+	attack_button.size = Vector2(162, 82)
 	attack_button.pressed.connect(player.attack)
 	attack_button.disabled = true
 	add_child(attack_button)
@@ -150,42 +176,39 @@ func _build_forge_overlay() -> void:
 	forge_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	forge_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(forge_overlay)
-
 	var panel := PanelContainer.new()
-	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 36)
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 28)
 	panel.add_theme_stylebox_override("panel", _panel_style(PANEL, CYAN, 3))
 	forge_overlay.add_child(panel)
 	var margin := MarginContainer.new()
-	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
-		margin.add_theme_constant_override(side, 20)
+	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]: margin.add_theme_constant_override(side, 16)
 	panel.add_child(margin)
 	var layout := VBoxContainer.new()
-	layout.add_theme_constant_override("separation", 10)
+	layout.add_theme_constant_override("separation", 8)
 	margin.add_child(layout)
 
 	var title_row := HBoxContainer.new()
 	layout.add_child(title_row)
 	var title := Label.new()
-	title.text = "PROJECT FORGE  /  M0 WEAPON LAB"
+	title.text = "PROJECT FORGE  /  M1A WEAPON COMPILER"
 	title.add_theme_color_override("font_color", TEXT)
-	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_font_size_override("font_size", 25)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_row.add_child(title)
-	var close_button := _button("BACK", MUTED, 16)
+	var close_button := _button("BACK", MUTED, 15)
 	close_button.name = "BackButton"
-	close_button.custom_minimum_size = Vector2(110, 78)
+	close_button.custom_minimum_size = Vector2(100, 60)
 	close_button.pressed.connect(func(): if current_spec: forge_overlay.hide())
 	title_row.add_child(close_button)
 
 	var guide := Label.new()
-	guide.text = "1  Draw with mouse or touch     2  Add one sentence     3  Generate a bounded mock WeaponSpec"
+	guide.text = "Draw with mouse/touch. Describe one weapon. The local compiler validates, budgets and repairs every field."
 	guide.add_theme_color_override("font_color", MUTED)
-	guide.add_theme_font_size_override("font_size", 16)
+	guide.add_theme_font_size_override("font_size", 15)
 	layout.add_child(guide)
-
 	drawing_canvas = DrawingCanvas.new()
 	drawing_canvas.name = "DrawingCanvas"
-	drawing_canvas.custom_minimum_size = Vector2(0, 290)
+	drawing_canvas.custom_minimum_size = Vector2(0, 235)
 	drawing_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	layout.add_child(drawing_canvas)
 
@@ -194,50 +217,51 @@ func _build_forge_overlay() -> void:
 	layout.add_child(input_row)
 	var prompt_label := Label.new()
 	prompt_label.text = "DESCRIPTION"
-	prompt_label.custom_minimum_size = Vector2(135, 82)
+	prompt_label.custom_minimum_size = Vector2(125, 66)
 	prompt_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	prompt_label.add_theme_color_override("font_color", CYAN)
-	prompt_label.add_theme_font_size_override("font_size", 16)
+	prompt_label.add_theme_font_size_override("font_size", 15)
 	input_row.add_child(prompt_label)
 	description_input = LineEdit.new()
 	description_input.name = "DescriptionInput"
-	description_input.placeholder_text = "e.g. a heavy fire blade for close combat"
+	description_input.placeholder_text = "e.g. a returning fire boomerang"
 	description_input.clear_button_enabled = true
-	description_input.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_DEFAULT
 	description_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	description_input.custom_minimum_size.y = 82
-	description_input.add_theme_font_size_override("font_size", 18)
+	description_input.custom_minimum_size.y = 66
+	description_input.add_theme_font_size_override("font_size", 17)
 	input_row.add_child(description_input)
 
 	var action_row := HBoxContainer.new()
-	action_row.add_theme_constant_override("separation", 10)
+	action_row.add_theme_constant_override("separation", 8)
 	layout.add_child(action_row)
-	var clear_button := _button("CLEAR DRAWING", MUTED, 16)
+	var clear_button := _button("CLEAR", MUTED, 14)
 	clear_button.name = "ClearDrawingButton"
-	clear_button.custom_minimum_size = Vector2(176, 84)
+	clear_button.custom_minimum_size = Vector2(105, 70)
 	clear_button.pressed.connect(drawing_canvas.clear_drawing)
 	action_row.add_child(clear_button)
-	var melee_example := _button("MELEE IDEA", Color("#ff845e"), 16)
-	melee_example.name = "MeleeIdeaButton"
-	melee_example.custom_minimum_size = Vector2(154, 84)
-	melee_example.pressed.connect(func(): description_input.text = "a heavy fire blade for close combat")
-	action_row.add_child(melee_example)
-	var projectile_example := _button("PROJECTILE IDEA", Color("#73dcff"), 16)
-	projectile_example.name = "ProjectileIdeaButton"
-	projectile_example.custom_minimum_size = Vector2(184, 84)
-	projectile_example.pressed.connect(func(): description_input.text = "a fast ice projectile launcher")
-	action_row.add_child(projectile_example)
+	idea_selector = OptionButton.new()
+	idea_selector.name = "IdeaSelector"
+	idea_selector.custom_minimum_size = Vector2(230, 70)
+	idea_selector.add_theme_font_size_override("font_size", 15)
+	for label_text in ["MELEE SLASH", "STRAIGHT PROJECTILE", "BOOMERANG", "AREA BLAST", "PIERCING"]: idea_selector.add_item(label_text)
+	idea_selector.item_selected.connect(func(index: int): description_input.text = IDEA_TEXT[index])
+	action_row.add_child(idea_selector)
+	var load_button := _button("LOAD IDEA", Color("#b392ff"), 14)
+	load_button.name = "LoadIdeaButton"
+	load_button.custom_minimum_size = Vector2(125, 70)
+	load_button.pressed.connect(func(): description_input.text = IDEA_TEXT[idea_selector.selected])
+	action_row.add_child(load_button)
 	forge_status = Label.new()
-	forge_status.text = "Local mock only — no network request or API key."
+	forge_status.text = "Offline deterministic mock — no API key."
 	forge_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	forge_status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	forge_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	forge_status.add_theme_color_override("font_color", MUTED)
-	forge_status.add_theme_font_size_override("font_size", 14)
+	forge_status.add_theme_font_size_override("font_size", 13)
 	action_row.add_child(forge_status)
-	var generate_button := _button("GENERATE WEAPON", ORANGE, 18)
+	var generate_button := _button("COMPILE WEAPON", ORANGE, 17)
 	generate_button.name = "GenerateWeaponButton"
-	generate_button.custom_minimum_size = Vector2(210, 84)
+	generate_button.custom_minimum_size = Vector2(190, 70)
 	generate_button.pressed.connect(_generate_weapon)
 	action_row.add_child(generate_button)
 
@@ -251,67 +275,112 @@ func _generate_weapon() -> void:
 	current_spec = service.generate(description_input.text, drawing_canvas.drawing_summary())
 	player.equip(current_spec, current_strokes)
 	stats_label.text = (
-		"%s\nDAMAGE  %d     POWER  %d / 100\nATTACK  %s\nEFFECT  %s\nWEAKNESS  %s"
-		% [current_spec.display_name, current_spec.damage, current_spec.power_score,
-		current_spec.attack_label(), current_spec.effect_label(), current_spec.weakness_label()]
+		"%s\nDAMAGE %d   POWER %d/100   SPEED %.2f\nATTACK  %s\nELEMENT  %s   SPECIAL  %s\nWEAKNESS  %s"
+		% [current_spec.display_name, current_spec.damage, current_spec.power_score, current_spec.attack_speed,
+		current_spec.attack_label(), current_spec.effect_label(), current_spec.special_ability.replace("_", " ").to_upper(), current_spec.weakness_label()]
+	)
+	var parts := current_spec.budget_breakdown
+	budget_label.text = (
+		"POWER BUDGET  %d / 100\nDamage %.1f + Speed %.1f + Range %.1f + Pattern %.1f\nElement %.1f + Ability %.1f + Status %.1f + Module %.1f\nTradeoff %.1f   •   Repairs %d"
+		% [current_spec.power_score, parts.get("damage", 0), parts.get("attack_speed", 0), parts.get("range", 0),
+		parts.get("attack_pattern", 0), parts.get("element", 0), parts.get("special_ability", 0), parts.get("status_effect", 0),
+		float(parts.get("projectile_speed", 0)) + float(parts.get("area_radius", 0)) + float(parts.get("piercing", 0)),
+		parts.get("drawback_credit", 0), current_spec.corrections.size()]
 	)
 	forge_status.add_theme_color_override("font_color", MUTED)
-	forge_status.text = "Generated by local mock in %d ms." % service.last_metadata.get("elapsed_ms", 0)
-	combat_status.text = "Weapon ready. Move with A/D or touch; attack with SPACE or ATTACK."
+	forge_status.text = "Valid • %d repair(s) • %d ms • JSONL logged" % [current_spec.corrections.size(), service.last_metadata.get("elapsed_ms", 0)]
+	combat_status.text = "%s ready. Use A/D or touch, then SPACE/ATTACK." % current_spec.attack_label()
 	reforge_button.disabled = false
-	attack_button.disabled = false
+	attack_button.disabled = true
 	forge_overlay.hide()
+	_arm_attack_button()
+
+
+func _arm_attack_button() -> void:
+	# Prevent the pointer release that closes the overlay from falling through to ATTACK.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	attack_button.disabled = false
 
 
 func _open_reforge() -> void:
+	attack_button.disabled = true
 	drawing_canvas.clear_drawing()
 	description_input.clear()
-	forge_status.text = "Draw a new idea; generation replaces the active weapon."
+	forge_status.text = "Draw again; a valid replacement is committed only after compile."
 	forge_status.add_theme_color_override("font_color", MUTED)
 	forge_overlay.show()
 	description_input.grab_focus()
 
 
 func _on_player_attack(spec: WeaponSpec, origin: Vector2, direction: Vector2, strokes: Array[PackedVector2Array]) -> void:
-	if spec.attack_pattern == "melee_slash":
-		var horizontal_distance := (dummy.global_position.x - player.global_position.x) * direction.x
-		if horizontal_distance >= 0.0 and horizontal_distance <= spec.attack_range + 34.0:
-			dummy.take_damage(spec.damage, spec.status_effect)
-			combat_status.text = "Melee hit for %d. Weakness: %s." % [spec.damage, spec.weakness_label()]
-		else:
-			combat_status.text = "Melee missed — move closer to the dummy."
-	else:
-		var projectile := ForgeProjectile.new()
-		projectile.configure(spec, strokes, direction)
-		projectile.global_position = origin
-		projectile.hit_target.connect(func(): combat_status.text = "Projectile hit for %d (%s)." % [spec.damage, spec.effect_label()])
-		world.add_child(projectile)
-		combat_status.text = "Projectile launched."
+	match spec.attack_pattern:
+		"melee_slash": _launch_melee(spec, origin, direction)
+		"area_blast": _launch_area(spec, player.global_position + Vector2(0, -12), direction)
+		"straight_projectile", "boomerang", "piercing": _launch_projectile(spec, origin, direction, strokes)
 
 
-func _on_dummy_health_changed(current: int, maximum: int) -> void:
-	dummy_health_label.text = "DUMMY %d / %d" % [current, maximum]
+func _launch_melee(spec: WeaponSpec, origin: Vector2, direction: Vector2) -> void:
+	var slash := ForgeSlashEffect.new()
+	slash.color = WeaponVisual._color_for_element(spec.element)
+	slash.direction = direction
+	slash.global_position = origin
+	world.add_child(slash)
+	var candidates: Array[TrainingDummy] = []
+	for target in targets:
+		var forward := (target.global_position.x - player.global_position.x) * direction.x
+		if forward >= 0 and forward <= spec.attack_range + 42 and absf(target.global_position.y - player.global_position.y) < 85: candidates.append(target)
+	if candidates.is_empty():
+		combat_status.text = "Melee slash missed — close the distance."
+		return
+	candidates.sort_custom(func(a: TrainingDummy, b: TrainingDummy): return a.global_position.distance_to(player.global_position) < b.global_position.distance_to(player.global_position))
+	var actual := candidates[0].take_damage(spec.damage, spec.status_effect, spec.attack_pattern, direction)
+	combat_status.text = "Melee arc hit %s for %d." % [candidates[0].target_label, actual]
 
 
-func _on_dummy_defeated() -> void:
-	combat_status.text = "Probe complete: dummy defeated. It will reset for another test."
+func _launch_area(spec: WeaponSpec, origin: Vector2, direction: Vector2) -> void:
+	var blast := ForgeAreaBlast.new()
+	blast.configure(spec, direction)
+	blast.global_position = origin
+	blast.hits_complete.connect(func(count: int, total: int): combat_status.text = "Area blast hit %d target(s) for %d total." % [count, total])
+	world.add_child(blast)
+	combat_status.text = "Area blast expanding to %.0f px." % spec.area_radius
+
+
+func _launch_projectile(spec: WeaponSpec, origin: Vector2, direction: Vector2, strokes: Array[PackedVector2Array]) -> void:
+	var projectile := ForgeProjectile.new()
+	projectile.configure(spec, strokes, direction, player)
+	projectile.global_position = origin
+	projectile.hit_target.connect(func(label_text: String, amount: int): combat_status.text = "%s hit %s for %d." % [spec.attack_label(), label_text, amount])
+	world.add_child(projectile)
+	combat_status.text = {"straight_projectile": "Straight projectile launched; stops on first target.", "boomerang": "Boomerang outbound; it can strike again on return.", "piercing": "Piercing lance launched; shield bypass active."}.get(spec.attack_pattern, "Attack launched.")
+
+
+func _on_target_damage(label_text: String, amount: int, note: String) -> void:
+	combat_status.text = "%s took %d — %s." % [label_text, amount, note]
+	_refresh_target_health()
+
+
+func _refresh_target_health() -> void:
+	if target_health_label == null: return
+	var fragments: PackedStringArray = []
+	for target in targets: fragments.append("%s %d/%d" % [target.target_label, target.health, target.max_health])
+	target_health_label.text = "   |   ".join(fragments)
 
 
 func _layout_world() -> void:
-	if not is_instance_valid(player):
-		return
-	var ground_y := size.y * 0.70 - 56.0
-	player.global_position = Vector2(clampf(player.global_position.x, 80.0, size.x - 80.0), ground_y)
-	if player.global_position.x <= 85.0 or player.global_position.x >= size.x - 85.0:
-		player.global_position.x = size.x * 0.28
-	dummy.global_position = Vector2(size.x * 0.74, ground_y - 12.0)
-	player.movement_bounds = Vector2(80.0, size.x - 80.0)
+	if not is_instance_valid(player): return
+	var ground_y := size.y * 0.69 - 52.0
+	if player.global_position.x <= 85.0 or player.global_position.x >= size.x - 85.0: player.global_position.x = size.x * 0.25
+	player.global_position.y = ground_y
+	player.movement_bounds = Vector2(70.0, size.x - 70.0)
+	var positions := [Vector2(size.x * 0.50, ground_y - 4), Vector2(size.x * 0.64, ground_y - 4), Vector2(size.x * 0.82, ground_y - 4), Vector2(size.x * 0.53, ground_y - 132), Vector2(size.x * 0.61, ground_y - 132), Vector2(size.x * 0.69, ground_y - 132)]
+	for index in mini(targets.size(), positions.size()): targets[index].set_arena_position(positions[index])
 	if reforge_button:
-		reforge_button.position = Vector2(size.x - 190, 24)
-		dummy_health_label.position = Vector2(size.x - 264, 118)
-		attack_button.position = Vector2(size.x - 202, size.y - 114)
+		reforge_button.position = Vector2(size.x - 174, 20)
+		attack_button.position = Vector2(size.x - 180, size.y - 102)
 		var movement := get_node("TouchMovement") as Control
-		movement.position = Vector2(24, size.y - 108)
+		movement.position = Vector2(18, size.y - 96)
 	queue_redraw()
 
 

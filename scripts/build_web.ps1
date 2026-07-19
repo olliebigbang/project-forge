@@ -22,7 +22,7 @@ $outputDirectory = Join-Path $repoRoot "build\web"
 $outputFile = Join-Path $outputDirectory "index.html"
 New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
 
-Write-Host "Exporting Project Forge M0 Web build..." -ForegroundColor Cyan
+Write-Host "Exporting Project Forge M1A Web build..." -ForegroundColor Cyan
 & $godot --headless --path $repoRoot --export-release "Web" $outputFile
 if ($LASTEXITCODE -ne 0) {
     throw "Godot Web export failed with exit code $LASTEXITCODE"
@@ -37,4 +37,3 @@ foreach ($file in $required) {
 }
 
 Write-Host "Web build ready at $outputFile" -ForegroundColor Green
-

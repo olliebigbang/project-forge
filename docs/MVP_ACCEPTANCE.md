@@ -1,8 +1,25 @@
-# M0 Acceptance Plan and Full-MVP Traceability
+# M0/M1A Acceptance Plan and Full-MVP Traceability
 
-This file is the executable gate for the current round. `docs/GDD.md` preserves
-the broader product definition. The user explicitly limited this round to M0, so
-full-MVP items remain visible below without being silently pulled into M0.
+This file preserves the completed M0 gate and defines the current M1A gate.
+`docs/GDD.md` retains the broader product definition; later requirements remain
+visible without being silently pulled into the deterministic compiler milestone.
+
+## M1A exit criteria
+
+| ID | Acceptance criterion | Status | Evidence target |
+| --- | --- | --- | --- |
+| M1A-01 | Public, phone-accessible Web URL; not localhost | **CONFIRMED** | Hosted preview and HTTP 200 |
+| M1A-02 | Public flow covers draw, generate, move, attack, and re-forge | **CONFIRMED** | Chromium run and screenshots |
+| M1A-03 | Five attack modules execute and look/behave differently | **CONFIRMED** | Five browser combat runs |
+| M1A-04 | Normal, fire, ice, and electric compile and execute | **CONFIRMED** | Matrix plus combat effect checks |
+| M1A-05 | Explicit power component calculator enforces 0–100 | **CONFIRMED** | HUD, unit tests, audit JSON |
+| M1A-06 | Strong capability creates a corresponding tradeoff | **CONFIRMED** | Matrix invariant and extreme cases |
+| M1A-07 | JSON Schema and runtime validation remain in parity | **CONFIRMED** | Automated parity assertions |
+| M1A-08 | Missing, illegal, non-finite, extra, and out-of-range data auto-repair | **CONFIRMED** | Fault injection assertions |
+| M1A-09 | At least 20 deterministic acceptance inputs | **CONFIRMED — 32** | `tests/m1a_input_matrix.json` |
+| M1A-10 | Moving, shield, and grouped targets validate attack tradeoffs | **CONFIRMED** | Target lab and rule tests |
+| M1A-11 | Spec, budget, repairs, and results are recorded | **CONFIRMED** | Runtime JSONL and artifacts |
+| M1A-12 | Full tests, Web build, public browser console, and mobile layout pass | **TO VALIDATE** | Final regression report |
 
 ## Status vocabulary
 
