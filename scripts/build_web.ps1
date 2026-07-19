@@ -36,4 +36,13 @@ foreach ($file in $required) {
     }
 }
 
+# Allow iPhone Safari to report notch/rounded-corner safe-area insets to the
+# runtime bridge. Godot's generated shell omits viewport-fit by default.
+$html = Get-Content -Raw -Encoding UTF8 -LiteralPath $outputFile
+$html = $html.Replace(
+    'width=device-width, user-scalable=no, initial-scale=1.0',
+    'width=device-width, user-scalable=no, initial-scale=1.0, viewport-fit=cover'
+)
+[System.IO.File]::WriteAllText($outputFile, $html, [System.Text.UTF8Encoding]::new($false))
+
 Write-Host "Web build ready at $outputFile" -ForegroundColor Green

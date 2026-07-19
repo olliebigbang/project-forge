@@ -52,7 +52,12 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
 
 ## Git and agent workflow
 
-- Current integration branch: `codex/fix/iphone-safari-touch-layout`.
+- Current integration branch: `codex/fix/v9-mobile-usability`.
+- Compact Landscape uses CSS `visualViewport` dimensions; do not size mobile
+  touch controls from the 1280×720 logical viewport alone.
+- Web Description input is a bounded native HTML overlay synchronized with
+  Godot. Keep it off combat and portrait-gate screens, and preserve native
+  `LineEdit` behavior for non-Web builds.
 - QA and art work remain isolated in their assigned worktrees/branches.
 - Only the main integrator selects changes into the delivery branch.
 - Never merge, delete branches/worktrees, or clean user work without confirmation.

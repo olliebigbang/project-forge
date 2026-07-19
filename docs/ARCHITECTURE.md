@@ -104,4 +104,21 @@ COOP/COEP/CORP and cache headers.
 - **TO VALIDATE** Physical iOS/Android safe areas, virtual keyboards, thermal/GPU
   performance, and browser-specific audio remain device-stage work.
 - **TBD** Any future real-model backend, provider, authentication, moderation,
-  telemetry, cost controls, retention, and privacy policy.
+telemetry, cost controls, retention, and privacy policy.
+
+## Mobile Web presentation and input boundary
+
+- **CONFIRMED** `MobileLayoutPolicy` selects Compact Landscape from the current
+  CSS `visualViewport`, not the 1280×720 Godot logical viewport. It recalculates
+  after orientation, window, visual viewport resize, and Safari toolbar changes.
+- **CONFIRMED** `WebMobileBridge` owns exactly one bounded DOM text-input overlay
+  aligned to the Godot Description row. It never covers the drawing canvas,
+  attack-mode buttons, action buttons, combat screen, or portrait rotation gate.
+- **CONFIRMED** DOM `input`, focus, blur, and clear events synchronize into the
+  Godot `LineEdit`; Godot `LOAD IDEA`, RESET, re-forge, and compile synchronize
+  back to the DOM value. Compilation always pulls the latest DOM value first.
+- **CONFIRMED** iOS/Android native exports continue to use Godot `LineEdit`.
+  Only Web uses the HTML overlay needed for dependable mobile keyboard focus.
+- **TO VALIDATE** Physical iPhone Safari still owns the final keyboard, safe-area,
+  and toolbar acceptance because desktop WebKit emulation cannot display or prove
+  the real system keyboard.

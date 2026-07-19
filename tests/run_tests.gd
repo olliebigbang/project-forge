@@ -14,6 +14,8 @@ func _init() -> void:
 	_test_schema_runtime_parity()
 	_test_drawing_summary()
 	_test_attack_pattern_touch_selector()
+	_test_mobile_layout_policy()
+	await _test_forge_reset_state()
 	_test_orientation_prompt_rule()
 	_test_player_combat_gate()
 	_test_target_rules()
@@ -150,7 +152,7 @@ func _test_attack_pattern_touch_selector() -> void:
 			if button.button_pressed: active_count += 1
 		_expect(active_count == 1, "touch selector keeps exactly one active button")
 		_expect(buttons[index].text.begins_with("[X]"), "selected pattern has a visible check mark")
-		_expect(buttons[index].custom_minimum_size.y >= 102.0, "pattern touch target remains at least 48 CSS pixels with Safari chrome")
+		_expect(buttons[index].custom_minimum_size.y >= 72.0, "regular selector keeps a generous touch target")
 		_expect(selector.selected_idea() == AttackPatternSelector.IDEAS[index], "LOAD IDEA maps to the selected pattern")
 		var compiler := WeaponCompiler.new()
 		var spec := compiler.compile("conflicting boomerang blast text", {"aspect_ratio": 1.0}, selector.selected_pattern())
@@ -164,6 +166,54 @@ func _test_attack_pattern_touch_selector() -> void:
 			if button.button_pressed: active_count += 1
 		_expect(selector.selected_index == index and active_count == 1, "rapid selector switch %d remains responsive and exclusive" % (step + 1))
 	selector.queue_free()
+
+
+func _test_mobile_layout_policy() -> void:
+	for css_size in [Vector2(844, 390), Vector2(852, 393), Vector2(915, 412), Vector2(734, 343)]:
+		var logical_size := Vector2(1280.0, 1280.0 * css_size.y / css_size.x)
+		var metrics: Dictionary = MobileLayoutPolicy.compact_metrics(logical_size, css_size)
+		var scale: float = css_size.x / logical_size.x
+		_expect(MobileLayoutPolicy.should_use_compact(css_size), "%dx%d enables Compact Landscape" % [css_size.x, css_size.y])
+		_expect(float(metrics.touch_height) * scale >= 44.0 and float(metrics.touch_height) * scale <= 48.0, "%dx%d touch controls render at 44-48 CSS px" % [css_size.x, css_size.y])
+		_expect(float(metrics.canvas_height) * scale >= 150.0, "%dx%d drawing canvas minimum is at least 150 CSS px" % [css_size.x, css_size.y])
+		_expect(float(metrics.canvas_height) * scale >= css_size.y * 0.4, "%dx%d drawing canvas occupies at least 40 percent" % [css_size.x, css_size.y])
+	_expect(not MobileLayoutPolicy.should_use_compact(Vector2(1280, 720)), "desktop viewport retains the regular layout")
+	_expect(not MobileLayoutPolicy.should_use_compact(Vector2(844, 430)), "430 CSS px is outside the compact-height threshold")
+	var selector := AttackPatternSelector.new()
+	selector._ready()
+	var compact: Dictionary = MobileLayoutPolicy.compact_metrics(Vector2(1280, 598), Vector2(734, 343))
+	selector.set_compact(true, float(compact.touch_height), int(compact.body_font))
+	_expect(selector.columns == 5, "compact selector uses one row of five buttons")
+	for index in selector.buttons().size():
+		var button: Button = selector.buttons()[index]
+		_expect(button.text.contains(AttackPatternSelector.COMPACT_LABELS[index]), "compact selector uses readable short label %s" % AttackPatternSelector.COMPACT_LABELS[index])
+	selector.queue_free()
+
+
+func _test_forge_reset_state() -> void:
+	var scene: PackedScene = load("res://scenes/main.tscn")
+	var forge := scene.instantiate() as ProjectForgeMain
+	root.add_child(forge)
+	await process_frame
+	forge.description_input.text = "loaded example"
+	forge.loaded_idea_pattern = "boomerang"
+	forge.pattern_selector.select_pattern(2, false)
+	forge.drawing_canvas.strokes.append(PackedVector2Array([Vector2(10, 10), Vector2(60, 30)]))
+	forge._clear_description()
+	_expect(forge.description_input.text.is_empty(), "description X clears only the description")
+	_expect(not forge.drawing_canvas.is_empty(), "description X preserves drawing strokes")
+	_expect(forge.pattern_selector.selected_pattern() == "boomerang", "description X preserves the selected mode")
+	forge.description_input.text = "another idea"
+	forge._reset_forge()
+	_expect(forge.description_input.text.is_empty(), "RESET clears the description")
+	_expect(forge.drawing_canvas.is_empty(), "RESET clears drawing strokes")
+	_expect(forge.loaded_idea_pattern.is_empty(), "RESET clears the loaded-example state")
+	_expect(forge.pattern_selector.selected_pattern() == "boomerang", "RESET preserves the selected attack mode")
+	_expect(forge.forge_status.text == "Canvas and description cleared", "RESET provides visible confirmation")
+	forge.description_input.text = "editable after reset"
+	forge.drawing_canvas.strokes.append(PackedVector2Array([Vector2(15, 15), Vector2(90, 45)]))
+	_expect(forge.description_input.text == "editable after reset" and not forge.drawing_canvas.is_empty(), "RESET allows immediate text and drawing input")
+	forge.queue_free()
 
 
 func _test_orientation_prompt_rule() -> void:

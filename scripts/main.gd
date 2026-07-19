@@ -1,3 +1,4 @@
+class_name ProjectForgeMain
 extends Control
 
 const NAVY := Color("#091424")
@@ -13,8 +14,21 @@ var player: ForgePlayer
 var targets: Array[TrainingDummy] = []
 var drawing_canvas: DrawingCanvas
 var description_input: LineEdit
+var clear_description_button: Button
 var pattern_selector: AttackPatternSelector
 var forge_overlay: Control
+var forge_panel: PanelContainer
+var forge_margin: MarginContainer
+var forge_layout: VBoxContainer
+var forge_title_row: HBoxContainer
+var forge_title: Label
+var back_button: Button
+var description_row: HBoxContainer
+var description_label: Label
+var forge_action_row: HBoxContainer
+var reset_button: Button
+var load_idea_button: Button
+var generate_button: Button
 var orientation_prompt: RotationPrompt
 var forge_status: Label
 var stats_label: Label
@@ -25,6 +39,11 @@ var reforge_button: Button
 var attack_button: Button
 var current_spec: WeaponSpec
 var current_strokes: Array[PackedVector2Array] = []
+var loaded_idea_pattern := ""
+var web_mobile_bridge := WebMobileBridge.new()
+var _web_sync_elapsed := 0.0
+var _last_stable_landscape_css_size := Vector2.ZERO
+var _status_revision := 0
 
 
 func _ready() -> void:
@@ -33,9 +52,22 @@ func _ready() -> void:
 	_build_hud()
 	_build_forge_overlay()
 	_build_orientation_prompt()
+	web_mobile_bridge.description_event.connect(_on_web_description_event)
+	web_mobile_bridge.viewport_changed.connect(_on_web_viewport_changed)
+	web_mobile_bridge.initialize()
+	set_process(web_mobile_bridge.is_available())
 	resized.connect(_on_viewport_resized)
 	_on_viewport_resized()
 	queue_redraw()
+
+
+func _process(delta: float) -> void:
+	if not web_mobile_bridge.is_available():
+		return
+	_web_sync_elapsed += delta
+	if _web_sync_elapsed >= 0.12:
+		_web_sync_elapsed = 0.0
+		_sync_web_description_overlay()
 
 
 func _draw() -> void:
@@ -184,109 +216,300 @@ func _build_forge_overlay() -> void:
 	# bounded events; no invisible full-screen Control is allowed to capture touch.
 	forge_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(forge_overlay)
-	var panel := PanelContainer.new()
-	panel.name = "ForgePanel"
-	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 24)
-	panel.add_theme_stylebox_override("panel", _panel_style(PANEL, CYAN, 3))
-	panel.mouse_filter = Control.MOUSE_FILTER_PASS
-	forge_overlay.add_child(panel)
-	var margin := MarginContainer.new()
-	margin.mouse_filter = Control.MOUSE_FILTER_PASS
-	margin.add_theme_constant_override("margin_left", 18)
-	margin.add_theme_constant_override("margin_right", 18)
-	margin.add_theme_constant_override("margin_top", 14)
-	margin.add_theme_constant_override("margin_bottom", 22)
-	panel.add_child(margin)
-	var layout := VBoxContainer.new()
-	layout.name = "ForgeLayout"
-	layout.mouse_filter = Control.MOUSE_FILTER_PASS
-	layout.add_theme_constant_override("separation", 6)
-	margin.add_child(layout)
+	forge_panel = PanelContainer.new()
+	forge_panel.name = "ForgePanel"
+	forge_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 24)
+	forge_panel.add_theme_stylebox_override("panel", _panel_style(PANEL, CYAN, 3))
+	forge_panel.mouse_filter = Control.MOUSE_FILTER_PASS
+	forge_overlay.add_child(forge_panel)
+	forge_margin = MarginContainer.new()
+	forge_margin.mouse_filter = Control.MOUSE_FILTER_PASS
+	forge_panel.add_child(forge_margin)
+	forge_layout = VBoxContainer.new()
+	forge_layout.name = "ForgeLayout"
+	forge_layout.mouse_filter = Control.MOUSE_FILTER_PASS
+	forge_margin.add_child(forge_layout)
 
-	var title_row := HBoxContainer.new()
-	title_row.mouse_filter = Control.MOUSE_FILTER_PASS
-	layout.add_child(title_row)
-	var title := Label.new()
-	title.text = "PROJECT FORGE  /  M1A WEAPON COMPILER"
-	title.add_theme_color_override("font_color", TEXT)
-	title.add_theme_font_size_override("font_size", 25)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	title_row.add_child(title)
-	var close_button := _button("BACK", MUTED, 15)
-	close_button.name = "BackButton"
-	close_button.custom_minimum_size = Vector2(128, 102)
-	close_button.pressed.connect(_close_reforge)
-	title_row.add_child(close_button)
+	forge_title_row = HBoxContainer.new()
+	forge_title_row.mouse_filter = Control.MOUSE_FILTER_PASS
+	forge_layout.add_child(forge_title_row)
+	forge_title = Label.new()
+	forge_title.text = "PROJECT FORGE  /  M1A WEAPON COMPILER"
+	forge_title.add_theme_color_override("font_color", TEXT)
+	forge_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	forge_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	forge_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	forge_title_row.add_child(forge_title)
+	back_button = _button("BACK", MUTED, 15)
+	back_button.name = "BackButton"
+	back_button.pressed.connect(_close_reforge)
+	forge_title_row.add_child(back_button)
 
 	drawing_canvas = DrawingCanvas.new()
 	drawing_canvas.name = "DrawingCanvas"
 	drawing_canvas.custom_minimum_size = Vector2(0, 120)
 	drawing_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	layout.add_child(drawing_canvas)
+	forge_layout.add_child(drawing_canvas)
 
-	var input_row := HBoxContainer.new()
-	input_row.mouse_filter = Control.MOUSE_FILTER_PASS
-	input_row.add_theme_constant_override("separation", 10)
-	layout.add_child(input_row)
-	var prompt_label := Label.new()
-	prompt_label.text = "DESCRIPTION"
-	prompt_label.custom_minimum_size = Vector2(142, 90)
-	prompt_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	prompt_label.add_theme_color_override("font_color", CYAN)
-	prompt_label.add_theme_font_size_override("font_size", 18)
-	prompt_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	input_row.add_child(prompt_label)
+	description_row = HBoxContainer.new()
+	description_row.mouse_filter = Control.MOUSE_FILTER_PASS
+	description_row.add_theme_constant_override("separation", 8)
+	forge_layout.add_child(description_row)
+	description_label = Label.new()
+	description_label.text = "DESCRIPTION"
+	description_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	description_label.add_theme_color_override("font_color", CYAN)
+	description_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	description_row.add_child(description_label)
 	description_input = LineEdit.new()
 	description_input.name = "DescriptionInput"
 	description_input.placeholder_text = "e.g. a returning fire boomerang"
-	description_input.clear_button_enabled = true
+	description_input.clear_button_enabled = false
+	description_input.editable = true
+	description_input.focus_mode = Control.FOCUS_ALL
+	description_input.virtual_keyboard_enabled = true
 	description_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	description_input.custom_minimum_size.y = 90
 	description_input.mouse_filter = Control.MOUSE_FILTER_STOP
-	description_input.add_theme_font_size_override("font_size", 22)
-	input_row.add_child(description_input)
+	description_input.gui_input.connect(_on_description_gui_input)
+	description_input.text_changed.connect(_on_native_description_changed)
+	description_row.add_child(description_input)
+	clear_description_button = _button("×", CYAN, 24)
+	clear_description_button.name = "ClearDescriptionButton"
+	clear_description_button.tooltip_text = "Clear description"
+	clear_description_button.pressed.connect(_clear_description)
+	description_row.add_child(clear_description_button)
 
 	pattern_selector = AttackPatternSelector.new()
 	pattern_selector.name = "AttackPatternSelector"
 	pattern_selector.pattern_selected.connect(_on_pattern_selected)
-	layout.add_child(pattern_selector)
+	forge_layout.add_child(pattern_selector)
 
-	var action_row := HBoxContainer.new()
-	action_row.mouse_filter = Control.MOUSE_FILTER_PASS
-	action_row.add_theme_constant_override("separation", 8)
-	layout.add_child(action_row)
-	var clear_button := _button("CLEAR", MUTED, 18)
-	clear_button.name = "ClearDrawingButton"
-	clear_button.custom_minimum_size = Vector2(126, 102)
-	clear_button.pressed.connect(drawing_canvas.clear_drawing)
-	action_row.add_child(clear_button)
-	var load_button := _button("LOAD IDEA", Color("#b392ff"), 18)
-	load_button.name = "LoadIdeaButton"
-	load_button.custom_minimum_size = Vector2(158, 102)
-	load_button.pressed.connect(_load_selected_idea)
-	action_row.add_child(load_button)
+	forge_action_row = HBoxContainer.new()
+	forge_action_row.mouse_filter = Control.MOUSE_FILTER_PASS
+	forge_action_row.add_theme_constant_override("separation", 8)
+	forge_layout.add_child(forge_action_row)
+	reset_button = _button("RESET", MUTED, 18)
+	reset_button.name = "ResetButton"
+	reset_button.pressed.connect(_reset_forge)
+	forge_action_row.add_child(reset_button)
+	load_idea_button = _button("LOAD IDEA", Color("#b392ff"), 18)
+	load_idea_button.name = "LoadIdeaButton"
+	load_idea_button.pressed.connect(_load_selected_idea)
+	forge_action_row.add_child(load_idea_button)
 	forge_status = Label.new()
-	forge_status.text = "Offline deterministic mock — no API key."
 	forge_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	forge_status.text = "Offline mock — no API key."
 	forge_status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	forge_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	forge_status.add_theme_color_override("font_color", MUTED)
-	forge_status.add_theme_font_size_override("font_size", 16)
+	forge_status.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	forge_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	action_row.add_child(forge_status)
-	var generate_button := _button("COMPILE WEAPON", ORANGE, 20)
+	forge_action_row.add_child(forge_status)
+	generate_button = _button("COMPILE WEAPON", ORANGE, 20)
 	generate_button.name = "GenerateWeaponButton"
-	generate_button.custom_minimum_size = Vector2(226, 102)
 	generate_button.pressed.connect(_generate_weapon)
-	action_row.add_child(generate_button)
+	forge_action_row.add_child(generate_button)
+	_apply_forge_layout()
+
+
+func _apply_forge_layout() -> void:
+	if forge_panel == null:
+		return
+	var browser_metrics := web_mobile_bridge.metrics()
+	var css_size := Vector2(
+		float(browser_metrics.get("width", size.x)),
+		float(browser_metrics.get("height", size.y)),
+	)
+	var input_focused := bool(browser_metrics.get("inputFocused", false))
+	if css_size.x > css_size.y and not input_focused and css_size.y >= 250.0:
+		_last_stable_landscape_css_size = css_size
+	var layout_css_size := css_size
+	if input_focused and css_size.y < 250.0 and _last_stable_landscape_css_size != Vector2.ZERO:
+		# iOS shrinks visualViewport while the software keyboard is visible. Keep
+		# the last stable landscape geometry so the Godot canvas does not adopt a
+		# permanent keyboard-sized layout; the next viewport event restores it.
+		layout_css_size = _last_stable_landscape_css_size
+	var compact := MobileLayoutPolicy.should_use_compact(layout_css_size)
+	if compact:
+		_apply_compact_forge_layout(layout_css_size, browser_metrics)
+	else:
+		_apply_regular_forge_layout()
+	call_deferred("_sync_web_description_overlay")
+
+
+func _apply_compact_forge_layout(css_size: Vector2, browser_metrics: Dictionary) -> void:
+	var metrics := MobileLayoutPolicy.compact_metrics(size, css_size)
+	var scale := css_size.x / maxf(size.x, 1.0)
+	var logical_per_css := 1.0 / maxf(scale, 0.01)
+	var outer_css := float(metrics.outer_margin) / logical_per_css
+	var left := (outer_css + float(browser_metrics.get("safeLeft", 0.0))) * logical_per_css
+	var right := (outer_css + float(browser_metrics.get("safeRight", 0.0))) * logical_per_css
+	var top := (outer_css + float(browser_metrics.get("safeTop", 0.0))) * logical_per_css
+	var bottom := (outer_css + float(browser_metrics.get("safeBottom", 0.0))) * logical_per_css
+	forge_panel.offset_left = left
+	forge_panel.offset_top = top
+	forge_panel.offset_right = -right
+	forge_panel.offset_bottom = -bottom
+	_set_margin(forge_margin, int(metrics.inner_margin), int(metrics.inner_margin), int(metrics.inner_margin), int(metrics.inner_margin))
+	forge_layout.add_theme_constant_override("separation", int(metrics.separation))
+	forge_title_row.custom_minimum_size.y = float(metrics.title_height)
+	forge_title.text = "PROJECT FORGE / M1A"
+	forge_title.add_theme_font_size_override("font_size", int(metrics.title_font))
+	back_button.custom_minimum_size = Vector2(float(metrics.back_width), float(metrics.touch_height))
+	back_button.add_theme_font_size_override("font_size", int(metrics.body_font))
+	drawing_canvas.custom_minimum_size.y = float(metrics.canvas_height)
+	description_row.custom_minimum_size.y = float(metrics.touch_height)
+	description_row.add_theme_constant_override("separation", maxi(2, int(metrics.separation * 2.0)))
+	description_label.custom_minimum_size = Vector2(float(metrics.description_label_width), float(metrics.touch_height))
+	description_label.add_theme_font_size_override("font_size", int(metrics.status_font))
+	description_input.custom_minimum_size.y = float(metrics.touch_height)
+	description_input.add_theme_font_size_override("font_size", int(metrics.input_font))
+	clear_description_button.custom_minimum_size = Vector2(float(metrics.touch_height), float(metrics.touch_height))
+	clear_description_button.add_theme_font_size_override("font_size", int(metrics.input_font) + 5)
+	pattern_selector.set_compact(true, float(metrics.touch_height), int(metrics.body_font))
+	forge_action_row.custom_minimum_size.y = float(metrics.touch_height)
+	forge_action_row.add_theme_constant_override("separation", maxi(2, int(metrics.separation * 2.0)))
+	reset_button.custom_minimum_size = Vector2(float(metrics.reset_width), float(metrics.touch_height))
+	load_idea_button.custom_minimum_size = Vector2(float(metrics.load_width), float(metrics.touch_height))
+	generate_button.custom_minimum_size = Vector2(float(metrics.compile_width), float(metrics.touch_height))
+	for button in [reset_button, load_idea_button, generate_button]:
+		button.add_theme_font_size_override("font_size", int(metrics.body_font))
+	forge_status.add_theme_font_size_override("font_size", int(metrics.status_font))
+
+
+func _apply_regular_forge_layout() -> void:
+	forge_panel.offset_left = 18.0
+	forge_panel.offset_top = 18.0
+	forge_panel.offset_right = -18.0
+	forge_panel.offset_bottom = -18.0
+	_set_margin(forge_margin, 14, 14, 8, 8)
+	forge_layout.add_theme_constant_override("separation", 6)
+	forge_title_row.custom_minimum_size.y = 64.0
+	forge_title.text = "PROJECT FORGE  /  M1A WEAPON COMPILER"
+	forge_title.add_theme_font_size_override("font_size", 22)
+	back_button.custom_minimum_size = Vector2(96, 64)
+	back_button.add_theme_font_size_override("font_size", 15)
+	drawing_canvas.custom_minimum_size.y = 220.0
+	description_row.custom_minimum_size.y = 64.0
+	description_row.add_theme_constant_override("separation", 8)
+	description_label.custom_minimum_size = Vector2(130, 64)
+	description_label.add_theme_font_size_override("font_size", 17)
+	description_input.custom_minimum_size.y = 64.0
+	description_input.add_theme_font_size_override("font_size", 20)
+	clear_description_button.custom_minimum_size = Vector2(64, 64)
+	clear_description_button.add_theme_font_size_override("font_size", 24)
+	pattern_selector.set_compact(false, 72.0, 18)
+	forge_action_row.custom_minimum_size.y = 64.0
+	forge_action_row.add_theme_constant_override("separation", 8)
+	reset_button.custom_minimum_size = Vector2(112, 64)
+	load_idea_button.custom_minimum_size = Vector2(146, 64)
+	generate_button.custom_minimum_size = Vector2(210, 64)
+	for button in [reset_button, load_idea_button, generate_button]:
+		button.add_theme_font_size_override("font_size", 17)
+	forge_status.add_theme_font_size_override("font_size", 14)
+
+
+func _set_margin(container: MarginContainer, left: int, right: int, top: int, bottom: int) -> void:
+	container.add_theme_constant_override("margin_left", left)
+	container.add_theme_constant_override("margin_right", right)
+	container.add_theme_constant_override("margin_top", top)
+	container.add_theme_constant_override("margin_bottom", bottom)
+
+
+func _on_description_gui_input(event: InputEvent) -> void:
+	var pressed: bool = false
+	if event is InputEventScreenTouch:
+		pressed = event.pressed
+	elif event is InputEventMouseButton:
+		pressed = event.button_index == MOUSE_BUTTON_LEFT and event.pressed
+	if pressed:
+		description_input.grab_focus()
+		if web_mobile_bridge.is_available():
+			web_mobile_bridge.focus()
+
+
+func _on_native_description_changed(value: String) -> void:
+	if web_mobile_bridge.is_available() and web_mobile_bridge.value() != value:
+		web_mobile_bridge.set_value(value)
+
+
+func _on_web_description_event(kind: String, value: String) -> void:
+	if description_input.text != value:
+		description_input.text = value
+	match kind:
+		"clear": _show_forge_toast("Description cleared", CYAN)
+		"blur":
+			description_input.release_focus()
+			call_deferred("_apply_forge_layout")
+		"focus": _show_forge_toast("Description ready for editing", Color("#b9eaff"), 1.0)
+
+
+func _set_description(value: String) -> void:
+	description_input.text = value
+	if web_mobile_bridge.is_available():
+		web_mobile_bridge.set_value(value)
+
+
+func _pull_web_description() -> void:
+	if web_mobile_bridge.is_available():
+		description_input.text = web_mobile_bridge.value()
+
+
+func _clear_description() -> void:
+	_set_description("")
+	description_input.grab_focus()
+	if web_mobile_bridge.is_available():
+		web_mobile_bridge.focus()
+	_show_forge_toast("Description cleared", CYAN)
+
+
+func _reset_forge() -> void:
+	drawing_canvas.clear_drawing()
+	_set_description("")
+	loaded_idea_pattern = ""
+	description_input.release_focus()
+	if web_mobile_bridge.is_available():
+		web_mobile_bridge.blur()
+	_show_forge_toast("Canvas and description cleared", Color("#78eea6"), 1.8)
+
+
+func _show_forge_toast(message: String, color: Color = MUTED, duration: float = 1.6) -> void:
+	_status_revision += 1
+	var revision := _status_revision
+	forge_status.text = message
+	forge_status.add_theme_color_override("font_color", color)
+	if duration <= 0.0:
+		return
+	await get_tree().create_timer(duration).timeout
+	if revision == _status_revision and forge_status.text == message:
+		forge_status.text = ""
+		forge_status.add_theme_color_override("font_color", MUTED)
+
+
+func _sync_web_description_overlay() -> void:
+	if not web_mobile_bridge.is_available() or description_input == null:
+		return
+	var visible := forge_overlay.visible and (orientation_prompt == null or not orientation_prompt.visible)
+	var input_rect := description_input.get_global_rect()
+	if clear_description_button != null:
+		input_rect = input_rect.merge(clear_description_button.get_global_rect())
+	web_mobile_bridge.update_layout(input_rect, size, visible)
+
+
+func _on_web_viewport_changed() -> void:
+	call_deferred("_refresh_web_viewport")
+
+
+func _refresh_web_viewport() -> void:
+	await get_tree().process_frame
+	_apply_forge_layout()
+	_sync_web_description_overlay()
 
 
 func _generate_weapon() -> void:
+	_pull_web_description()
 	if drawing_canvas.is_empty():
-		forge_status.text = "Draw at least one stroke first."
-		forge_status.add_theme_color_override("font_color", Color("#ff8f8f"))
+		_show_forge_toast("Draw at least one stroke first.", Color("#ff8f8f"), 2.0)
 		return
 	current_strokes = drawing_canvas.get_normalized_strokes()
 	current_spec = service.generate(
@@ -297,6 +520,8 @@ func _generate_weapon() -> void:
 	player.equip(current_spec, current_strokes)
 	player.set_combat_enabled(true)
 	description_input.release_focus()
+	if web_mobile_bridge.is_available():
+		web_mobile_bridge.blur()
 	stats_label.text = (
 		"%s\nDAMAGE %d   POWER %d/100   SPEED %.2f\nATTACK  %s\nELEMENT  %s   SPECIAL  %s\nWEAKNESS  %s"
 		% [current_spec.display_name, current_spec.damage, current_spec.power_score, current_spec.attack_speed,
@@ -316,6 +541,7 @@ func _generate_weapon() -> void:
 	reforge_button.disabled = false
 	attack_button.disabled = true
 	forge_overlay.hide()
+	_sync_web_description_overlay()
 	_arm_attack_button()
 
 
@@ -333,7 +559,10 @@ func _close_reforge() -> void:
 		forge_status.add_theme_color_override("font_color", Color("#ffca78"))
 		return
 	description_input.release_focus()
+	if web_mobile_bridge.is_available():
+		web_mobile_bridge.blur()
 	forge_overlay.hide()
+	_sync_web_description_overlay()
 	player.set_combat_enabled(true)
 	combat_status.text = "%s ready. Use A/D or touch, then SPACE/ATTACK." % current_spec.attack_label()
 	_arm_attack_button()
@@ -344,24 +573,28 @@ func _open_reforge() -> void:
 	player.set_combat_enabled(false)
 	_clear_transient_combat()
 	drawing_canvas.clear_drawing()
-	description_input.clear()
+	_set_description("")
+	loaded_idea_pattern = ""
 	description_input.release_focus()
+	if web_mobile_bridge.is_available():
+		web_mobile_bridge.blur()
 	var current_index := AttackPatternSelector.PATTERNS.find(current_spec.attack_pattern) if current_spec else 0
 	pattern_selector.select_pattern(maxi(current_index, 0), false)
 	forge_status.text = "Draw again; a valid replacement is committed only after compile."
 	forge_status.add_theme_color_override("font_color", MUTED)
 	forge_overlay.show()
+	_apply_forge_layout()
+	call_deferred("_sync_web_description_overlay")
 
 
 func _load_selected_idea() -> void:
-	description_input.text = pattern_selector.selected_idea()
-	forge_status.text = "%s example loaded. Edit it or compile directly." % pattern_selector.selected_pattern().replace("_", " ").to_upper()
-	forge_status.add_theme_color_override("font_color", MUTED)
+	_set_description(pattern_selector.selected_idea())
+	loaded_idea_pattern = pattern_selector.selected_pattern()
+	_show_forge_toast("%s idea loaded — edit or compile" % pattern_selector.selected_pattern().replace("_", " ").to_upper(), MUTED)
 
 
 func _on_pattern_selected(_index: int, pattern: String) -> void:
-	forge_status.text = "%s selected. LOAD IDEA or compile your text with this M1A test override." % pattern.replace("_", " ").to_upper()
-	forge_status.add_theme_color_override("font_color", Color("#b9eaff"))
+	_show_forge_toast("%s selected" % pattern.replace("_", " ").to_upper(), Color("#b9eaff"), 1.2)
 
 
 func _clear_transient_combat() -> void:
@@ -466,7 +699,9 @@ func _build_orientation_prompt() -> void:
 
 func _on_viewport_resized() -> void:
 	_layout_world()
+	_apply_forge_layout()
 	_update_orientation_prompt()
+	call_deferred("_sync_web_description_overlay")
 
 
 func _update_orientation_prompt() -> void:
@@ -476,6 +711,8 @@ func _update_orientation_prompt() -> void:
 	orientation_prompt.visible = portrait
 	if portrait:
 		description_input.release_focus()
+		if web_mobile_bridge.is_available():
+			web_mobile_bridge.blur()
 		player.set_combat_enabled(false)
 		player.set_touch_axis(0.0)
 		attack_button.disabled = true
@@ -485,6 +722,7 @@ func _update_orientation_prompt() -> void:
 	elif current_spec:
 		player.set_combat_enabled(true)
 		attack_button.disabled = false
+	call_deferred("_sync_web_description_overlay")
 
 
 func _button(label_text: String, accent: Color, font_size: int) -> Button:

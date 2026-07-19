@@ -9,6 +9,9 @@ const PATTERNS: PackedStringArray = [
 const LABELS: PackedStringArray = [
 	"MELEE SLASH", "STRAIGHT PROJECTILE", "BOOMERANG", "AREA BLAST", "PIERCING",
 ]
+const COMPACT_LABELS: PackedStringArray = [
+	"MELEE", "PROJECTILE", "BOOMERANG", "BLAST", "PIERCING",
+]
 const IDEAS: PackedStringArray = [
 	"a solid normal blade for close combat",
 	"a fast ice projectile launcher",
@@ -20,6 +23,7 @@ const IDEAS: PackedStringArray = [
 var selected_index := 0
 var _button_group := ButtonGroup.new()
 var _buttons: Array[Button] = []
+var _compact := false
 
 
 func _ready() -> void:
@@ -33,6 +37,7 @@ func _ready() -> void:
 	add_theme_constant_override("v_separation", 8)
 	_button_group.allow_unpress = false
 	_build_buttons()
+	set_compact(false, 72.0, 18)
 	select_pattern(0, false)
 
 
@@ -59,7 +64,7 @@ func select_pattern(index: int, emit_change: bool = true) -> void:
 	selected_index = clampi(index, 0, PATTERNS.size() - 1)
 	for button_index in _buttons.size():
 		_buttons[button_index].set_pressed_no_signal(button_index == selected_index)
-		_apply_button_state(_buttons[button_index], button_index == selected_index, LABELS[button_index])
+		_apply_button_state(_buttons[button_index], button_index == selected_index, _label_for(button_index))
 	if emit_change:
 		pattern_selected.emit(selected_index, PATTERNS[selected_index])
 
@@ -76,8 +81,25 @@ func buttons() -> Array[Button]:
 	return _buttons.duplicate()
 
 
+func set_compact(compact: bool, touch_height: float = 72.0, font_size: int = 20) -> void:
+	_compact = compact
+	columns = 5 if compact else 3
+	custom_minimum_size.y = touch_height if compact else touch_height * 2.0 + 8.0
+	add_theme_constant_override("h_separation", 5 if compact else 8)
+	add_theme_constant_override("v_separation", 0 if compact else 8)
+	for index in _buttons.size():
+		var button := _buttons[index]
+		button.custom_minimum_size.y = touch_height
+		button.add_theme_font_size_override("font_size", font_size)
+		_apply_button_state(button, index == selected_index, _label_for(index))
+
+
 func _on_button_pressed(index: int) -> void:
 	select_pattern(index)
+
+
+func _label_for(index: int) -> String:
+	return COMPACT_LABELS[index] if _compact else LABELS[index]
 
 
 func _apply_button_state(button: Button, is_selected: bool, label_text: String) -> void:

@@ -3,15 +3,15 @@
 This file preserves the completed M0 gate and defines the current M1A gate.
 `docs/GDD.md` retains the broader product definition; later requirements remain
 visible without being silently pulled into the deterministic compiler milestone.
-M1A remains open until the replacement deployment passes the user's physical
+M1A remains open until the v9 Mobile Usability deployment passes the user's physical
 iPhone Safari acceptance; browser emulation is evidence, not a substitute.
 
 ## M1A exit criteria
 
 | ID | Acceptance criterion | Status | Evidence target |
 | --- | --- | --- | --- |
-| M1A-01 | Public, phone-accessible Web URL; not localhost | **CONFIRMED** | Sites v8 public deployment returns HTTP 200 and exact replacement asset hashes |
-| M1A-02 | Public flow covers draw, generate, move, attack, and re-forge | **TO VALIDATE (real iPhone)** | Chromium/WebKit automation passes; physical iPhone remains the final gate |
+| M1A-01 | Public, phone-accessible Web URL; not localhost | **TO VALIDATE (v9 deployment)** | Sites v9 must return HTTP 200 with a new PCK hash; v8 remains the last deployed build until replacement |
+| M1A-02 | Public flow covers draw, edit description, reset, generate, move, attack, and re-forge | **TO VALIDATE (real iPhone v9)** | v8 passed mode switching and combat but failed compact layout, text input, `×`, `RESET`, and keyboard; v9 browser automation plus physical acceptance are required |
 | M1A-03 | Five attack modules execute and look/behave differently | **CONFIRMED** | Five browser combat runs |
 | M1A-04 | Normal, fire, ice, and electric compile and execute | **CONFIRMED** | Matrix plus combat effect checks |
 | M1A-05 | Explicit power component calculator enforces 0–100 | **CONFIRMED** | HUD, unit tests, audit JSON |
@@ -21,7 +21,19 @@ iPhone Safari acceptance; browser emulation is evidence, not a substitute.
 | M1A-09 | At least 20 deterministic acceptance inputs | **CONFIRMED — 32** | `tests/m1a_input_matrix.json` |
 | M1A-10 | Moving, shield, and grouped targets validate attack tradeoffs | **CONFIRMED** | Target lab and rule tests |
 | M1A-11 | Spec, budget, repairs, and results are recorded | **CONFIRMED** | Runtime JSONL and artifacts |
-| M1A-12 | Full tests, Web build, public browser console, and mobile layout pass | **TO VALIDATE (real iPhone)** | CI, public Chromium/WebKit automation, and replacement assets pass; physical Safari acceptance remains pending |
+| M1A-12 | Full tests, Web build, public browser console, Compact Landscape, and mobile input pass | **TO VALIDATE (real iPhone v9)** | 844×390, 852×393, 915×412, toolbar-height, orientation-cycle, Chromium, WebKit, CI, and physical Safari evidence |
+
+## v9 physical-device gate
+
+- **CONFIRMED** v8 passed portrait rotation gating, automatic landscape resume,
+  five-button forward/reverse/rapid switching, all five `LOAD IDEA → COMPILE →
+  ATTACK → REFORGE` flows, and BACK/re-entry on a real iPhone Safari.
+- **CONFIRMED** v8 failed usable landscape proportions, Description editing,
+  explicit text clearing, RESET clarity, and iOS keyboard invocation.
+- **TO VALIDATE** v9 must close every failed item and survive landscape →
+  portrait → landscape plus Safari toolbar expansion/collapse on the same device.
+- **CONFIRMED** M1B and all other new-feature work remain paused until the user
+  accepts this physical-device gate.
 
 ## Status vocabulary
 

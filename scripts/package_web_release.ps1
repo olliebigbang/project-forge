@@ -5,7 +5,7 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $releaseRoot = Join-Path $repoRoot "release"
 $stagingRoot = Join-Path $releaseRoot "staging"
-$archivePath = Join-Path $releaseRoot "Project-Forge-M1A-iPhone-Touch-Fix-Web.zip"
+$archivePath = Join-Path $releaseRoot "Project-Forge-M1A-v9-Mobile-Usability-Web.zip"
 $expectedStaging = [System.IO.Path]::GetFullPath((Join-Path $repoRoot "release\staging"))
 $resolvedStaging = [System.IO.Path]::GetFullPath($stagingRoot)
 
