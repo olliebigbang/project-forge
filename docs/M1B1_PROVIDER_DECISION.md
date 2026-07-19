@@ -10,6 +10,10 @@ Backend: **CONFIRMED — reuse the active Project Forge Sites Worker with logica
 D1 binding `DB`.** The 2026-07-19 environment check returned revision 0 with no
 runtime variables, so no provider, model, or credential is currently configured.
 
+Vendor-neutral gate: **CONFIRMED — candidate `104fddb` passed independent Safety
+and Mobile QA.** Real provider behavior, deployed D1, cost/latency/accuracy,
+public preview, and physical iPhone acceptance remain **TO VALIDATE**.
+
 ## Recommendation
 
 **Recommended: OpenAI `gpt-5.6-luna` through the Responses API with Structured

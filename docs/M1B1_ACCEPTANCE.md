@@ -55,7 +55,7 @@ iPhone Safari session.
 | --- | --- | --- |
 | M1B1-24 | All M1A compiler, five-attack, four-element and target-lab tests remain green | **CONFIRMED (458 assertions)** |
 | M1B1-25 | 844×390, 852×393, 915×412, portrait gate, iOS keyboard and Safari-toolbar flows remain usable | **CONFIRMED (emulated); TO VALIDATE on physical iPhone M1B1** |
-| M1B1-26 | Godot parse, unit, worker, D1 guard, Web build, Chromium and WebKit regression pass without new application errors | **CONFIRMED (provider-neutral build; final candidate rerun pending)** |
+| M1B1-26 | Godot parse, unit, worker, D1 guard, Web build, Chromium and WebKit regression pass without new application errors | **CONFIRMED (`104fddb`: Godot 458, interpreter 68/68, D1 9/9, Chromium/WebKit; app console errors 0)** |
 | M1B1-27 | PR and CI pass; a new uncached public deployment is verified by HTTP and resource hash | **TO VALIDATE** |
 | M1B1-28 | Product owner accepts the new public build on physical iPhone Safari | **TO VALIDATE** |
 

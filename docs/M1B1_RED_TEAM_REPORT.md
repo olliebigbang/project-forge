@@ -8,7 +8,7 @@ Prepared on: 2026-07-19
 Stable baseline: `b09bd8fb6fa7d4466251f73e6d647823682d513e`
 (`v0.1.0-m1a`)
 
-Safety branch: `codex/qa/m1b1-ai-safety`
+Safety branch: `codex/qa/m1b1-ai-safety-regression`
 
 Integrated M1B1 regression: `104fddbec98060741401316d25185f130caaa1c0` -
 **PASS** for the vendor-neutral boundary; **BLOCKED** for a public real-provider

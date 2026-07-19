@@ -50,7 +50,7 @@ the real-provider evidence that cannot exist before the product decision.
 | --- | --- | --- |
 | Same-origin `WeaponInterpreter` client/server contract | **CONFIRMED** | Godot calls only `/api/compile-weapon`; static worker and local server route it |
 | Schema, allow-list, semantic compatibility, and PowerBudget enforcement | **CONFIRMED (provider-neutral)** | Godot 458 assertions; Node interpreter 68 tests; 48-case main matrix; 60-case red-team corpus |
-| Loading, duplicate lock, safe retry, aborting timeout, cancel, stale rejection, D1 idempotency, and validated fallback | **CONFIRMED (simulated/local D1)** | Node D1 guard probes plus Chromium and WebKit end-to-end regression; Sites D1 still to validate |
+| Loading, duplicate lock, safe retry, aborting timeout, cancel, stale rejection, D1 idempotency, and validated fallback | **CONFIRMED (simulated/local D1)** | D1 guard 9/9 plus Chromium and WebKit end-to-end regression; Sites D1 still to validate |
 | Normal-player selector hidden; Developer/MODIFY correction remains validated | **CONFIRMED (browser automation)** | Five patterns compiled, corrected, confirmed, and attacked in Chromium and WebKit |
 | 844×390, 852×393, 915×412, keyboard-height recovery, and three rotation cycles | **CONFIRMED (emulated)** | No scrolling/cropping; real iPhone M1B1 still required |
 | AI provider, model, deployment key, and provider moderation | **TBD** | One product-owner decision required; key must be server-side only |
