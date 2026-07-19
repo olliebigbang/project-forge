@@ -1,6 +1,6 @@
 # iPhone Safari Touch and Layout QA / Red-Team Report
 
-Document state: **Local fix regression complete; public and physical-iPhone gates pending**
+Document state: **Local and public automation complete; physical-iPhone gate pending**
 Prepared on: 2026-07-19  
 QA branch: `codex/qa/iphone-safari-touch-layout`  
 Baseline runtime revision: `214aa14` (public v7)
@@ -20,9 +20,9 @@ Local fix revision under test: `8cdea56` (`2c7c297` plus opaque portrait overlay
 - **CONFIRMED** Portrait must show a reversible rotate-to-landscape overlay rather
   than a stretched compiler. Landscape must keep drawing, description, all five
   pattern buttons, and all three forge actions visible.
-- **TO VALIDATE** Final public deployment, public asset hashes, PR/CI evidence,
-  and physical-iPhone results remain pending. The local fix SHA is frozen and
+- **CONFIRMED** The new v8 public deployment and its runtime asset hashes are
   independently tested below.
+- **TO VALIDATE** PR/CI evidence and physical-iPhone results remain pending.
 
 ## 2. Baseline blocker reproduction
 
@@ -129,9 +129,9 @@ refer to `8cdea56`; deployment rows intentionally remain pending.
 | IOS-38 | Chromium | Run full touch flow in a fresh Chromium context | 1→5→1 switching, draw, load, compile, attack, reforge pass | **PASS** — 30 switches, five specs/attacks, 0 errors/warnings |
 | IOS-39 | WebKit | Run the same flow in Playwright WebKit iPhone profile | Functional parity; no popup lock or input interception | **PASS functional** — fresh iPhone 15 landscape context |
 | IOS-40 | Console | Cold load through rotation, five compiles, attacks, reforge | 0 uncaught errors; warnings documented and triaged | **PASS Chromium; P2 WebKit-driver limitation recorded** |
-| IOS-41 | Network | Inspect HTML, JS, PCK, WASM parts, worker, icon | Every required response 2xx; no mixed content or missing asset | **PENDING final deployment** |
-| IOS-42 | Versioning | Compare final local/public PCK and versioned boot assets | New filenames or content hashes; exact public/local hash match | **PENDING final deployment** |
-| IOS-43 | Cache | Cold load, normal reload, and cache-warm reopen | All three load the same fix revision; no stale JS/PCK/WASM mix | **PENDING final deployment** |
+| IOS-41 | Network | Inspect HTML, JS, PCK, WASM parts, worker, icon | Every required response 2xx; no mixed content or missing asset | **PASS public v8** — required runtime requests 200/expected 304 |
+| IOS-42 | Versioning | Compare final local/public PCK and versioned boot assets | New filenames or content hashes; exact public/local hash match | **PASS** — new PCK hash matches final integration build and differs from v7 |
+| IOS-43 | Cache | Cold load, normal reload, and cache-warm reopen | All three load the same fix revision; no stale JS/PCK/WASM mix | **PASS** — cold/reload/warm boomerang compile |
 | IOS-44 | Physical gate | User repeats the reported flow on real iPhone Safari | Can select, switch, dismiss/leave, rotate, and continue without lock | **TO VALIDATE — user-owned final gate** |
 
 ## 5. Five-mode functional oracle
@@ -244,26 +244,94 @@ correctly and are the accepted automation path.
 | IOS-QA-002 | **P1** | First implementation evidence showed approximately 28px mode rows | Selector height was raised to 102 logical px; compact screenshots and assertions prove at least 48 CSS px even in the 734×343 WebKit visual viewport. **CLOSED LOCALLY** |
 | IOS-QA-003 | **P1** | Initial portrait overlay was translucent, leaving the stretched compiler visible | `8cdea56` makes the backdrop opaque. Fresh Chromium and WebKit portrait captures show no compiler content. **CLOSED LOCALLY** |
 | IOS-QA-004 | **P2** | Windows Playwright WebKit emits repeated WebGL validation noise despite successful rendering/interactions | Recorded above; must be compared with real-device Safari diagnostics if available. **OPEN KNOWN TOOL LIMITATION** |
+| IOS-QA-005 | **P3 test constraint** | One public cold WebKit run sent its first LOAD IDEA tap after a fixed 900 ms instead of waiting for the rendered UI, so its melee audit used empty text | Waiting for the visible interactive screen produced the correct melee idea; the main integration owner's fresh full WebKit run also produced all five correct ideas. **TRIAGED — AUTOMATION READINESS LIMIT** |
 
 No P0 or P1 remains open in the local frozen-SHA regression.
 
-## 9. Delivery gates still open
+## 9. Public v8 regression
+
+Public URL under test:
+[Project Forge iPhone touch fix v8](https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?release=v8-b403d9e)
+
+Independent execution timestamp: 2026-07-19T09:53:24Z.
+
+### 9.1 HTTP, assets, version, and cache
+
+| Evidence | Public result |
+| --- | --- |
+| Entry document | **PASS** — HTTPS 200, `text/html`, 6,473 bytes |
+| Cache policy | **PASS** — HTML and stable runtime assets advertise `public, max-age=0, must-revalidate` |
+| Required files | **PASS** — loader, JS, PCK, both WASM parts, icon, and runtime requests return 200; revalidated loader/JS may return expected 304 |
+| Public PCK | 81,404 bytes; SHA-256 `806B6E27A86E9B97F53A67D5C2A60ACB9A56A07B1D077A02E46F869815CCD9BB` |
+| Version proof | **PASS** — PCK exactly matches the final integration build and differs from v7's 107,692-byte `1A40F507...14002` payload |
+| Public JS | 279,815 bytes; SHA-256 `68586D6DAAFC93C6E697B3FB258976874AA7459B8931165EBB1DC3C9614CC42C` |
+| Public WASM | Two parts reconstruct to 39,513,091 bytes; SHA-256 `35116F68540AC41ACF7D71EA457ADDED91B5E960A9CCA3E2ACC72918EAF01277`, exactly matching the final build |
+| Cold/reload/warm | **PASS** — cold load and reload use the v8 PCK; a cache-warm reopen compiled a valid fire boomerang and did not mix old/new assets |
+
+The site keeps Godot's stable runtime filenames, but this is not a query-only
+handoff: the deployed PCK has a new, independently measured content hash, matches
+the final integration build byte-for-byte, and is revalidated on reuse. The WASM
+engine payload is unchanged by the GDScript/UI fix and still matches byte-for-byte.
+
+### 9.2 Public Chromium
+
+Fresh public Chrome/Chromium mobile context:
+
+- **PASS** three portrait/landscape cycles and 844×390, 852×393, and 915×412
+  layout/no-scroll checks;
+- **PASS** 30 touch switches, outside/status tap, finger drawing, CLEAR rejection,
+  LOAD IDEA, compile, attack, REFORGE/BACK, and continued selection;
+- **PASS** all five deterministic ideas and final patterns: `melee_slash`,
+  `straight_projectile`, `boomerang`, `area_blast`, and `piercing`;
+- **PASS** all five resulting specs are runtime-valid and all five attacks execute;
+- **PASS** the complete cold-load-through-reforge flow reports 0 console errors
+  and 0 warnings.
+
+A separate artificial `about:blank` cache-warm navigation produced one standard
+Web Audio autoplay warning before the next user gesture. The subsequent touch
+flow and boomerang compile passed; the normal full regression above remained
+clean.
+
+### 9.3 Public WebKit/Safari path
+
+Fresh Playwright WebKit 26.5 `iPhone 15 landscape` context:
+
+- **PASS** 734×343 CSS px, DPR 3, landscape orientation, and no document scroll;
+- **PASS** 30 real WebKit touchscreen selector taps with no modal, lock, or lost
+  selected pattern;
+- **PASS** five runtime-valid specs, five distinct attacks, and
+  REFORGE/BACK/reselect;
+- **PASS** four ideas in the first fixed-delay run plus an independent melee
+  readiness retest; the main integration owner's fresh full WebKit run also
+  confirmed all five ideas 5/5;
+- **PASS** fresh 393×659 portrait displays only the opaque bilingual prompt and
+  rotation icon, with no stretched compiler visible and no document scroll.
+
+The public path retains the same non-blocking Windows Playwright WebKit WebGL
+validation noise recorded under IOS-QA-004. This does not certify real Safari's
+console or WebGL implementation. WebKit finger drawing and iOS keyboard behavior
+also remain physical-device checks because the driver lacks CDP touch-drag and a
+real iOS software keyboard.
+
+No public P0 or P1 remains open in Chromium or the functional WebKit path.
+
+## 10. Remaining gates
 
 - **TO VALIDATE:** no normal Git remote is configured, so the requested PR and CI
-  cannot yet be created or passed. The integration owner must not claim that gate.
-- **TO VALIDATE:** public v7 still contains the original broken dropdown. A newly
-  versioned deployment, HTTP/resource/hash checks, cold/warm cache checks, and the
-  same public Chromium/WebKit flows are not yet available.
+  evidence remains unavailable even though the v8 preview is deployed. This is a
+  delivery-process gap, not a public runtime failure.
 - **TO VALIDATE:** iOS keyboard open/close, Safari toolbar expansion/collapse,
-  physical safe areas, finger drawing, rotation recovery, and the original popup
-  reproduction must be checked by the user on the real iPhone.
+  physical safe areas, finger drawing, live rotation recovery, and the original
+  popup reproduction must be checked by the user on the real iPhone.
+- **CONFIRMED:** QA did not merge or clean the fix/QA branches or worktrees.
 
-## 10. Current disposition
+## 11. Current disposition
 
-**LOCAL PASS WITH ONE KNOWN TOOL LIMITATION — DELIVERY HOLD.**
+**PUBLIC AUTOMATION PASS WITH KNOWN TOOL LIMITATIONS — WAITING FOR PHYSICAL
+IPHONE SAFARI ACCEPTANCE.**
 
-The frozen fix `8cdea56` closes the local P0/P1 touch and portrait defects. M1A
-must nevertheless remain incomplete: do not merge a stable release, clean this
-branch/worktree, or start M1B until PR/CI or an explicitly approved exception,
-new public deployment/hash regression, and physical iPhone Safari acceptance are
-complete.
+The new public v8 closes the reproduced popup-lock and portrait-layout defects in
+local, Chromium, and functional WebKit automation. M1A must nevertheless remain
+in acceptance: do not merge a stable release, clean this branch/worktree, or
+start M1B until the user confirms the five buttons, exit/re-forge, keyboard,
+Safari toolbars, and repeated portrait/landscape behavior on the real iPhone.
