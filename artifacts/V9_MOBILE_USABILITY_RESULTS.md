@@ -1,6 +1,6 @@
 # v9 Mobile Usability verification
 
-Status: **TO VALIDATE — physical iPhone Safari gate remains open**
+Status: **CONFIRMED — physical iPhone Safari gate accepted by the product owner**
 
 Implementation source: `0dcc4a6`
 
@@ -90,12 +90,14 @@ selector layout.
 - `artifacts/v9_mobile_usability/reset-blank-state.png`
 - `artifacts/v9_mobile_usability/portrait-rotate-prompt.png`
 
-## Remaining gate
+## Physical iPhone Safari acceptance
 
-- **TO VALIDATE** A real iPhone Safari must prove that tapping Description opens
-  the system keyboard, cursor/edit/delete work, keyboard dismissal restores the
-  compact layout, and Safari toolbar expansion/collapse does not cover controls.
-- **TO VALIDATE** Repeat landscape → portrait → landscape three times on the
-  public v9 URL without refresh or input lock.
-- M1B and other new-feature development remain paused until the user accepts
-  these physical-device checks.
+**CONFIRMED:** the product owner tested the public v9 URL on a real iPhone Safari
+and formally accepted M1A mobile. The following all passed: portrait rotation
+prompt, automatic landscape recovery, repeated five-mode switching, usable
+drawing area, LOAD IDEA, Description editing, iOS keyboard open/close, `×`,
+RESET, all five COMPILE/ATTACK/REFORGE paths, BACK/re-entry, repeated orientation
+changes, and Safari toolbar expansion/collapse.
+
+No M1A mobile acceptance item remains open. M1B was not started as part of this
+release closure.

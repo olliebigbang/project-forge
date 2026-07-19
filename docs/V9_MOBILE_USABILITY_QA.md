@@ -2,9 +2,9 @@
 
 ## 1. Report status
 
-- **Current state:** `PASS WITH NON-BLOCKING LIMITATIONS — READY FOR V9 PUBLIC PREVIEW`
+- **Current state:** `PASS — M1A MOBILE ACCEPTED ON PHYSICAL IPHONE SAFARI`
 - **Release decision:** `CONFIRMED` no P0/P1 was found in independent local automation; the integrator may deploy V9 for the physical-device gate.
-- **Physical iPhone Safari gate:** `TO VALIDATE` — only the product owner can close this gate on a real iPhone.
+- **Physical iPhone Safari gate:** `CONFIRMED` — closed by the product owner's v9 acceptance.
 - **QA branch:** `codex/qa/v9-mobile-usability`
 - **QA worktree:** `C:\Users\Eddie L\Documents\project-forge-v9-qa`
 - **Implementation SHA under test:** `0dcc4a6` (`fix: make mobile forge compact and editable`)
@@ -297,3 +297,25 @@ Implementation `0dcc4a6` passed the independent automatable V9 regression. No P0
 `TO VALIDATE` remains for the new public deployment and resource hash, real iOS keyboard presentation and dismissal, non-zero safe-area insets, Safari toolbar behavior, and repeated orientation/touch recovery on the product owner's physical iPhone. These are acceptance gates, not reasons to block deploying the V9 candidate for device testing.
 
 **Decision: `PASS WITH KNOWN LIMITATIONS / NO P0/P1 / OK TO DEPLOY FOR DEVICE ACCEPTANCE`.**
+
+## 11. Product-owner physical-device acceptance addendum
+
+After the independent QA run, Sites version 9 was deployed at
+`https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?release=v9-f309f28`.
+The public entry point and `index.pck` returned HTTP 200; public PCK SHA-256
+`0BDD31A387B3373C90C88D8F4DB19F8F9369BA0B143900324810F7F9BF4191F9`
+matched the integrator's release build and differed from v8. Public Chromium and
+WebKit functional regression passed before the device handoff.
+
+The product owner then completed the real iPhone Safari run and explicitly
+reported PASS for the rotate prompt, landscape recovery, repeated five-mode
+switching, drawing size, LOAD IDEA, Description editing, real iOS keyboard
+open/close, `×`, RESET, all five COMPILE/ATTACK/REFORGE paths, BACK/re-entry,
+repeated orientation changes, and Safari toolbar expansion/collapse.
+
+This physical evidence closes the earlier `TO VALIDATE` entries V9-05, V9-08,
+V9-09, V9-23, V9-40, V9-42, V9-43, V9-46, and V9-55. The Windows Playwright
+WebKit GPU messages remain a documented test-runner limitation only; they did not
+reproduce as an application blocker on the accepted physical Safari build.
+
+**Final M1A mobile decision: `CONFIRMED — ACCEPTED`.**

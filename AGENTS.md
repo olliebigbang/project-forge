@@ -14,7 +14,7 @@ assets, balance data, or development direction from Cat Battle or another projec
 - Uncertainty must be marked exactly `CONFIRMED`, `ASSUMPTION`, `TO VALIDATE`, or
   `TBD`; do not silently resolve product questions.
 
-## Current scope: M1A
+## Current stable scope: M1A complete
 
 - Godot 4.7.1, 2D landscape, Web-first.
 - Drawing and one text line feed a deterministic local `WeaponCompiler`.
@@ -23,8 +23,10 @@ assets, balance data, or development direction from Cat Battle or another projec
 - Power cost must be explicit, deterministic, capped at 100, and logged.
 - Strong capabilities must have a visible drawback or deterministic stat cost.
 - Test against stationary, moving, shield, and grouped targets.
-- Keep M1B and all new features paused until the user accepts the replacement
-  build on a physical iPhone Safari session.
+- Physical iPhone Safari acceptance for v9 is complete and recorded.
+- Do not continue M1B or other new-feature development on the M1A stable branch.
+  Any authorized next milestone must start from the stable tag on a separate
+  branch with its own acceptance plan.
 - The M1A forge uses five persistent attack-pattern test buttons. Never restore
   an `OptionButton`, `PopupMenu`, or full-screen modal selector for this flow.
 
@@ -52,7 +54,8 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
 
 ## Git and agent workflow
 
-- Current integration branch: `codex/fix/v9-mobile-usability`.
+- Stable branch after release closure: `main`.
+- Stable release tag: `v0.1.0-m1a`.
 - Compact Landscape uses CSS `visualViewport` dimensions; do not size mobile
   touch controls from the 1280×720 logical viewport alone.
 - Web Description input is a bounded native HTML overlay synchronized with

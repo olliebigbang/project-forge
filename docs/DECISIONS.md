@@ -27,6 +27,8 @@ This log records current decisions without turning untested defaults into facts.
 | D-019 | **CONFIRMED** Forge viewports below 430 CSS px in landscape use a Compact Landscape policy driven by `visualViewport`; controls render at 44–48 CSS px, the five attack modes use one row, and the drawing area remains at least 150 CSS px and 40% of usable height | Physical iPhone v8 acceptance found that Godot logical sizes became oversized after browser scaling |
 | D-020 | **CONFIRMED** Web uses a bounded native HTML Description input and explicit 44×44 CSS px clear button, synchronized both ways with Godot; native Godot builds retain `LineEdit` | A real DOM input is the reliable iOS Safari keyboard/focus boundary, while keeping gameplay state inside Godot |
 | D-021 | **CONFIRMED** Description `×` clears text only. `RESET` clears drawing, Description, loaded-example state, and temporary feedback while preserving the selected attack mode | Removes the ambiguous v8 `CLEAR` behavior |
+| D-022 | **CONFIRMED** The product owner accepted M1A mobile on the public v9 build after a physical iPhone Safari pass covering rotation, Compact Landscape, drawing, native keyboard editing, `×`, RESET, all five compile/attack/reforge paths, BACK, and Safari toolbar changes | Physical-device acceptance reported by the product owner |
+| D-023 | **CONFIRMED** `v0.1.0-m1a` is the stable M1A release line; M1B must begin, if authorized, on a separate future branch and cannot modify the stable release during this closure | Release and branch-isolation instruction |
 
 ## Assumptions
 
@@ -43,14 +45,12 @@ This log records current decisions without turning untested defaults into facts.
 
 | ID | Question / hypothesis | Planned evidence |
 | --- | --- | --- |
-| V-001 | **TO VALIDATE (real iPhone v9 recheck)** Compact drawing, native Description input/keyboard, `×`, `RESET`, compile, BACK, and rotation recovery remain usable in real iPhone Safari | The user accepted v8 mode switching/compile/attack but rejected its layout and input; browser automation cannot close the v9 device gate |
 | V-002 | **TO VALIDATE** Player strokes remain recognizable when attached to the character | M0 screenshots and user test |
 | V-003 | **TO VALIDATE** Melee and projectile behavior feel mechanically distinct | M0 hands-on test |
 | V-004 | **TO VALIDATE** Players change ideas rather than re-roll for higher damage | M1/M2 playtest; deterministic M0 values avoid false reward |
 | V-005 | **CONFIRMED (M1A prototype)** Five attack forms and four elements fit one stable compiler/budget | 32-case matrix and five browser combat runs; balance feel remains M2 |
 | V-006 | **TO VALIDATE** Native safe areas, touch latency, and performance | M3 Android/iOS device matrix |
 | V-007 | **TO VALIDATE** Moderation, malformed output, timeout, caching, latency, and cost behavior | Backend prototype before paid integration |
-| V-008 | **TO VALIDATE (real iPhone v9)** Physical iPhone Safari safe-area, keyboard, and expanding/collapsing toolbar behavior at 844×390/852×393-equivalent visual viewports | User regression after the v9 Mobile Usability deployment |
 
 ## TBD
 
