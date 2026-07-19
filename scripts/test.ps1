@@ -48,5 +48,9 @@ Write-Host "`n== Sites static worker tests ==" -ForegroundColor Cyan
 if ($LASTEXITCODE -ne 0) {
     throw "Sites static worker tests failed with exit code $LASTEXITCODE"
 }
+& node --test (Join-Path $repoRoot "tests\wasm_chunk_loader.test.mjs")
+if ($LASTEXITCODE -ne 0) {
+    throw "WASM chunk loader tests failed with exit code $LASTEXITCODE"
+}
 
 Write-Host "`nAll Project Forge M0 checks passed." -ForegroundColor Green

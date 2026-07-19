@@ -28,32 +28,48 @@ Get-ChildItem -LiteralPath $webBuild -File |
     Where-Object { $_.Name -ne ".gitkeep" -and $_.Extension -ne ".import" } |
     Copy-Item -Destination $distClient -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "hosting\static_worker.mjs") -Destination (Join-Path $distServer "index.js") -Force
+Copy-Item -LiteralPath (Join-Path $repoRoot "hosting\wasm_chunk_loader.js") -Destination (Join-Path $distClient "wasm_chunk_loader.js") -Force
 
-# Sites has a 25 MB single-file limit. Store the Godot WASM precompressed and
-# let the edge worker expose it at the original /index.wasm request path.
+# Sites has a 25 MB single-file limit. Split the Godot WASM into two byte-exact
+# chunks and install a browser-side fetch shim that reconstructs the response.
 $wasmPath = Join-Path $distClient "index.wasm"
-$compressedWasmPath = "$wasmPath.gz"
+$chunkSize = 20MB
 $inputStream = [System.IO.File]::OpenRead($wasmPath)
-$outputStream = [System.IO.File]::Create($compressedWasmPath)
 try {
-    $gzipStream = [System.IO.Compression.GZipStream]::new(
-        $outputStream,
-        [System.IO.Compression.CompressionLevel]::Optimal,
-        $true
-    )
-    try {
-        $inputStream.CopyTo($gzipStream)
-    } finally {
-        $gzipStream.Dispose()
+    $buffer = New-Object byte[] (1MB)
+    for ($chunkIndex = 0; $chunkIndex -lt 2; $chunkIndex++) {
+        $chunkPath = "$wasmPath.part$chunkIndex"
+        $outputStream = [System.IO.File]::Create($chunkPath)
+        try {
+            $remaining = [Math]::Min($chunkSize, $inputStream.Length - $inputStream.Position)
+            while ($remaining -gt 0) {
+                $requested = [Math]::Min($buffer.Length, $remaining)
+                $read = $inputStream.Read($buffer, 0, $requested)
+                if ($read -le 0) {
+                    throw "Unexpected end of WebAssembly while creating chunk $chunkIndex"
+                }
+                $outputStream.Write($buffer, 0, $read)
+                $remaining -= $read
+            }
+        } finally {
+            $outputStream.Dispose()
+        }
+    }
+    if ($inputStream.Position -ne $inputStream.Length) {
+        throw "WebAssembly needs more than two Sites chunks."
     }
 } finally {
     $inputStream.Dispose()
-    $outputStream.Dispose()
-}
-if ((Get-Item -LiteralPath $compressedWasmPath).Length -ge 25MB) {
-    throw "Compressed WebAssembly still exceeds the Sites 25 MB file limit."
 }
 Remove-Item -LiteralPath $wasmPath -Force
+
+$htmlPath = Join-Path $distClient "index.html"
+$html = Get-Content -Raw -Encoding UTF8 -LiteralPath $htmlPath
+$loaderTag = '<script src="wasm_chunk_loader.js"></script>'
+if (-not $html.Contains($loaderTag)) {
+    $html = $html.Replace("</head>", "$loaderTag`n</head>")
+    [System.IO.File]::WriteAllText($htmlPath, $html, [System.Text.UTF8Encoding]::new($false))
+}
 
 $hostingFile = Join-Path $repoRoot ".openai\hosting.json"
 if (-not (Test-Path -LiteralPath $hostingFile)) {
@@ -64,7 +80,9 @@ $required = @(
     "dist\server\index.js",
     "dist\client\index.html",
     "dist\client\index.js",
-    "dist\client\index.wasm.gz",
+    "dist\client\index.wasm.part0",
+    "dist\client\index.wasm.part1",
+    "dist\client\wasm_chunk_loader.js",
     "dist\client\index.pck"
 )
 foreach ($relativePath in $required) {
