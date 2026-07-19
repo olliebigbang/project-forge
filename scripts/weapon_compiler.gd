@@ -32,7 +32,7 @@ func compile(description: String, drawing_summary: Dictionary = {}) -> WeaponSpe
 		"budget_after": balanced.after,
 		"corrections": spec.corrections,
 		"fallback_reason": fallback_reason,
-		"runtime_valid": spec.is_valid(),
+		"runtime_valid": _is_runtime_valid(spec, balanced),
 		"elapsed_ms": maxi(Time.get_ticks_msec() - started, 0),
 	}
 	_log_record(last_record)
@@ -52,7 +52,7 @@ func compile_raw(raw: Dictionary) -> WeaponSpec:
 		"budget_before": balanced.before,
 		"budget_after": balanced.after,
 		"corrections": spec.corrections,
-		"runtime_valid": spec.is_valid(),
+		"runtime_valid": _is_runtime_valid(spec, balanced),
 	}
 	return spec
 
@@ -159,3 +159,12 @@ func _log_record(record: Dictionary) -> void:
 	if file:
 		file.seek_end()
 		file.store_line(JSON.stringify(record))
+
+
+func _is_runtime_valid(spec: WeaponSpec, balanced: Dictionary) -> bool:
+	var actual := PowerBudget.calculate(spec.to_dict())
+	return (
+		spec.is_valid() and bool(balanced.within_budget)
+		and float(actual.total) <= PowerBudget.MAX_POWER
+		and spec.power_score == int(ceil(float(actual.total)))
+	)

@@ -40,6 +40,10 @@ func _test_input_matrix() -> void:
 		_expect(spec.element == case.element, "%s selects %s" % [case_id, case.element])
 		_expect(spec.is_valid(), "%s satisfies runtime validation" % case_id)
 		_expect(spec.power_score <= PowerBudget.MAX_POWER, "%s stays within power budget" % case_id)
+		var actual_budget := PowerBudget.calculate(spec.to_dict())
+		_expect(float(actual_budget.total) <= PowerBudget.MAX_POWER, "%s actual component sum stays within budget" % case_id)
+		_expect(spec.power_score == int(ceil(float(actual_budget.total))), "%s score matches actual component sum" % case_id)
+		_expect(bool(compiler.last_record.runtime_valid), "%s passes the complete runtime gate" % case_id)
 		_expect(not spec.has_strong_capability() or spec.drawback != "none", "%s strong capability has a tradeoff" % case_id)
 		_expect(str(compiler.last_record.get("fallback_reason", "")) == str(case.get("fallback", "")), "%s records expected fallback reason" % case_id)
 		patterns[spec.attack_pattern] = true
@@ -87,6 +91,11 @@ func _test_power_budget() -> void:
 	var spec := WeaponSpec.from_dict(balanced.values)
 	_expect(float(balanced.before.total) > PowerBudget.MAX_POWER, "overpowered input exceeds budget before repair")
 	_expect(spec.power_score <= PowerBudget.MAX_POWER, "overpowered input is repaired under 100")
+	var actual_after := PowerBudget.calculate(spec.to_dict())
+	_expect(float(actual_after.total) <= PowerBudget.MAX_POWER, "actual overpowered component sum is repaired under 100")
+	_expect(float(balanced.after.total) == float(actual_after.total), "reported total is the actual calculated total")
+	_expect(bool(balanced.within_budget), "within_budget derives from the actual total")
+	_expect(spec.power_score == int(ceil(float(actual_after.total))), "power_score is the ceiling of the actual total")
 	_expect(spec.drawback != "none", "overpowered input receives an explicit drawback")
 	_expect(balanced.corrections.size() >= 2, "budget repair records tradeoff and stat correction")
 	var parts := PowerBudget.calculate(spec.to_dict())
@@ -95,6 +104,11 @@ func _test_power_budget() -> void:
 		if key != "total": sum += float(parts[key])
 	_expect(is_equal_approx(snappedf(maxf(sum, 1.0), 0.1), float(parts.total)), "power total equals explicit component sum")
 	_expect(float(PowerBudget.PATTERN_COST.boomerang) != float(PowerBudget.PATTERN_COST.area_blast), "attack modules have distinct budget costs")
+	var contradictory := WeaponSpec.fallback().to_dict()
+	contradictory.merge({"attack_pattern":"straight_projectile", "weapon_class":"ranged", "range":900.0, "drawback":"short_reach"}, true)
+	var semantic_balance := PowerBudget.balance(contradictory)
+	_expect(float(semantic_balance.values.range) <= 180.0, "short_reach cannot claim credit while retaining long range")
+	_expect(semantic_balance.corrections.size() > 0, "semantic drawback correction is recorded")
 
 
 func _test_schema_runtime_parity() -> void:

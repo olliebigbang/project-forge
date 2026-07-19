@@ -29,42 +29,20 @@ static func balance(raw: Dictionary) -> Dictionary:
 	if _has_strong_capability(values) and values.drawback == "none":
 		values.drawback = _matching_drawback(values)
 		notes.append("budget: strong capability added tradeoff '%s'" % values.drawback)
+	_enforce_drawback(values, notes)
 
 	var current := calculate(values)
-	if float(current.total) > MAX_POWER:
-		var old_damage: int = values.damage
-		values.damage = maxi(1, int(floor(values.damage * 0.82)))
-		notes.append("budget: damage reduced %d -> %d" % [old_damage, values.damage])
-		current = calculate(values)
-	if float(current.total) > MAX_POWER:
-		var old_speed: float = values.attack_speed
-		values.attack_speed = maxf(0.2, snappedf(values.attack_speed * 0.84, 0.05))
-		notes.append("budget: attack_speed reduced %.2f -> %.2f" % [old_speed, values.attack_speed])
-		current = calculate(values)
-	if float(current.total) > MAX_POWER:
-		var old_range: float = values.range
-		values.range = maxf(40.0, snappedf(values.range * 0.82, 1.0))
-		notes.append("budget: range reduced %.0f -> %.0f" % [old_range, values.range])
-		current = calculate(values)
-	if float(current.total) > MAX_POWER:
-		values.drawback = "cooldown_lock"
-		notes.append("budget: cooldown_lock added to pay remaining cost")
-		current = calculate(values)
-	if float(current.total) > MAX_POWER:
-		var remaining := float(current.total) - MAX_POWER
-		values.damage = maxi(1, values.damage - int(ceil(remaining / 0.55)))
-		notes.append("budget: final damage clamp applied")
-		current = calculate(values)
-
-	values.power_score = clampi(int(ceil(float(current.total))), 1, MAX_POWER)
+	current = _reduce_to_budget(values, notes, current)
+	values.power_score = int(ceil(float(current.total)))
 	current = calculate(values)
-	current.total = values.power_score
+	var score_matches: bool = values.power_score == int(ceil(float(current.total)))
+	var within_budget: bool = float(current.total) <= float(MAX_POWER) and score_matches
 	return {
 		"values": values,
 		"before": before,
 		"after": current,
 		"corrections": notes,
-		"within_budget": values.power_score <= MAX_POWER,
+		"within_budget": within_budget,
 	}
 
 
@@ -112,3 +90,111 @@ static func _matching_drawback(values: Dictionary) -> String:
 	if values.attack_speed > 1.6: return "low_impact"
 	if values.range > 700.0: return "slow_projectile"
 	return "slow_recovery"
+
+
+static func _enforce_drawback(values: Dictionary, notes: Array[String]) -> void:
+	match values.drawback:
+		"slow_recovery":
+			if values.attack_speed > 1.2:
+				var old_speed: float = values.attack_speed
+				values.attack_speed = 1.2
+				notes.append("drawback: slow_recovery capped attack_speed %.2f -> 1.20" % old_speed)
+		"short_reach":
+			if values.range > 180.0:
+				var old_range: float = values.range
+				values.range = 180.0
+				notes.append("drawback: short_reach capped range %.0f -> 180" % old_range)
+		"slow_projectile":
+			if values.projectile_speed > 420.0:
+				var old_projectile_speed: float = values.projectile_speed
+				values.projectile_speed = 420.0
+				notes.append("drawback: slow_projectile capped projectile_speed %.0f -> 420" % old_projectile_speed)
+		"low_impact":
+			if values.damage > 32:
+				var old_damage: int = values.damage
+				values.damage = 32
+				notes.append("drawback: low_impact capped damage %d -> 32" % old_damage)
+		"self_stagger":
+			if values.attack_speed > 1.0:
+				var old_stagger_speed: float = values.attack_speed
+				values.attack_speed = 1.0
+				notes.append("drawback: self_stagger capped attack_speed %.2f -> 1.00" % old_stagger_speed)
+		"narrow_arc":
+			if values.attack_pattern != "piercing":
+				values.drawback = _matching_drawback(values)
+				notes.append("drawback: narrow_arc replaced because attack is not piercing")
+				_enforce_drawback(values, notes)
+		"cooldown_lock":
+			if values.attack_speed > 0.85:
+				var old_lock_speed: float = values.attack_speed
+				values.attack_speed = 0.85
+				notes.append("drawback: cooldown_lock capped attack_speed %.2f -> 0.85" % old_lock_speed)
+
+
+static func _reduce_to_budget(values: Dictionary, notes: Array[String], initial: Dictionary) -> Dictionary:
+	var current := initial
+	if float(current.total) > MAX_POWER and values.damage > 1:
+		var old_damage: int = values.damage
+		var reduction := int(ceil((float(current.total) - MAX_POWER) / 0.55))
+		values.damage = maxi(1, values.damage - reduction)
+		notes.append("budget: damage reduced %d -> %d" % [old_damage, values.damage])
+		current = calculate(values)
+	if float(current.total) > MAX_POWER and values.attack_speed > 0.2:
+		var old_speed: float = values.attack_speed
+		var target_speed: float = values.attack_speed - (float(current.total) - MAX_POWER) / 10.0
+		values.attack_speed = maxf(0.2, floorf(target_speed / 0.05) * 0.05)
+		notes.append("budget: attack_speed reduced %.2f -> %.2f" % [old_speed, values.attack_speed])
+		current = calculate(values)
+	if float(current.total) > MAX_POWER and values.range > 40.0:
+		var old_range: float = values.range
+		values.range = maxf(40.0, floorf(values.range - (float(current.total) - MAX_POWER) * 45.0))
+		notes.append("budget: range reduced %.0f -> %.0f" % [old_range, values.range])
+		current = calculate(values)
+	if float(current.total) > MAX_POWER and values.attack_pattern in ["straight_projectile", "boomerang", "piercing"] and values.projectile_speed > 180.0:
+		var old_projectile_speed: float = values.projectile_speed
+		values.projectile_speed = maxf(180.0, floorf(values.projectile_speed - (float(current.total) - MAX_POWER) * 200.0))
+		notes.append("budget: projectile_speed reduced %.0f -> %.0f" % [old_projectile_speed, values.projectile_speed])
+		current = calculate(values)
+	if float(current.total) > MAX_POWER and values.attack_pattern == "area_blast" and values.area_radius > 40.0:
+		var old_radius: float = values.area_radius
+		values.area_radius = maxf(40.0, floorf(values.area_radius - (float(current.total) - MAX_POWER) * 30.0))
+		notes.append("budget: area_radius reduced %.0f -> %.0f" % [old_radius, values.area_radius])
+		current = calculate(values)
+	if float(current.total) > MAX_POWER and values.attack_pattern == "piercing" and values.pierce_count > 1:
+		var old_pierce_count: int = values.pierce_count
+		values.pierce_count = maxi(1, values.pierce_count - int(ceil((float(current.total) - MAX_POWER) / 4.0)))
+		notes.append("budget: pierce_count reduced %d -> %d" % [old_pierce_count, values.pierce_count])
+		current = calculate(values)
+	if float(current.total) > MAX_POWER and values.special_ability != "none":
+		var old_ability: String = values.special_ability
+		values.special_ability = "none"
+		notes.append("budget: special_ability %s removed" % old_ability)
+		current = calculate(values)
+	if float(current.total) > MAX_POWER and values.status_effect != "none":
+		var old_status: String = values.status_effect
+		values.status_effect = "none"
+		notes.append("budget: status_effect %s removed" % old_status)
+		current = calculate(values)
+	if float(current.total) > MAX_POWER and values.element != "normal":
+		var old_element: String = values.element
+		values.element = "normal"
+		values.visual_material = "forged_metal"
+		notes.append("budget: element %s removed as final capability trim" % old_element)
+		current = calculate(values)
+	if float(current.total) > MAX_POWER:
+		# The minimum executable form of every allowed attack is below the cap.
+		# This final guard rejects any future unpriced module instead of masking it.
+		values.damage = 1
+		values.attack_speed = 0.2
+		values.range = 40.0
+		values.projectile_speed = 180.0
+		values.area_radius = 40.0
+		values.pierce_count = 1
+		values.special_ability = "none"
+		values.status_effect = "none"
+		values.element = "normal"
+		values.visual_material = "forged_metal"
+		values.drawback = _matching_drawback(values)
+		notes.append("budget: safe minimum fallback applied")
+		current = calculate(values)
+	return current

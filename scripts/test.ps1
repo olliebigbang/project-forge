@@ -24,9 +24,15 @@ function Invoke-GodotCheck {
         [string[]]$Arguments
     )
     Write-Host "`n== $Label ==" -ForegroundColor Cyan
-    & $script:Godot @Arguments
-    if ($LASTEXITCODE -ne 0) {
-        throw "$Label failed with exit code $LASTEXITCODE"
+    $output = @(& $script:Godot @Arguments 2>&1)
+    $exitCode = $LASTEXITCODE
+    $output | ForEach-Object { Write-Host $_ }
+    if ($exitCode -ne 0) {
+        throw "$Label failed with exit code $exitCode"
+    }
+    $diagnostics = $output -join "`n"
+    if ($diagnostics -match "(?m)SCRIPT ERROR:|^ERROR:|FAIL  ") {
+        throw "$Label emitted a script, runtime, or assertion failure despite exit code 0"
     }
 }
 
