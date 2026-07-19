@@ -1,0 +1,4 @@
+Project Forge M1A v9 Mobile Usability fix
+Deployed source commit: f309f28da1ff1e62e9a11b10fb66a55f737c5d5a
+index.pck SHA-256: 0BDD31A387B3373C90C88D8F4DB19F8F9369BA0B143900324810F7F9BF4191F9
+Status: TO VALIDATE on physical iPhone Safari

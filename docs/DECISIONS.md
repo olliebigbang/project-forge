@@ -21,6 +21,14 @@ This log records current decisions without turning untested defaults into facts.
 | D-013 | **CONFIRMED** Power is an explicit component sum capped at 100; strong capability cannot retain `none` as its drawback | Current-round acceptance |
 | D-014 | **CONFIRMED** JSON Schema and runtime repair are independently checked and kept in field/enum parity | Current-round acceptance |
 | D-015 | **CONFIRMED** Public Web hosting reconstructs an exact two-part WASM payload because the provider rejects the raw 39.5 MB file | Deployment evidence |
+| D-016 | **CONFIRMED** M1A exposes five always-visible, mutually exclusive attack-pattern buttons only as deterministic compiler test tools; `LOAD IDEA` and compile use the selected pattern | Real iPhone Safari showed the former `OptionButton`/`PopupMenu` could capture all page touch |
+| D-017 | **CONFIRMED** In M1B player-facing generation, attack pattern is inferred from drawing/text/voice; the five manual buttons are hidden unless developer test mode is enabled or the player explicitly chooses “modify recognition result” | Prevent M1A test UI from becoming the final player flow |
+| D-018 | **CONFIRMED** The Web game targets landscape but does not rely on browser orientation lock; portrait shows a reversible bilingual rotate prompt and automatically resumes after landscape rotation | Mobile Safari cannot reliably honor Web orientation lock |
+| D-019 | **CONFIRMED** Forge viewports below 430 CSS px in landscape use a Compact Landscape policy driven by `visualViewport`; controls render at 44–48 CSS px, the five attack modes use one row, and the drawing area remains at least 150 CSS px and 40% of usable height | Physical iPhone v8 acceptance found that Godot logical sizes became oversized after browser scaling |
+| D-020 | **CONFIRMED** Web uses a bounded native HTML Description input and explicit 44×44 CSS px clear button, synchronized both ways with Godot; native Godot builds retain `LineEdit` | A real DOM input is the reliable iOS Safari keyboard/focus boundary, while keeping gameplay state inside Godot |
+| D-021 | **CONFIRMED** Description `×` clears text only. `RESET` clears drawing, Description, loaded-example state, and temporary feedback while preserving the selected attack mode | Removes the ambiguous v8 `CLEAR` behavior |
+| D-022 | **CONFIRMED** The product owner accepted M1A mobile on the public v9 build after a physical iPhone Safari pass covering rotation, Compact Landscape, drawing, native keyboard editing, `×`, RESET, all five compile/attack/reforge paths, BACK, and Safari toolbar changes | Physical-device acceptance reported by the product owner |
+| D-023 | **CONFIRMED** `v0.1.0-m1a` is the stable M1A release line; M1B must begin, if authorized, on a separate future branch and cannot modify the stable release during this closure | Release and branch-isolation instruction |
 
 ## Assumptions
 
@@ -37,7 +45,6 @@ This log records current decisions without turning untested defaults into facts.
 
 | ID | Question / hypothesis | Planned evidence |
 | --- | --- | --- |
-| V-001 | **CONFIRMED (Web emulation)** Touch drawing remains controllable at 844×390 and the layout remains usable at 915×412 | Native Android/iOS devices remain an M3 validation |
 | V-002 | **TO VALIDATE** Player strokes remain recognizable when attached to the character | M0 screenshots and user test |
 | V-003 | **TO VALIDATE** Melee and projectile behavior feel mechanically distinct | M0 hands-on test |
 | V-004 | **TO VALIDATE** Players change ideas rather than re-roll for higher damage | M1/M2 playtest; deterministic M0 values avoid false reward |

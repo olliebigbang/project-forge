@@ -14,7 +14,7 @@ assets, balance data, or development direction from Cat Battle or another projec
 - Uncertainty must be marked exactly `CONFIRMED`, `ASSUMPTION`, `TO VALIDATE`, or
   `TBD`; do not silently resolve product questions.
 
-## Current scope: M1A
+## Current stable scope: M1A complete
 
 - Godot 4.7.1, 2D landscape, Web-first.
 - Drawing and one text line feed a deterministic local `WeaponCompiler`.
@@ -23,6 +23,12 @@ assets, balance data, or development direction from Cat Battle or another projec
 - Power cost must be explicit, deterministic, capped at 100, and logged.
 - Strong capabilities must have a visible drawback or deterministic stat cost.
 - Test against stationary, moving, shield, and grouped targets.
+- Physical iPhone Safari acceptance for v9 is complete and recorded.
+- Do not continue M1B or other new-feature development on the M1A stable branch.
+  Any authorized next milestone must start from the stable tag on a separate
+  branch with its own acceptance plan.
+- The M1A forge uses five persistent attack-pattern test buttons. Never restore
+  an `OptionButton`, `PopupMenu`, or full-screen modal selector for this flow.
 
 Do not add paid AI, secrets, production levels or art, voice, accounts, cloud
 saves, sharing, monetization, multiplayer, or store submission in M1A.
@@ -48,7 +54,13 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
 
 ## Git and agent workflow
 
-- Main integration branch: `codex/m1a-deterministic-compiler`.
+- Stable branch after release closure: `main`.
+- Stable release tag: `v0.1.0-m1a`.
+- Compact Landscape uses CSS `visualViewport` dimensions; do not size mobile
+  touch controls from the 1280×720 logical viewport alone.
+- Web Description input is a bounded native HTML overlay synchronized with
+  Godot. Keep it off combat and portrait-gate screens, and preserve native
+  `LineEdit` behavior for non-Web builds.
 - QA and art work remain isolated in their assigned worktrees/branches.
 - Only the main integrator selects changes into the delivery branch.
 - Never merge, delete branches/worktrees, or clean user work without confirmation.

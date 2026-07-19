@@ -9,10 +9,14 @@ modules can be tested against stationary, moving, shielded, and grouped targets.
 
 ## Public preview
 
-[Project Forge public Web trial](https://project-forge-weapon-lab.hongningliu0130.chatgpt.site)
+[Project Forge iPhone touch-fix Web trial](https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?release=v8-b403d9e)
 
 The same URL is updated in place for M1A. It is public and does not require a
 local server, account, API key, or paid service.
+
+The replacement Sites v8 assets and automated Chromium/WebKit regressions pass.
+Physical iPhone Safari remains the user acceptance gate; M1B stays paused until
+that check succeeds.
 
 ## Local use
 

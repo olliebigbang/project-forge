@@ -1,7 +1,8 @@
 # Project Forge — Game Design Document
 
 Version: 0.1 (organized from the supplied GDD)  
-Current delivery milestone: M0 technical spike
+Current delivery milestone: **M1A deterministic weapon compiler — CONFIRMED complete**
+Stable mobile acceptance: **CONFIRMED on physical iPhone Safari with v9**
 
 ## 1. Product identity
 
@@ -248,10 +249,15 @@ rolling for a higher damage value.
 
 ## 12. Milestones
 
-- **M0 — technical spike (current):** Godot, drawing board, Web export, touch,
+- **M0 — technical spike (complete):** Godot, drawing board, Web export, touch,
   service boundary, `WeaponSpec`, visible weapon, training dummy, melee/projectile.
-- **M1 — weapon compiler:** combined input, interpretation, power budget, five
-  attack forms, four elements, training target, 20 input cases.
+- **M1A — deterministic weapon compiler (complete):** combined drawing/text
+  input, explicit power budget, runtime and JSON Schema validation/repair, five
+  attack forms, four elements, target lab, 32 input cases, public Web deployment,
+  and physical iPhone Safari acceptance.
+- **M1B — real AI interpretation (not started):** AI inference may be considered
+  only as a separately scoped branch after release planning; no paid API or M1B
+  implementation is part of the M1A stable branch.
 - **M2 — vertical slice:** production combat character, three normal monsters, one
   boss, 3–4 stages, win/loss/retry, base audio, animation, feedback.
 - **M3 — voice and mobile test:** voice-to-text, Android internal test, iOS
