@@ -61,6 +61,14 @@ var web_mobile_bridge := WebMobileBridge.new()
 var _web_sync_elapsed := 0.0
 var _last_stable_landscape_css_size := Vector2.ZERO
 var _status_revision := 0
+var _qa_attack_count := 0
+var _qa_last_attack_pattern := ""
+var _qa_feedback_count := 0
+var _last_try_again_msec := -10000
+var _review_ui_ready := false
+var _combat_ui_ready := false
+var _loading_ui_ready := false
+var _developer_ui_ready := false
 
 
 func _ready() -> void:
@@ -642,17 +650,22 @@ func _generate_weapon() -> void:
 
 func _on_interpretation_started(_request_id: String) -> void:
 	review_mode = false
+	_review_ui_ready = false
+	_loading_ui_ready = false
 	review_panel.hide()
 	_set_forge_interactable(false)
-	generate_button.hide()
+	generate_button.text = "FORGING…"
+	generate_button.show()
 	cancel_button.show()
 	forge_status.text = "AI is interpreting your weapon…"
 	forge_status.add_theme_color_override("font_color", Color("#b9eaff"))
+	_apply_forge_layout()
 	_sync_web_description_overlay()
-	_update_qa_bridge()
+	call_deferred("_mark_loading_ui_ready")
 
 
 func _on_interpretation_completed(result: Dictionary) -> void:
+	_loading_ui_ready = false
 	pending_result = result.duplicate(true)
 	var raw_spec: Variant = pending_result.get("weapon_spec")
 	if not raw_spec is Dictionary:
@@ -671,6 +684,7 @@ func _on_interpretation_completed(result: Dictionary) -> void:
 
 
 func _on_interpretation_cancelled(_request_id: String) -> void:
+	_loading_ui_ready = false
 	_show_forge_form(false)
 	_show_forge_toast("Interpretation cancelled — drawing and text preserved.", Color("#ffca78"), 1.8)
 	_update_qa_bridge()
@@ -685,12 +699,26 @@ func _show_interpretation_review() -> void:
 	if pending_spec == null:
 		return
 	review_mode = true
+	_review_ui_ready = false
 	modify_mode = false
 	drawing_canvas.hide()
 	description_row.hide()
 	pattern_selector.hide()
 	forge_action_row.hide()
 	review_panel.show()
+	feedback_button.disabled = false
+	_update_review_copy()
+	back_button.disabled = false
+	_apply_forge_layout()
+	_sync_web_description_overlay()
+	# Containers finalize button rectangles over deferred layout passes. Do not
+	# expose a terminal QA phase until the visible controls have stable bounds.
+	call_deferred("_mark_review_ui_ready")
+
+
+func _update_review_copy() -> void:
+	if pending_spec == null:
+		return
 	var fallback_reason := str(pending_result.get("fallback_reason", ""))
 	var summary := str(pending_result.get("interpretation_summary", "Weapon interpretation ready."))
 	if not fallback_reason.is_empty():
@@ -725,14 +753,12 @@ func _show_interpretation_review() -> void:
 		int(pending_result.get("latency_ms", 0)),
 		cost_text,
 	]
-	back_button.disabled = false
-	_apply_forge_layout()
-	_sync_web_description_overlay()
-	_update_qa_bridge()
 
 
 func _show_forge_form(correction: bool) -> void:
 	review_mode = false
+	_review_ui_ready = false
+	_loading_ui_ready = false
 	modify_mode = correction
 	review_panel.hide()
 	drawing_canvas.show()
@@ -766,8 +792,21 @@ func _modify_interpretation() -> void:
 		return
 	var current_index := AttackPatternSelector.PATTERNS.find(pending_spec.attack_pattern)
 	pattern_selector.select_pattern(maxi(current_index, 0), false)
-	_show_forge_form(true)
-	_show_forge_toast("Choose one attack pattern, then review the corrected result.", Color("#b9eaff"), 0.0)
+	review_mode = true
+	_review_ui_ready = false
+	modify_mode = true
+	drawing_canvas.hide()
+	description_row.hide()
+	forge_action_row.hide()
+	review_panel.show()
+	pattern_selector.show()
+	for button: Button in pattern_selector.buttons():
+		button.disabled = false
+	feedback_button.disabled = false
+	review_summary.text = "MODIFY INTERPRETATION — choose one attack pattern. Validation updates immediately."
+	_apply_forge_layout()
+	_sync_web_description_overlay()
+	call_deferred("_mark_review_ui_ready")
 
 
 func _apply_manual_correction() -> void:
@@ -787,8 +826,17 @@ func _apply_manual_correction() -> void:
 	pending_result.provider_metadata = {"provider": "player_correction", "model": "deterministic_validator", "attempts": 0}
 	pending_result.latency_ms = int(service.last_record.get("elapsed_ms", 0))
 	pending_result.estimated_cost = "UNKNOWN"
-	pending_result.runtime_valid = corrected.is_valid()
-	_show_interpretation_review()
+	pending_result.power_budget = corrected.budget_breakdown.duplicate(true)
+	pending_result.schema_valid = corrected.is_valid()
+	pending_result.allow_list_valid = corrected.is_valid()
+	pending_result.power_valid = corrected.power_score <= PowerBudget.MAX_POWER
+	pending_result.runtime_valid = corrected.is_valid() and corrected.power_score <= PowerBudget.MAX_POWER
+	if modify_mode:
+		_update_review_copy()
+		_apply_forge_layout()
+		_update_qa_bridge()
+	else:
+		_show_interpretation_review()
 
 
 func _apply_developer_pattern_override() -> void:
@@ -806,11 +854,16 @@ func _apply_developer_pattern_override() -> void:
 
 
 func _try_again() -> void:
+	var now := Time.get_ticks_msec()
+	if now - _last_try_again_msec < 1500:
+		return
+	_last_try_again_msec = now
 	_show_forge_form(false)
 	_generate_weapon()
 
 
 func _flag_result() -> void:
+	_qa_feedback_count += 1
 	review_summary.text = "RESULT FLAGGED FOR THIS SESSION ONLY\nNo drawing or description was published or stored."
 	feedback_button.disabled = true
 	_update_qa_bridge()
@@ -848,9 +901,12 @@ func _commit_weapon() -> void:
 	combat_status.text = "%s ready. Use A/D or touch, then SPACE/ATTACK." % current_spec.attack_label()
 	reforge_button.disabled = false
 	attack_button.disabled = true
+	_combat_ui_ready = false
+	pattern_selector.hide()
 	forge_overlay.hide()
 	_sync_web_description_overlay()
 	review_mode = false
+	_review_ui_ready = false
 	modify_mode = false
 	_arm_attack_button()
 	_update_qa_bridge()
@@ -862,6 +918,8 @@ func _arm_attack_button() -> void:
 	await get_tree().process_frame
 	if current_spec and not forge_overlay.visible:
 		attack_button.disabled = false
+		_combat_ui_ready = true
+		_update_qa_bridge()
 
 
 func _close_reforge() -> void:
@@ -878,6 +936,7 @@ func _close_reforge() -> void:
 	description_input.release_focus()
 	if web_mobile_bridge.is_available():
 		web_mobile_bridge.blur()
+	_combat_ui_ready = false
 	forge_overlay.hide()
 	review_mode = false
 	modify_mode = false
@@ -888,6 +947,7 @@ func _close_reforge() -> void:
 
 
 func _open_reforge() -> void:
+	_combat_ui_ready = false
 	attack_button.disabled = true
 	player.set_combat_enabled(false)
 	_clear_transient_combat()
@@ -920,6 +980,9 @@ func _load_selected_idea() -> void:
 
 
 func _on_pattern_selected(_index: int, pattern: String) -> void:
+	if modify_mode and pending_spec != null:
+		_apply_manual_correction()
+		return
 	_show_forge_toast("%s selected" % pattern.replace("_", " ").to_upper(), Color("#b9eaff"), 1.2)
 
 
@@ -935,6 +998,9 @@ func _clear_transient_combat() -> void:
 
 
 func _on_player_attack(spec: WeaponSpec, origin: Vector2, direction: Vector2, strokes: Array[PackedVector2Array]) -> void:
+	_qa_attack_count += 1
+	_qa_last_attack_pattern = spec.attack_pattern
+	_update_qa_bridge()
 	match spec.attack_pattern:
 		"melee_slash": _launch_melee(spec, origin, direction)
 		"area_blast": _launch_area(spec, player.global_position + Vector2(0, -12), direction)
@@ -1072,49 +1138,84 @@ func _detect_locale(text: String) -> String:
 func _on_qa_command(command: String, payload: Dictionary) -> void:
 	match command:
 		"scenario":
-			interpreter.set_test_scenario(str(payload.get("name", "success")))
+			var options: Variant = payload.get("options", {})
+			interpreter.set_test_scenario(
+				str(payload.get("name", "success")),
+				options if options is Dictionary else {},
+			)
 		"developer_mode":
 			developer_mode = bool(payload.get("enabled", false))
+			_developer_ui_ready = false
 			if not review_mode and not interpreter.in_flight:
 				pattern_selector.visible = developer_mode or modify_mode
 				load_idea_button.visible = developer_mode and not modify_mode
 				_apply_forge_layout()
+			if developer_mode:
+				call_deferred("_mark_developer_ui_ready")
+				return
 	_update_qa_bridge()
 
 
 func _update_qa_bridge() -> void:
 	if not web_mobile_bridge.is_available() or forge_overlay == null:
 		return
-	var phase := "forge"
+	var screen := "forge"
+	var phase := "idle"
 	if orientation_prompt and orientation_prompt.visible:
+		screen = "portrait"
 		phase = "portrait"
 	elif not forge_overlay.visible:
-		phase = "combat"
+		if _combat_ui_ready:
+			screen = "combat"
+			phase = "combat"
+		else:
+			screen = "transition"
+			phase = "settling"
+	elif interpreter.in_flight and not _loading_ui_ready:
+		phase = "settling"
 	elif interpreter.in_flight:
 		phase = "loading"
-	elif review_mode:
-		phase = "review"
+	elif review_mode and not _review_ui_ready:
+		screen = "confirmation"
+		phase = "settling"
 	elif modify_mode:
 		phase = "modify"
+		screen = "confirmation"
+	elif review_mode:
+		screen = "confirmation"
+		phase = "fallback" if not str(pending_result.get("fallback_reason", "")).is_empty() else "result"
+	var request_id := interpreter.active_request_id
+	if request_id.is_empty():
+		request_id = str(pending_result.get("request_id", ""))
+	var selector_visible := pattern_selector.visible
+	if developer_mode and not modify_mode:
+		selector_visible = selector_visible and _developer_ui_ready
 	var state := {
-		"screen": "combat" if not forge_overlay.visible else "forge",
+		"screen": screen,
 		"phase": phase,
 		"request_count": interpreter.request_count,
 		"attempts": interpreter.attempts,
+		"request_attempts": interpreter.attempts,
 		"in_flight": interpreter.in_flight,
-		"request_id": interpreter.active_request_id,
+		"request_id": request_id,
 		"description": description_input.text,
 		"drawing_count": drawing_canvas.strokes.size(),
-		"selector_visible": pattern_selector.visible,
+		"selector_visible": selector_visible,
+		"selected_pattern": pattern_selector.selected_pattern(),
 		"developer_mode": developer_mode,
 		"modify_mode": modify_mode,
 		"review_mode": review_mode,
 		"result": pending_result,
 		"spec": pending_spec.to_dict() if pending_spec else {},
+		"confirmation_fields": _confirmation_field_evidence(),
 		"runtime_valid": bool(pending_result.get("runtime_valid", false)),
 		"power_score": pending_spec.power_score if pending_spec else 0,
 		"fallback_reason": str(pending_result.get("fallback_reason", "")),
 		"message": review_summary.text if review_mode else forge_status.text,
+		"late_response_ignored": interpreter.late_response_ignored,
+		"feedback_count": _qa_feedback_count,
+		"attack_count": _qa_attack_count,
+		"last_attack_pattern": _qa_last_attack_pattern,
 	}
 	var pattern_rects: Array[Dictionary] = []
 	for button: Button in pattern_selector.buttons():
@@ -1134,6 +1235,51 @@ func _update_qa_bridge() -> void:
 		"pattern_buttons": pattern_rects,
 	}
 	web_mobile_bridge.update_qa_state(state, controls, size)
+
+
+func _mark_review_ui_ready() -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not review_mode:
+		return
+	_review_ui_ready = true
+	_update_qa_bridge()
+
+
+func _mark_loading_ui_ready() -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not interpreter.in_flight:
+		return
+	_loading_ui_ready = true
+	_update_qa_bridge()
+
+
+func _mark_developer_ui_ready() -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not developer_mode:
+		return
+	_developer_ui_ready = true
+	_update_qa_bridge()
+
+
+func _confirmation_field_evidence() -> Dictionary:
+	if pending_spec == null or not review_mode:
+		return {}
+	return {
+		"name": pending_spec.display_name,
+		"summary": str(pending_result.get("interpretation_summary", "Weapon interpretation ready.")),
+		"attack_pattern": pending_spec.attack_pattern,
+		"element": pending_spec.element,
+		"damage": pending_spec.damage,
+		"attack_speed": pending_spec.attack_speed,
+		"range": pending_spec.attack_range,
+		"special_ability": pending_spec.special_ability,
+		"status_effect": pending_spec.status_effect,
+		"weakness": pending_spec.weakness_label(),
+		"power_score": pending_spec.power_score,
+	}
 
 
 func _rect_dictionary(control: Control) -> Dictionary:

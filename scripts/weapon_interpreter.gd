@@ -15,12 +15,16 @@ var attempts := 0
 var active_request_id := ""
 var last_result: Dictionary = {}
 var test_scenario := "success"
+var test_options: Dictionary = {}
+var test_mode_enabled := false
 var force_local := false
+var late_response_ignored := 0
 
 var _http_request: HTTPRequest
 var _compiler := WeaponCompiler.new()
 var _request_revision := 0
 var _active_payload: Dictionary = {}
+var _active_test_options: Dictionary = {}
 var _started_msec := 0
 
 
@@ -56,12 +60,13 @@ func start_interpretation(
 		"maximum_power_score": PowerBudget.MAX_POWER,
 	}
 	var selected_scenario := scenario if not scenario.is_empty() else test_scenario
+	_active_test_options = test_options.duplicate(true)
 	if selected_scenario != "success":
 		_active_payload.test_scenario = selected_scenario
 	in_flight = true
 	interpretation_started.emit(active_request_id)
 
-	if force_local or not OS.has_feature("web") or selected_scenario != "success":
+	if force_local or test_mode_enabled or not OS.has_feature("web") or selected_scenario != "success":
 		call_deferred("_complete_local", _request_revision, selected_scenario)
 		return active_request_id
 
@@ -85,28 +90,39 @@ func cancel() -> bool:
 	if not in_flight:
 		return false
 	var cancelled_request := active_request_id
+	# The active revision is invalidated before either the local timer or HTTP
+	# callback can publish. Count that discarded work immediately for QA/audit.
+	late_response_ignored += 1
 	_request_revision += 1
 	in_flight = false
 	active_request_id = ""
 	_active_payload = {}
+	_active_test_options = {}
 	if _http_request != null:
 		_http_request.cancel_request()
 	interpretation_cancelled.emit(cancelled_request)
 	return true
 
 
-func set_test_scenario(value: String) -> void:
+func set_test_scenario(value: String, options: Dictionary = {}) -> void:
 	var allowed := [
 		"success", "delayed_success", "timeout", "network_error", "rate_limit",
 		"invalid_json", "missing_fields", "unsupported_ability", "backend_unavailable",
 	]
 	test_scenario = value if value in allowed else "success"
+	test_options = options.duplicate(true)
+	test_mode_enabled = true
 
 
 func _complete_local(revision: int, scenario: String) -> void:
-	var delay := 0.36 if scenario == "delayed_success" else 0.08
+	var default_delay_ms := 900 if scenario == "delayed_success" else 80
+	var delay_ms := clampi(int(_active_test_options.get("delay_ms", default_delay_ms)), 20, 3000)
+	if scenario == "delayed_success":
+		delay_ms = maxi(delay_ms, 2500)
+	var delay := float(delay_ms) / 1000.0
 	await get_tree().create_timer(delay).timeout
 	if revision != _request_revision or not in_flight:
+		late_response_ignored += 1
 		return
 	var fallback_by_scenario := {
 		"timeout": "provider_timeout",
@@ -177,6 +193,7 @@ func _on_http_request_completed(
 ) -> void:
 	var revision := _request_revision
 	if not in_flight:
+		late_response_ignored += 1
 		return
 	if result_code != HTTPRequest.RESULT_SUCCESS:
 		var reason := "provider_timeout" if result_code == HTTPRequest.RESULT_TIMEOUT else "network_unavailable"
@@ -298,6 +315,7 @@ func _finish(revision: int, result: Dictionary) -> void:
 	in_flight = false
 	active_request_id = ""
 	_active_payload = {}
+	_active_test_options = {}
 	last_result = result.duplicate(true)
 	print("[WeaponInterpreter] ", JSON.stringify({
 		"request_id": str(result.get("request_id", "")),

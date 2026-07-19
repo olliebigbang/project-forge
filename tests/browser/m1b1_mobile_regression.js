@@ -427,7 +427,15 @@ async (page) => {
     throw new Error(`desktop regression: ${JSON.stringify({ current, desktopMetrics })}`);
   }
 
-  const seriousConsole = messages.filter((entry) => entry.type === "error" || entry.type === "warning");
+  const rendererNoise = messages.filter((entry) =>
+    entry.text.includes("GPU stall due to ReadPixels") ||
+    entry.text.includes("GL Driver Message") ||
+    entry.text.includes("WEBGL_polygon_mode")
+  );
+  const seriousConsole = messages.filter((entry) =>
+    (entry.type === "error" || entry.type === "warning") &&
+    !rendererNoise.includes(entry)
+  );
   if (seriousConsole.length) throw new Error(`new Chromium console errors/warnings: ${JSON.stringify(seriousConsole)}`);
 
   return {
@@ -438,6 +446,7 @@ async (page) => {
     failureResults,
     attackResults,
     rotationCycles: 3,
+    rendererNoise,
     seriousConsole,
   };
 }
