@@ -328,8 +328,12 @@ func _launch_melee(spec: WeaponSpec, origin: Vector2, direction: Vector2) -> voi
 	world.add_child(slash)
 	var candidates: Array[TrainingDummy] = []
 	for target in targets:
-		var forward := (target.global_position.x - player.global_position.x) * direction.x
-		if forward >= 0 and forward <= spec.attack_range + 42 and absf(target.global_position.y - player.global_position.y) < 85: candidates.append(target)
+		var offset := target.global_position - player.global_position
+		var forward := offset.dot(direction.normalized())
+		# The visible slash and the hand-drawn weapon extend beyond the body origin.
+		# Keep the target in the facing half-plane while allowing that full visual reach.
+		if forward >= -12.0 and forward <= spec.attack_range + 96.0 and absf(offset.y) < 120.0:
+			candidates.append(target)
 	if candidates.is_empty():
 		combat_status.text = "Melee slash missed — close the distance."
 		return
