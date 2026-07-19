@@ -40,8 +40,7 @@ const SQL = Object.freeze({
       request_count = request_count + 1,
       expires_at = excluded.expires_at
     RETURNING request_count`,
-  deleteExpiredResults: `DELETE FROM forge_request_ledger
-    WHERE status = 'complete' AND expires_at <= ?`,
+  deleteExpiredRequests: "DELETE FROM forge_request_ledger WHERE expires_at <= ?",
   insertRequest: `INSERT OR IGNORE INTO forge_request_ledger
     (namespace, request_id, fingerprint, owner_token, status, result_json,
      created_at, updated_at, expires_at)
@@ -163,7 +162,10 @@ export async function beginDurableRequest(
   fingerprint,
   now = Date.now(),
 ) {
-  await db.prepare(SQL.deleteExpiredResults).bind(now).run();
+  // Completed replays and abandoned in-flight leases are both short-lived.
+  // Removing every expired row prevents crashed worker operations with unique
+  // request IDs from accumulating indefinitely.
+  await db.prepare(SQL.deleteExpiredRequests).bind(now).run();
   const ownerToken = randomOwnerToken();
   const expiresAt = now + DURABLE_GUARD_LIMITS.inflight_lease_ms;
   const inserted = await db.prepare(SQL.insertRequest).bind(

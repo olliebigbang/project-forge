@@ -323,8 +323,8 @@ test("concurrent idempotent requests share one in-flight provider operation", as
     body: JSON.stringify(payload),
   });
   const [first, second] = await Promise.all([
-    handleCompileWeapon(makeRequest(), {}, { adapter }),
-    handleCompileWeapon(makeRequest(), {}, { adapter }),
+    handleCompileWeapon(makeRequest(), {}, { adapter, allowMemoryGuardForTests: true }),
+    handleCompileWeapon(makeRequest(), {}, { adapter, allowMemoryGuardForTests: true }),
   ]);
   assert.equal(first.status, 200);
   assert.equal(second.status, 200);
@@ -357,12 +357,12 @@ test("idempotency keys are namespaced per client session", async () => {
   const first = await handleCompileWeapon(
     makeRequest(firstPayload, "44444444444444444444444444444444"),
     {},
-    { adapter },
+    { adapter, allowMemoryGuardForTests: true },
   );
   const second = await handleCompileWeapon(
     makeRequest(secondPayload, "55555555555555555555555555555555"),
     {},
-    { adapter },
+    { adapter, allowMemoryGuardForTests: true },
   );
   assert.equal(first.status, 200);
   assert.equal(second.status, 200);
@@ -404,7 +404,7 @@ test("provider free text and nested metadata cannot leak into response or audit"
         "x-forge-session": "66666666666666666666666666666666",
       },
       body: JSON.stringify(requestFor(matrix[0], "metadata-leak")),
-    }), {}, { adapter });
+    }), {}, { adapter, allowMemoryGuardForTests: true });
     assert.equal(response.status, 200);
     const body = await response.json();
     assert.equal(JSON.stringify(body).includes(marker), false);

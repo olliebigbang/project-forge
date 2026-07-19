@@ -235,6 +235,32 @@ test("an expired owner cannot overwrite a reclaimed durable lease", async (conte
   ), true);
 });
 
+test("a later request removes abandoned expired leases", async (context) => {
+  const store = new SharedD1Store();
+  context.after(() => store.close());
+  const db = store.binding();
+  await ensureDurableRequestGuard(db);
+  const start = 1_800_000_000_000;
+  assert.equal(
+    (await beginDurableRequest(db, "session", "abandoned", "fingerprint", start)).state,
+    "owner",
+  );
+  assert.equal(
+    (await beginDurableRequest(
+      db,
+      "session",
+      "cleanup-trigger",
+      "fingerprint",
+      start + DURABLE_GUARD_LIMITS.inflight_lease_ms + 1,
+    )).state,
+    "owner",
+  );
+  const abandoned = store.database.prepare(
+    "SELECT request_id FROM forge_request_ledger WHERE request_id = ?",
+  ).get("abandoned");
+  assert.equal(abandoned, undefined);
+});
+
 test("durable session quota is atomic across worker bindings", async (context) => {
   const store = new SharedD1Store();
   context.after(() => store.close());
@@ -326,5 +352,40 @@ test("a broken durable guard fails closed before a paid adapter call", async () 
   );
   assert.equal(response.status, 503);
   assert.equal((await response.json()).error, "request_guard_unavailable");
+  assert.equal(providerCalls, 0);
+});
+
+test("missing and partial D1 cannot downgrade a custom or configured provider to memory", async () => {
+  let providerCalls = 0;
+  const adapter = {
+    provider: "paid_test_provider",
+    model: "paid_test_model",
+    async interpret() {
+      providerCalls += 1;
+      throw new Error("provider must not run");
+    },
+  };
+  const missing = await handleCompileWeapon(
+    interpreterRequest(interpreterPayload("missing-d1")),
+    {},
+    { adapter },
+  );
+  const partial = await handleCompileWeapon(
+    interpreterRequest(interpreterPayload("partial-d1")),
+    { DB: { prepare() { throw new Error("partial D1"); } } },
+    { adapter },
+  );
+  const configured = await handleCompileWeapon(
+    interpreterRequest(interpreterPayload("configured-provider-missing-d1")),
+    { WEAPON_AI_PROVIDER: "openai", WEAPON_AI_MODEL: "test-model" },
+  );
+  const explicitlyRequired = await handleCompileWeapon(
+    interpreterRequest(interpreterPayload("explicitly-required-d1")),
+    { WEAPON_INTERPRETER_REQUIRE_DURABLE_GUARD: "true" },
+  );
+  assert.deepEqual(
+    [missing.status, partial.status, configured.status, explicitlyRequired.status],
+    [503, 503, 503, 503],
+  );
   assert.equal(providerCalls, 0);
 });

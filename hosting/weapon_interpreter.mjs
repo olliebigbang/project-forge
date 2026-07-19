@@ -44,6 +44,7 @@ const IDEMPOTENCY_LIMIT = 128;
 const responseCache = new Map();
 const RATE_WINDOW_MS = 60 * 1000;
 const rateBuckets = new Map();
+const LOCAL_PROVIDER_NAMES = new Set(["", "deterministic", "mock", "local"]);
 
 const SAFETY_RULES = Object.freeze([
   {
@@ -676,6 +677,20 @@ export function resolveAdapter(env = {}) {
   );
 }
 
+function requiresDurableRequestGuard(env, options) {
+  if (String(env.WEAPON_INTERPRETER_REQUIRE_DURABLE_GUARD ?? "").toLowerCase() === "true") {
+    return true;
+  }
+  // A declared binding that is missing methods is an outage/misconfiguration,
+  // never permission to downgrade silently to an isolate-local billing guard.
+  if (Object.hasOwn(env, "DB")) return true;
+  const configuredProvider = String(env.WEAPON_AI_PROVIDER ?? "").trim().toLowerCase();
+  if (!LOCAL_PROVIDER_NAMES.has(configuredProvider)) return true;
+  // Custom adapters exist only for server tests/integration. They require the
+  // durable boundary unless a test explicitly opts into the memory harness.
+  return Boolean(options.adapter) && options.allowMemoryGuardForTests !== true;
+}
+
 function minimalAudit(result, requestLength) {
   const safeCost = sanitizeEstimatedCost(result.estimated_cost);
   return {
@@ -751,6 +766,9 @@ export async function handleCompileWeapon(request, env = {}, options = {}) {
     return jsonResponse({ error: "request_guard_unavailable" }, 503, { "retry-after": "1" });
   }
   const durableGuard = hasDurableRequestGuard(env);
+  if (requiresDurableRequestGuard(env, options) && !durableGuard) {
+    return jsonResponse({ error: "request_guard_unavailable" }, 503, { "retry-after": "1" });
+  }
   let rateDecision;
   try {
     if (durableGuard) {
