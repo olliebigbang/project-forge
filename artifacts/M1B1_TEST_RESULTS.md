@@ -1,305 +1,305 @@
-# M1B1 Mobile Regression Plan and Test Results
+# M1B1 Mobile Regression Test Results
 
-## 1. Report status
+## 1. Gate summary
 
-- **Current state:** `TO VALIDATE — BASELINE AND TEST PLAN ONLY`
-- **QA branch:** `codex/qa/m1b1-mobile-regression`
-- **QA worktree:** `C:\\Users\\Eddie L\\Documents\\project-forge-m1b1-mobile`
-- **Baseline source:** `b09bd8fb6fa7d4466251f73e6d647823682d513e`
-- **Baseline tag:** `v0.1.0-m1a`
-- **Implementation under test:** `TBD — main integrator has not handed off an M1B1 build`
-- **Public preview under test:** `TBD`
-- **Physical iPhone Safari gate:** `TO VALIDATE — product owner owns final device acceptance`
+- **Test date:** 2026-07-20 (Australia/Sydney)
+- **Current state:** `PASS WITH KNOWN QA-HARNESS LIMITATION - AUTOMATED MOBILE GATE`
+- **Implementation under test:** `104fddbec98060741401316d25185f130caaa1c0`
+- **QA branch:** `codex/qa/m1b1-mobile-regression-final`
+- **QA worktree:** `C:\Users\Eddie L\Documents\project-forge-m1b1-mobile`
+- **Stable comparison baseline:** `v0.1.0-m1a`
+- **Public preview:** `TBD - not deployed or tested by this QA workstream`
+- **Physical iPhone Safari:** `TO VALIDATE - product owner owns final device acceptance`
 
-This first revision records the accepted M1A baseline and the independent M1B1
-mobile/UI regression plan. It does **not** claim that an M1B1 implementation,
-backend, real provider, or preview has passed. QA owns only this report and the
-two `tests/browser/m1b1_*_regression.js` scripts; QA does not modify Godot scenes,
-gameplay scripts, backend behavior, or production hosting.
+`CONFIRMED` the candidate passes the repository test suite, Godot import and
+parse checks, Web export, Chromium touch regression, and Playwright WebKit
+regression. No P0 or P1 blocker was observed in the automated paths.
 
-## 2. Sources and confirmed baseline
+The 64-case mobile plan has the following authoritative disposition:
 
-The plan was prepared after completely reading:
+| Disposition | Count | Meaning |
+|---|---:|---|
+| PASS | 60 | Covered by deterministic browser automation, repository tests, source-level invariant checks, or the accepted unchanged M1A baseline |
+| TO VALIDATE | 4 | A dedicated mid-transition lifecycle action was not exercised by the final runner |
+| Physical sub-gate | 2 | The automated portion passed, but real iOS keyboard and non-zero hardware safe-area behavior still require an iPhone |
 
-- `AGENTS.md`;
-- the product-owner M1B1 request;
-- `artifacts/V9_MOBILE_USABILITY_RESULTS.md`;
-- `docs/V9_MOBILE_USABILITY_QA.md`;
-- `artifacts/M1A_TEST_RESULTS.md`;
-- all four existing M1A/v9 Chromium and WebKit browser regression scripts.
+This report does not claim public deployment, real-provider quality, or physical
+iPhone acceptance. It does show that the candidate is suitable for public
+preview deployment and owner device testing.
 
-`CONFIRMED` M1A v9 was accepted on physical iPhone Safari. The owner reported
-PASS for the portrait gate, automatic landscape recovery, usable drawing area,
-Description editing, real iOS keyboard open/close, `×`, RESET, repeated mode
-switching, all five COMPILE/ATTACK/REFORGE paths, BACK/re-entry, repeated
-orientation changes, and Safari toolbar expansion/collapse.
+## 2. QA isolation and scope
 
-`CONFIRMED` the stable public v9 package had PCK SHA-256
-`0BDD31A387B3373C90C88D8F4DB19F8F9369BA0B143900324810F7F9BF4191F9`.
-That evidence is the comparison baseline; a future M1B1 preview must use a new
-resource version/hash and must not replace the accepted evidence.
+QA did not modify Godot scenes, gameplay scripts, interpreter behavior, backend
+code, or hosting code during this final pass. This revision updates only this
+report. Browser evidence was produced by the already integrated QA runners:
 
-`CONFIRMED` Compact Landscape is based on actual CSS/`visualViewport` geometry,
-not only the 1280×720 Godot logical viewport. The accepted v9 measurements were:
+- `tests/browser/m1b1_mobile_regression.js`
+- `tests/browser/m1b1_webkit_regression.js`
+- `tests/browser/run_m1b1_regression.mjs`
 
-| CSS viewport | Drawing height | Touch-row height | Result |
-|---|---:|---:|---|
-| 844×390 | 194.08 px | 46.03 px | PASS |
-| 852×393 | 195.59 px | 46.39 px | PASS |
-| 915×412 | 214.88 px | 46.34 px | PASS |
-| 844×343 toolbar stress | 154.73 px | 44.30 px | PASS |
+The mobile workstream covers normal-player selector visibility, Developer/Test
+Mode and MODIFY behavior, async loading/cancel/retry/fallback behavior,
+confirmation safety, Description input, compact layouts, orientation recovery,
+console health, and all five M1A attack modules. Visual image understanding,
+voice, accounts, cloud saves, sharing, monetization, multiplayer, production art,
+and M1B2 remain out of scope.
 
-## 3. M1B1 QA scope and non-goals
+## 3. Commands and results
 
-The mobile workstream validates:
-
-- normal-player attack-pattern controls are hidden before interpretation;
-- Developer/Test Mode and `MODIFY INTERPRETATION` expose the five controls
-  without leaking them into normal forge or combat screens;
-- loading, duplicate-submit prevention, cancellation, timeout, at most one safe
-  retry, fallback, recovery, and understandable error feedback;
-- the result-confirmation screen and its required fields/actions;
-- Description editing and keyboard recovery;
-- Compact Landscape, safe areas, portrait gating, toolbar resizing, and desktop
-  non-regression;
-- all five accepted M1A attack modules still compile, confirm, enter combat,
-  attack, and reforge.
-
-`CONFIRMED` QA will not validate visual image understanding in M1B1. The drawing
-may contribute only a bounded `drawing_summary`. Voice, accounts, cloud saves,
-sharing, community, monetization, multiplayer, production art, and M1B2 are out
-of scope.
-
-`TO VALIDATE` real-provider semantic accuracy, cost, and latency are reported by
-the integrator's 40-case interpreter matrix. This browser plan verifies that
-measured latency/cost/fallback metadata are presented and propagated safely; it
-does not invent provider data.
-
-## 4. Release gate and severity
-
-| Severity | Definition | Representative M1B1 defect | Release effect |
-|---|---|---|---|
-| P0 | Page/session is unusable, unsafe, or data is irrecoverably lost | stuck loading overlay, touch lock, crash, secret in browser, late response overwrites newer request | blocks preview/device handoff |
-| P1 | Required mobile flow cannot complete or produces an unvalidated weapon | duplicate requests, no cancel, retry loop, selectors visible in normal mode, confirmation bypasses validation, clipped action | blocks preview/device handoff |
-| P2 | Material feedback/layout defect with a reliable workaround | ambiguous error, weak focus/selected state, isolated spacing issue | fix or explicitly accept before device gate |
-| P3 | Cosmetic issue without correctness/usability impact | minor alignment/copy inconsistency | may be documented |
-
-The candidate may be handed to the product owner only when:
-
-1. repository tests, Godot import/parse, Web export, Chromium, and WebKit pass;
-2. no P0/P1 remains open;
-3. public HTML and critical resources return HTTP 200 with a new version/hash;
-4. browser console capture contains no new application error/warning;
-5. failure paths always end in a validated result/fallback or a recoverable idle
-   state while preserving the current drawing and Description;
-6. physical iPhone Safari remains explicitly `TO VALIDATE` until the owner runs it.
-
-## 5. Testability contract
-
-The existing native Web Description controls are expected to remain available as
-`#forge-description-input` and `#forge-description-clear` on the forge screen.
-They must remain absent/hidden in portrait-gate and combat screens.
-
-`ASSUMPTION` the integrator will provide a QA-only bridge when `?qa=m1b1` is
-present, or an equivalent documented console/DOM contract. The draft browser
-scripts expect `window.__forgeM1B1Test` with:
-
-- `state()` — screen/phase, request ID/count/attempt count/in-flight status,
-  Description and drawing count, mode visibility, developer/modify flags,
-  message/fallback reason, interpretation result, runtime/schema validity,
-  Power Score, late-response/attack/feedback counters, and a
-  `confirmation_fields` map reflecting the fields actually rendered to the user;
-- `controls()` — CSS rectangles for canvas, forge, reset, cancel, confirm,
-  modify, try-again, attack, reforge, back, and five pattern buttons;
-- `setScenario(name, options)` — deterministic local success, delayed success,
-  timeout, network error, rate limit, invalid JSON, missing fields, unsupported
-  ability, and backend-unavailable paths;
-- `setDeveloperMode(enabled)` — enables/disables the retained M1A test controls.
-
-The bridge must not contain secrets or enable provider calls. `TBD` whether this
-contract is compiled only into QA builds or is inert unless the query flag is
-present. If the implementation provides a different stable contract, QA will
-adapt its two owned scripts before execution.
-
-## 6. State-machine oracles
-
-```text
-FORGE_IDLE --FORGE--> INTERPRETING --valid result--> CONFIRMATION
-    ^                    |   |                         |   |   |
-    |                    |   +--failure--> one retry--+   |   +--TRY AGAIN--> INTERPRETING
-    |                    +--CANCEL------------------------+   |
-    |                                                      MODIFY
-    +------------------------------REFORGE/BACK-------------+--CONFIRM--> COMBAT
-
-terminal provider failure --> validated fallback or recoverable error
-portrait --> rotate gate; landscape --> prior valid state restored
-```
-
-Required invariants:
-
-- one gesture creates at most one logical request ID;
-- repeated FORGE taps while in flight never create another request;
-- automatic retry count is never greater than one;
-- CANCEL invalidates the active request, and its late response cannot navigate or
-  overwrite a later result;
-- Description and drawing survive cancel, timeout, network/backend failure, and
-  TRY AGAIN;
-- every displayed/fought result is schema-valid, allow-listed, runtime-valid,
-  and has `power_score <= 100`;
-- manual modification is revalidated/rebudgeted before CONFIRM is enabled;
-- no modal/invisible layer captures the entire screen after any transition.
-
-## 7. Detailed regression matrix
-
-All M1B1 rows are `TO VALIDATE` until a specific implementation SHA/build is
-recorded. Baseline rows marked PASS are evidence from accepted M1A v9 only.
-
-### 7.1 Player flow and mode visibility
-
-| ID | Pri | Procedure | Expected result | Status |
-|---|---|---|---|---|
-| MB-UI-01 | P1 | Open normal-player forge. | Five attack-pattern buttons are absent/hidden; drawing, Description, RESET and FORGE are usable. | TO VALIDATE |
-| MB-UI-02 | P1 | Draw and type without choosing a pattern. | FORGE is available; no hidden/default manual choice is required from the player. | TO VALIDATE |
-| MB-UI-03 | P1 | Enable Developer/Test Mode. | Exactly five mutually exclusive pattern buttons appear on forge only. | TO VALIDATE |
-| MB-UI-04 | P1 | Disable Developer/Test Mode. | Pattern buttons disappear and no transparent hit regions remain. | TO VALIDATE |
-| MB-UI-05 | P1 | Receive a result in normal mode. | Confirmation appears; pattern controls remain hidden until MODIFY is pressed. | TO VALIDATE |
-| MB-UI-06 | P1 | Press MODIFY INTERPRETATION. | Five mutually exclusive controls appear with current AI pattern selected. | TO VALIDATE |
-| MB-UI-07 | P1 | Switch all five forward, reverse, then 20 times. | One selected state, no lock, no duplicate correction. | TO VALIDATE |
-| MB-UI-08 | P1 | Choose another pattern in MODIFY. | Spec is revalidated/rebudgeted; corrections explain the manual change; score stays ≤100. | TO VALIDATE |
-| MB-UI-09 | P1 | Exit MODIFY without accepting a change. | Original validated result remains; no stale hidden selection leaks. | TO VALIDATE |
-| MB-UI-10 | P1 | CONFIRM and enter combat. | Pattern controls are not visible/clickable in combat. | TO VALIDATE |
-| MB-UI-11 | P1 | REFORGE after combat. | Normal forge returns with pattern buttons hidden and Description/drawing policy applied consistently. | TO VALIDATE |
-| MB-UI-12 | P1 | BACK/re-enter forge repeatedly. | No stale modifier, overlay, focus trap, or developer controls leak into normal mode. | TO VALIDATE |
-
-### 7.2 Loading, cancellation, retry, failure and recovery
-
-| ID | Pri | Procedure | Expected result | Status |
-|---|---|---|---|---|
-| MB-R-01 | P1 | Submit a delayed-success request. | Clear “AI is interpreting” loading state and CANCEL are visible; editable data is retained. | TO VALIDATE |
-| MB-R-02 | P1 | Tap FORGE repeatedly during loading. | Exactly one request ID/provider operation exists; button is disabled or duplicate taps are ignored. | TO VALIDATE |
-| MB-R-03 | P1 | Tap CANCEL once. | Returns to usable forge; active request is invalidated; drawing/Description remain. | TO VALIDATE |
-| MB-R-04 | P0 | Let a cancelled response arrive late. | It cannot open confirmation, overwrite state, compile, or navigate. | TO VALIDATE |
-| MB-R-05 | P1 | CANCEL then immediately submit a new success. | New request has a new ID and is the only response allowed to win. | TO VALIDATE |
-| MB-R-06 | P1 | Trigger timeout. | Friendly timeout feedback appears; automatic retry is at most once. | TO VALIDATE |
-| MB-R-07 | P0 | Observe timeout for longer than two attempts. | No third request, retry storm, infinite spinner, or page lock occurs. | TO VALIDATE |
-| MB-R-08 | P1 | Exhaust timeout retry. | Validated fallback or recoverable error is shown; drawing/Description remain. | TO VALIDATE |
-| MB-R-09 | P1 | Trigger network disconnect. | Safe failure/fallback; no crash; current creative input remains. | TO VALIDATE |
-| MB-R-10 | P1 | Restore network and press TRY AGAIN. | One new request succeeds without refresh and without duplicate submission. | TO VALIDATE |
-| MB-R-11 | P1 | Trigger HTTP/API rate limit. | Understandable rate-limit feedback, bounded retry policy, safe fallback/recovery. | TO VALIDATE |
-| MB-R-12 | P1 | Trigger backend unavailable. | Understandable service error, no direct third-party client call, safe fallback/recovery. | TO VALIDATE |
-| MB-R-13 | P1 | Return malformed JSON. | No crash; rejected/repaired result is logged; only validated fallback/result is displayed. | TO VALIDATE |
-| MB-R-14 | P1 | Return required fields missing. | Deterministic repair or fallback; confirmation never exposes an invalid spec. | TO VALIDATE |
-| MB-R-15 | P1 | Return unsupported ability/enum. | Allow-list repair/fallback is visible in corrections and remains ≤100. | TO VALIDATE |
-| MB-R-16 | P1 | Rapid CANCEL/FORGE/TRY AGAIN sequence. | No crossed response, duplicate request, stuck state, or lost input. | TO VALIDATE |
-| MB-R-17 | P1 | Turn portrait during loading, then landscape. | Correct loading/cancel state restores without duplicate request. | TO VALIDATE |
-| MB-R-18 | P1 | Background/restore page during loading where automation permits. | Request resolves/cancels deterministically; no stale overlay or double result. | TO VALIDATE |
-
-### 7.3 Confirmation and safe result presentation
-
-| ID | Pri | Procedure | Expected result | Status |
-|---|---|---|---|---|
-| MB-C-01 | P1 | Complete normal success. | Confirmation shows name, interpretation summary, pattern, element, damage, attack speed, range, ability, status, weakness and Power Score. | TO VALIDATE |
-| MB-C-02 | P1 | Inspect actions. | CONFIRM, MODIFY INTERPRETATION and TRY AGAIN are visible, distinct and touchable. | TO VALIDATE |
-| MB-C-03 | P1 | Inspect validated result/audit. | Schema, allow-list and runtime validation pass; Power Score ≤100. | TO VALIDATE |
-| MB-C-04 | P1 | Inspect strong result. | A corresponding drawback/stat cost is visible and budgeted. | TO VALIDATE |
-| MB-C-05 | P1 | Inspect corrections/fallback. | Repair/fallback reason is understandable and does not expose raw provider payload or secrets. | TO VALIDATE |
-| MB-C-06 | P1 | Press TRY AGAIN rapidly. | Exactly one new request starts; it cannot be used as a duplicate-request race. | TO VALIDATE |
-| MB-C-07 | P1 | Repeat same concept via TRY AGAIN. | Result remains within valid/stable Power bounds; no unbounded “reroll stronger” path. | TO VALIDATE |
-| MB-C-08 | P1 | Press CONFIRM while repair/rebudget is pending. | Action is disabled/ignored until final validation completes. | TO VALIDATE |
-| MB-C-09 | P1 | Confirm fallback result. | Existing attack module executes it; fallback metadata remains auditable. | TO VALIDATE |
-| MB-C-10 | P1 | Use “result inappropriate” feedback entry. | Feedback action is reachable; no community/share surface or personal-data leak is created. | TO VALIDATE |
-
-### 7.4 Description, keyboard, touch ownership and layout
-
-| ID | Pri | Procedure | Expected result | Status |
-|---|---|---|---|---|
-| MB-M-01 | P1 | Tap Description on WebKit/physical iPhone. | Focus and real iOS keyboard open; text/caret/delete work. | TO VALIDATE — physical owner gate |
-| MB-M-02 | P1 | Edit mixed Chinese/English text. | Exact text remains synchronized to request state. | TO VALIDATE |
-| MB-M-03 | P1 | Tap `×`. | Only Description clears; drawing remains; input stays recoverably editable. | TO VALIDATE |
-| MB-M-04 | P1 | Press RESET. | Drawing and Description clear; in-flight state is safely cancelled/absent. | TO VALIDATE |
-| MB-M-05 | P1 | Draw at canvas edges and tap adjacent controls. | Canvas consumes only its rectangle; no accidental button/request. | TO VALIDATE |
-| MB-M-06 | P1 | Open/close keyboard five times. | Compact layout restores; all actions remain usable. | TO VALIDATE |
-| MB-M-07 | P1 | Test 844×390. | All forge/loading/confirmation actions visible; no scroll, clipping or overlap. | TO VALIDATE |
-| MB-M-08 | P1 | Test 852×393. | Same compact oracle. | TO VALIDATE |
-| MB-M-09 | P1 | Test 915×412. | Same compact oracle. | TO VALIDATE |
-| MB-M-10 | P1 | Stress 844×343 toolbar-height viewport. | Drawing remains about ≥150 px; controls remain reachable. | TO VALIDATE |
-| MB-M-11 | P1 | Expand/collapse toolbar via viewport resize. | Layout recomputes and returns without stale overlay/focus. | TO VALIDATE |
-| MB-M-12 | P1 | Rotate landscape→portrait→landscape three times. | Rotate gate toggles automatically; prior safe state restores; no refresh/lock. | TO VALIDATE |
-| MB-M-13 | P1 | Rotate while confirmation is open. | Confirmation returns with same validated result and actions usable. | TO VALIDATE |
-| MB-M-14 | P1 | Inspect safe-area bounds. | No action sits under notch, rounded corners, toolbar or home indicator. | TO VALIDATE |
-| MB-M-15 | P1 | Test desktop 1280×720. | Spacious desktop layout remains usable and normal-player modes stay hidden. | TO VALIDATE |
-| MB-M-16 | P1 | Capture browser console through every state. | No new application error/warning; known runner GPU noise is separated. | TO VALIDATE |
-
-### 7.5 Existing attack-module regression
-
-| ID | Pri | Procedure | Expected result | Status |
-|---|---|---|---|---|
-| MB-A-01 | P1 | Interpret/modify to `melee_slash`, confirm, attack, reforge. | Runtime-valid melee behavior remains distinct. | TO VALIDATE |
-| MB-A-02 | P1 | Repeat for `straight_projectile`. | Projectile stops/hits according to accepted module behavior. | TO VALIDATE |
-| MB-A-03 | P1 | Repeat for `boomerang`. | Outbound/return behavior remains distinct. | TO VALIDATE |
-| MB-A-04 | P1 | Repeat for `area_blast`. | Area behavior affects grouped targets distinctly. | TO VALIDATE |
-| MB-A-05 | P1 | Repeat for `piercing`. | Projectile continues through targets/shield behavior remains distinct. | TO VALIDATE |
-| MB-A-06 | P1 | Exercise all five in Developer/Test Mode. | Test controls work but remain absent from normal/combat screens. | TO VALIDATE |
-| MB-A-07 | P1 | BACK/REFORGE between every pattern. | Transient attacks/cooldowns/results cannot corrupt the next forge. | TO VALIDATE |
-| MB-A-08 | P1 | Repeat five paths in WebKit. | No Safari-engine input/navigation regression or application console error. | TO VALIDATE |
-
-## 8. Execution environments and evidence
-
-| Environment | Viewports | Required evidence |
-|---|---|---|
-| Chromium touch | 844×390, 852×393, 915×412, 844×343 | state/audit JSON, request counts, geometry, screenshots, console |
-| Playwright WebKit | same plus 390×844 portrait | cancellation/timeout/retry/fallback, keyboard-resize simulation, five attacks, console |
-| Chromium desktop | 1280×720 | normal-player hidden controls and full success flow |
-| Public Chromium/WebKit | deployed URL with new hash | HTTP/resource identity, full smoke, no app errors |
-| Physical iPhone Safari | owner device | real keyboard, safe areas/toolbars, orientation, touch cancellation and final flow |
-
-Retain at minimum:
-
-- implementation and test commit SHAs;
-- public URL, deployment/version ID and PCK/JS/WASM hashes;
-- request ID, attempt count, cancellation/late-response disposition, timeout and
-  fallback reason for each reliability case;
-- final WeaponSpec, corrections, runtime/schema/allow-list result, Power Score,
-  measured latency, and provider-reported/`UNKNOWN` cost;
-- screenshots of normal forge (selectors hidden), loading/cancel, confirmation,
-  MODIFY selectors, timeout/fallback, 844×390, portrait gate and combat;
-- complete console errors/warnings with known WebKit runner noise separated.
-
-## 9. Planned commands
-
-After the integrator hands off a specific build:
+### 3.1 Repository and Godot checks
 
 ```powershell
-./scripts/test.ps1
-./scripts/build_web.ps1
-./scripts/build_sites_preview.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test.ps1
 ```
 
-Then the QA-owned scripts will be run through the repository's Playwright CLI
-workflow against the freshly served local build and again against the public
-candidate:
+Result: **PASS**.
 
-- `tests/browser/m1b1_mobile_regression.js` in Chromium touch context;
-- `tests/browser/m1b1_webkit_regression.js` in WebKit/iPhone context.
+- Godot 4.7.1 import and parse: PASS
+- M1A deterministic matrix: 32 cases, 458 assertions, 0 failures
+- Main scene smoke test: PASS
+- Static Worker route tests: 4/4 PASS
+- WebAssembly loader test: 1/1 PASS
+- M1B1 interpreter matrix: 48 cases PASS
+- M1B1 interpreter/HTTP suite: 68/68 PASS
+- Durable request guard/D1 suite: 9/9 PASS
 
-## 10. Current risks and handoff blockers
+The final suite includes explicit checks for a 128-bit per-client idempotency
+namespace, matching and mismatched server `request_id`, late request A losing to
+active request B, and late HTTP responses being counted and discarded. It also
+passes concurrent idempotent-request coalescing, per-session idempotency
+namespacing, provider metadata leak prevention, and per-session ingress quota.
+The final durable-boundary suite also verifies runtime D1 schema/migration,
+cross-binding atomic ownership and quota, expired-lease reclamation, abandoned
+lease removal, cross-isolate provider-operation coalescing, fail-closed behavior
+for a broken guard, and no memory downgrade when D1 is missing or partial.
 
-| Risk | Severity | Current status |
+### 3.2 Web build
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_web.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_sites_preview.ps1
+```
+
+Result: **PASS** for both the direct Godot Web export and the Sites preview
+bundle. The Sites package contains the client, split-WASM loader/chunks, and the
+final fail-closed durable server boundary. The two WASM chunks total 39,513,091
+bytes, exactly matching the source `index.wasm` size.
+
+The freshly built candidate was served locally at
+`http://127.0.0.1:18064/`; HTML, JS, PCK, and WASM each returned HTTP 200,
+`Cache-Control: no-store`, the correct content type, and the expected
+`Cross-Origin-Opener-Policy: same-origin` and
+`Cross-Origin-Embedder-Policy: require-corp` headers. The temporary server was
+stopped after the run, and its stderr log was empty.
+
+### 3.3 Chromium touch regression
+
+```powershell
+$env:PLAYWRIGHT_MODULE_PATH = 'C:\Users\Eddie L\Documents\Codex\2026-06-27\new-chat\node_modules\playwright'
+node .\tests\browser\run_m1b1_regression.mjs chromium http://127.0.0.1:18064/ .\output\playwright\m1b1-final-104fddb\chromium-rerun-result.json
+```
+
+Result: **PASS**, exit code 0, approximately 90 seconds.
+
+`TO VALIDATE` the first Chromium attempt exposed a runner sampling limitation:
+the deterministic `rate_limit` path completed two bounded attempts and reached a
+validated fallback in 6 ms, before the runner's 50 ms poll observed the transient
+`loading` state. The captured terminal state was safe (`request_count = 1`,
+`request_attempts = 2`, `provider_rate_limited`, runtime/schema valid, Power 17).
+The unchanged runner immediately passed end to end on the same build. No product
+code or test code was modified. This is not a client regression, but the runner
+should eventually accept either observable loading or an already-safe terminal
+state for intentionally immediate scenarios.
+
+### 3.4 WebKit regression
+
+```powershell
+$env:PLAYWRIGHT_MODULE_PATH = 'C:\Users\Eddie L\AppData\Local\npm-cache\_npx\31e32ef8478fbf80\node_modules\playwright'
+node .\tests\browser\run_m1b1_regression.mjs webkit http://127.0.0.1:18064/ .\output\playwright\m1b1-final-104fddb\webkit-result.json
+```
+
+Result: **PASS**, exit code 0, approximately 103 seconds. The cached Playwright
+module matches installed WebKit revision 2327; this run did not download or
+replace browser binaries.
+
+The JSON outputs are intentionally under ignored `output/` paths and are not
+committed as release assets.
+
+## 4. Browser evidence
+
+### 4.1 Compact Landscape geometry
+
+Both Chromium and WebKit passed the same geometry oracles. All required controls
+were within the viewport, the canvas did not overlap input/actions, touch targets
+met the compact minimum, and the document did not scroll.
+
+| CSS viewport | Canvas height | Description height | Scroll/clipping |
+|---|---:|---:|---|
+| 844x390 | 237.25 px | 46.03 px | none |
+| 852x393 | 239.08 px | 46.39 px | none |
+| 915x412 | 258.07 px | 46.34 px | none |
+| 844x343 toolbar stress | 195.32 px | 44.30 px | none |
+
+Additional layout results:
+
+- `viewport-fit=cover` is present;
+- keyboard-like viewport shrink/restore returns the input to its prior geometry;
+- three landscape/portrait/landscape cycles restore the forge without refresh;
+- portrait hides the native Description overlay behind the rotation gate;
+- desktop 1280x720 has no scroll regression and does not expose normal-player
+  attack selectors.
+
+### 4.2 Description, drawing, and touch ownership
+
+Chromium and WebKit both passed Description focus, mixed-language synchronization,
+caret/end deletion, explicit clear-button behavior, drawing input, and
+Description/drawing preservation across cancellation and failure. Repository
+tests independently verify that RESET clears drawing and Description and permits
+immediate new text and strokes.
+
+`TO VALIDATE` desktop WebKit focus and viewport-shrink simulation do not prove
+that a physical iPhone opens the real iOS keyboard. That remains part of the
+owner device gate.
+
+### 4.3 Loading, cancellation, retry, and recovery
+
+Both engines passed:
+
+- a clear loading state with a reachable CANCEL action;
+- repeated FORGE taps producing only one logical request;
+- CANCEL preserving drawing and Description;
+- a cancelled late response being ignored;
+- a later successful request winning cleanly;
+- timeout retrying exactly once (`request_attempts = 2`), then producing a
+  validated fallback;
+- network failure recovery through TRY AGAIN without refresh or input loss;
+- rate-limit, unavailable-backend, malformed JSON, missing-field, and unsupported
+  ability paths ending in a bounded validated result/fallback;
+- no third retry, infinite spinner, stale navigation, or page lock.
+
+Representative terminal results:
+
+| Engine | Scenario | Attempts | Result/fallback reason | Power |
+|---|---|---:|---|---:|
+| Chromium | rate limit | 2 | `provider_rate_limited` | 17 |
+| Chromium | backend unavailable | 2 | `backend_unavailable` | 17 |
+| Chromium | invalid JSON | 1 | `invalid_provider_response` | 17 |
+| Chromium | missing fields | 1 | `invalid_provider_response` | 17 |
+| Chromium | unsupported ability | 1 | `provider_output_repaired` | 59 |
+| WebKit | network error | 2 | `network_unavailable` | 17 |
+| WebKit | rate limit | 2 | `provider_rate_limited` | 17 |
+| WebKit | invalid JSON | 1 | `invalid_provider_response` | 17 |
+| WebKit | missing fields | 1 | `invalid_provider_response` | 17 |
+| WebKit | unsupported ability | 1 | `provider_output_repaired` | 59 |
+
+### 4.4 Confirmation and attack modules
+
+Normal mode keeps the five deterministic pattern selectors hidden. MODIFY and
+Developer/Test Mode expose exactly five mutually exclusive controls; repeated
+switching stays responsive, each change produces a schema/allow-list/runtime
+valid result with `power_score <= 100`, and selectors remain hidden in combat.
+
+Every attack module completed forge, confirmation, combat, and ATTACK in both
+Chromium and WebKit:
+
+| Pattern | Power | Runtime valid |
+|---|---:|---|
+| `melee_slash` | 33 | true |
+| `straight_projectile` | 46 | true |
+| `boomerang` | 56 | true |
+| `area_blast` | 49 | true |
+| `piercing` | 77 | true |
+
+Confirmation evidence contains weapon name, interpretation summary, attack
+pattern, element, damage, attack speed, range, special ability, status effect,
+weakness, Power Score, and the required actions. Feedback registration,
+TRY AGAIN duplicate suppression, manual revalidation, and combat selector hiding
+also passed.
+
+### 4.5 Browser console
+
+| Engine | Application errors | Application warnings | Known renderer-only messages |
+|---|---:|---:|---:|
+| Chromium | 0 | 0 | 4 `ReadPixels`/GPU performance warnings |
+| WebKit | 0 | 0 | 198 `glBlitFramebuffer` errors and 14 `WEBGL_polygon_mode` warnings |
+
+The WebKit counts are known Windows Godot/WebGL runner noise. The WebKit runner
+filters only those exact signatures and fails on any remaining error or warning;
+none remained. These messages must not be treated as evidence for physical
+Safari console health.
+
+## 5. Authoritative 64-case disposition
+
+The detailed plan IDs are fully accounted for below. PASS may combine browser,
+repository, source-invariant, and accepted unchanged M1A evidence. The four open
+items are explicitly listed in the next table.
+
+| Area | Planned | PASS IDs | TO VALIDATE IDs |
+|---|---:|---|---|
+| Player flow and mode visibility | 12 | MB-UI-01..08, MB-UI-10..12 | MB-UI-09 |
+| Loading/cancel/retry/recovery | 18 | MB-R-01..16 | MB-R-17, MB-R-18 |
+| Confirmation and safe presentation | 10 | MB-C-01..10 | none |
+| Description/touch/layout | 16 | MB-M-01..12, MB-M-14..16 | MB-M-13 |
+| Existing attack modules | 8 | MB-A-01..08 | none |
+| **Total** | **64** | **60** | **4** |
+
+Open lifecycle cases:
+
+| ID | Status | Reason and next check |
 |---|---|---|
-| Godot canvas exposes no stable way to observe async request count/state or control CSS rectangles | P1 testability | `TO VALIDATE` — QA bridge/equivalent requested from integrator |
-| Cancelled/old response can overwrite a newer request | P0 | `TO VALIDATE` |
-| Hidden selectors retain transparent touch hit regions | P1 | `TO VALIDATE` |
-| Loading/confirmation consumes too much compact height | P1 | `TO VALIDATE` |
-| Keyboard/toolbar resize corrupts async UI state | P1 | `TO VALIDATE` |
-| Windows WebKit emits known Godot/WebGL runner messages | P2 runner limitation | `CONFIRMED` baseline limitation; app errors must still be zero |
-| Real iOS keyboard/safe-area behavior cannot be proven by desktop WebKit | P1 device gate | `TO VALIDATE — product owner` |
+| MB-UI-09 | `TO VALIDATE` | No dedicated automation exits MODIFY without accepting; verify the original result remains and no hidden selection leaks. |
+| MB-R-17 | `TO VALIDATE` | Loading and three rotation cycles pass independently, but rotation during an active request was not exercised. |
+| MB-R-18 | `TO VALIDATE` | Browser background/suspend during an active request was not simulated by the final runner. |
+| MB-M-13 | `TO VALIDATE` | Confirmation and rotation pass independently, but rotation while confirmation is open was not exercised. |
 
-## 11. Baseline decision
+Physical sub-gates attached to otherwise passing automated cases:
 
-The M1A mobile baseline is healthy and accepted. No M1B1 code or preview has yet
-been handed to this QA branch, so the correct current outcome is:
+| ID | Automated result | Physical requirement |
+|---|---|---|
+| MB-M-01 | PASS: WebKit focus, edit, caret/delete, synchronization, and keyboard-like resize | `TO VALIDATE`: real iOS keyboard opens/closes and leaves all actions usable |
+| MB-M-14 | PASS: `viewport-fit=cover`, control bounds, compact viewport, no scroll | `TO VALIDATE`: non-zero notch/home-indicator insets and live Safari toolbar on hardware |
 
-**`TO VALIDATE — TEST PLAN READY; EXECUTION PENDING IMPLEMENTATION HANDOFF`.**
+## 6. Candidate Web asset identity
 
-No M1B1 acceptance, provider performance, physical iPhone behavior, or release
-readiness is claimed by this revision.
+The following SHA-256 values identify the locally tested build. A public preview
+must serve these exact assets, or QA must rerun against the deployed hashes.
+
+| Asset | SHA-256 |
+|---|---|
+| `build/web/index.html` | `ADF9AA1ED7763499F5DEDE1BE0261AF91CD26B104E7F5267E8AD7955FAC46597` |
+| `build/web/index.js` | `68586D6DAAFC93C6E697B3FB258976874AA7459B8931165EBB1DC3C9614CC42C` |
+| `build/web/index.pck` | `5879035ED5AF4CBD02B275C25AF01EC29BFC9E69E821BBD0B9B0786C6BF92B44` |
+| `build/web/index.wasm` | `35116F68540AC41ACF7D71EA457ADDED91B5E960A9CCA3E2ACC72918EAF01277` |
+
+Final Sites-package boundary identities:
+
+| Asset | SHA-256 |
+|---|---|
+| `dist/client/index.html` | `4A18851E84F82DF527A907AD57FAC792C39EA45B8B56C360C1FCD3B7F9A0281E` |
+| `dist/client/index.pck` | `5879035ED5AF4CBD02B275C25AF01EC29BFC9E69E821BBD0B9B0786C6BF92B44` |
+| `dist/server/index.js` | `DEA11283AD97246B71AC9938D8BAC0ABF1B4B52C28929D4ED150EDB42DB307BA` |
+| `dist/server/weapon_interpreter.mjs` | `76615B8CFB47E98B0A391D348F9FBD273DDEC0E348D12F0637E87E46336A2680` |
+| `dist/server/durable_request_guard.mjs` | `1B4D221EFC9D9262771E7731F120756E9C97973AA8D533041EB3FDAB3F28ADD7` |
+
+## 7. Known limitations and handoff decision
+
+- `TO VALIDATE` no public URL was deployed or tested by this QA workstream.
+- `TO VALIDATE` real-provider latency, cost, quality, and failure semantics require
+  configured server-side provider credentials and the integrator's provider gate.
+- `TO VALIDATE` physical iPhone keyboard, hardware safe area, toolbar, background
+  suspension, and the four lifecycle cases above remain owner/device checks.
+- `CONFIRMED` Windows WebKit emits renderer messages described in section 4.5;
+  application-level console errors and warnings are zero.
+- `CONFIRMED` the Chromium first-attempt failure described in section 3.3 is a
+  transient-state sampling limitation; the safe terminal state and unchanged
+  end-to-end rerun both passed.
+- Browser JSON outputs are ignored local evidence; release/deployment automation
+  should retain equivalent logs and screenshots with the public build identity.
+
+Automated mobile recommendation:
+
+**`PASS - CANDIDATE 104fddb MAY PROCEED TO PUBLIC PREVIEW AND PHYSICAL IPHONE SAFARI VALIDATION.`**
+
+Do not mark physical mobile acceptance complete until the owner validates the
+real iOS keyboard/safe areas and the remaining lifecycle actions on the deployed
+asset hashes.
