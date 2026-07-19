@@ -10,6 +10,7 @@ var facing := 1.0
 var current_spec: WeaponSpec
 var current_strokes: Array[PackedVector2Array] = []
 var attack_cooldown := 0.0
+var combat_enabled := true
 var movement_bounds := Vector2(80.0, 1200.0)
 var weapon_visual: WeaponVisual
 var _attack_tween: Tween
@@ -41,7 +42,7 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	global_position.x = clampf(global_position.x, movement_bounds.x, movement_bounds.y)
 	weapon_visual.scale.x = facing
-	if Input.is_action_just_pressed("attack"):
+	if combat_enabled and Input.is_action_just_pressed("attack"):
 		attack()
 
 
@@ -58,8 +59,14 @@ func set_touch_axis(value: float) -> void:
 	touch_axis = clampf(value, -1.0, 1.0)
 
 
+func set_combat_enabled(value: bool) -> void:
+	combat_enabled = value
+	if not combat_enabled:
+		set_touch_axis(0.0)
+
+
 func attack() -> void:
-	if current_spec == null or attack_cooldown > 0.0:
+	if not combat_enabled or current_spec == null or attack_cooldown > 0.0:
 		return
 	var drawback_multiplier: float = {
 		"slow_recovery": 1.25, "self_stagger": 1.30, "cooldown_lock": 1.45

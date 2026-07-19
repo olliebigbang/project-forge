@@ -74,7 +74,10 @@ func _add_target(kind: String, label_text: String, maximum: int) -> void:
 	target.configure(kind, label_text, maximum)
 	target.damage_report.connect(_on_target_damage)
 	target.health_changed.connect(func(_current: int, _maximum: int): _refresh_target_health())
-	target.defeated.connect(func(): combat_status.text = "%s defeated; automatic reset armed." % label_text)
+	target.defeated.connect(func():
+		if forge_overlay == null or not forge_overlay.visible:
+			combat_status.text = "%s defeated; automatic reset armed." % label_text
+	)
 	world.add_child(target)
 	targets.append(target)
 
@@ -198,7 +201,7 @@ func _build_forge_overlay() -> void:
 	var close_button := _button("BACK", MUTED, 15)
 	close_button.name = "BackButton"
 	close_button.custom_minimum_size = Vector2(100, 60)
-	close_button.pressed.connect(func(): if current_spec: forge_overlay.hide())
+	close_button.pressed.connect(_close_reforge)
 	title_row.add_child(close_button)
 
 	var guide := Label.new()
@@ -274,6 +277,7 @@ func _generate_weapon() -> void:
 	current_strokes = drawing_canvas.get_normalized_strokes()
 	current_spec = service.generate(description_input.text, drawing_canvas.drawing_summary())
 	player.equip(current_spec, current_strokes)
+	player.set_combat_enabled(true)
 	stats_label.text = (
 		"%s\nDAMAGE %d   POWER %d/100   SPEED %.2f\nATTACK  %s\nELEMENT  %s   SPECIAL  %s\nWEAKNESS  %s"
 		% [current_spec.display_name, current_spec.damage, current_spec.power_score, current_spec.attack_speed,
@@ -300,17 +304,40 @@ func _arm_attack_button() -> void:
 	# Prevent the pointer release that closes the overlay from falling through to ATTACK.
 	await get_tree().process_frame
 	await get_tree().process_frame
-	attack_button.disabled = false
+	if current_spec and not forge_overlay.visible:
+		attack_button.disabled = false
+
+
+func _close_reforge() -> void:
+	if current_spec == null:
+		return
+	forge_overlay.hide()
+	player.set_combat_enabled(true)
+	combat_status.text = "%s ready. Use A/D or touch, then SPACE/ATTACK." % current_spec.attack_label()
+	_arm_attack_button()
 
 
 func _open_reforge() -> void:
 	attack_button.disabled = true
+	player.set_combat_enabled(false)
+	_clear_transient_combat()
 	drawing_canvas.clear_drawing()
 	description_input.clear()
 	forge_status.text = "Draw again; a valid replacement is committed only after compile."
 	forge_status.add_theme_color_override("font_color", MUTED)
 	forge_overlay.show()
 	description_input.grab_focus()
+
+
+func _clear_transient_combat() -> void:
+	for node: Node in get_tree().get_nodes_in_group("forge_transient_attack"):
+		if is_instance_valid(node):
+			var parent := node.get_parent()
+			if parent:
+				parent.remove_child(node)
+			node.queue_free()
+	for target in targets:
+		target.clear_transient_status()
 
 
 func _on_player_attack(spec: WeaponSpec, origin: Vector2, direction: Vector2, strokes: Array[PackedVector2Array]) -> void:
@@ -326,6 +353,7 @@ func _launch_melee(spec: WeaponSpec, origin: Vector2, direction: Vector2) -> voi
 	slash.direction = direction
 	slash.global_position = origin
 	world.add_child(slash)
+	slash.add_to_group("forge_transient_attack")
 	var candidates: Array[TrainingDummy] = []
 	for target in targets:
 		var offset := target.global_position - player.global_position
@@ -348,6 +376,7 @@ func _launch_area(spec: WeaponSpec, origin: Vector2, direction: Vector2) -> void
 	blast.global_position = origin
 	blast.hits_complete.connect(func(count: int, total: int): combat_status.text = "Area blast hit %d target(s) for %d total." % [count, total])
 	world.add_child(blast)
+	blast.add_to_group("forge_transient_attack")
 	combat_status.text = "Area blast expanding to %.0f px." % spec.area_radius
 
 
@@ -357,10 +386,14 @@ func _launch_projectile(spec: WeaponSpec, origin: Vector2, direction: Vector2, s
 	projectile.global_position = origin
 	projectile.hit_target.connect(func(label_text: String, amount: int): combat_status.text = "%s hit %s for %d." % [spec.attack_label(), label_text, amount])
 	world.add_child(projectile)
+	projectile.add_to_group("forge_transient_attack")
 	combat_status.text = {"straight_projectile": "Straight projectile launched; stops on first target.", "boomerang": "Boomerang outbound; it can strike again on return.", "piercing": "Piercing lance launched; shield bypass active."}.get(spec.attack_pattern, "Attack launched.")
 
 
 func _on_target_damage(label_text: String, amount: int, note: String) -> void:
+	if forge_overlay and forge_overlay.visible:
+		_refresh_target_health()
+		return
 	combat_status.text = "%s took %d — %s." % [label_text, amount, note]
 	_refresh_target_health()
 

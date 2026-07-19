@@ -13,6 +13,7 @@ func _init() -> void:
 	_test_power_budget()
 	_test_schema_runtime_parity()
 	_test_drawing_summary()
+	_test_player_combat_gate()
 	_test_target_rules()
 	var result := {"matrix_cases": _matrix_cases, "passed": _passed, "failed": _failed}
 	var output := FileAccess.open("user://m1a_test_results.json", FileAccess.WRITE)
@@ -131,6 +132,23 @@ func _test_drawing_summary() -> void:
 	var summary := DrawingCanvas.summarize_strokes(strokes, Vector2(400, 200))
 	_expect(summary.point_count == 5 and summary.stroke_count == 2, "drawing summary counts points and strokes")
 	_expect(float(summary.aspect_ratio) > 2.0 and float(summary.coverage) > 0.0, "drawing summary captures shape")
+
+
+func _test_player_combat_gate() -> void:
+	var player := ForgePlayer.new()
+	var emissions: Array[int] = []
+	player.attack_requested.connect(func(_spec: WeaponSpec, _origin: Vector2, _direction: Vector2, _strokes: Array[PackedVector2Array]): emissions.append(1))
+	player.weapon_visual = WeaponVisual.new()
+	player.add_child(player.weapon_visual)
+	player.current_spec = WeaponSpec.fallback()
+	root.add_child(player)
+	player.set_combat_enabled(false)
+	player.attack()
+	_expect(emissions.is_empty(), "re-forge combat gate blocks the equipped weapon")
+	player.set_combat_enabled(true)
+	player.attack()
+	_expect(emissions.size() == 1, "closing re-forge restores the equipped weapon")
+	player.queue_free()
 
 
 func _test_target_rules() -> void:

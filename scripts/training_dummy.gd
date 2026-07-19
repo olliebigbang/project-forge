@@ -18,6 +18,7 @@ var _status_text := "READY"
 var _resetting := false
 var _slow_timer := 0.0
 var _stagger_timer := 0.0
+var _status_epoch := 0
 
 
 func configure(kind: String, label_text: String, maximum_health: int = 160) -> void:
@@ -93,9 +94,10 @@ func _apply_damage(amount: int, note: String) -> void:
 
 
 func _burn_over_time() -> void:
+	var burn_epoch := _status_epoch
 	for tick in 2:
 		await get_tree().create_timer(0.42).timeout
-		if not is_instance_valid(self) or _resetting: return
+		if not is_instance_valid(self) or _resetting or burn_epoch != _status_epoch: return
 		_apply_damage(3, "BURN %d/2" % (tick + 1))
 
 
@@ -108,10 +110,22 @@ func _reset_after_delay() -> void:
 
 
 func reset_target() -> void:
+	_status_epoch += 1
 	health = max_health
 	_resetting = false
 	_status_text = "READY"
+	_slow_timer = 0.0
+	_stagger_timer = 0.0
 	health_changed.emit(health, max_health)
+	queue_redraw()
+
+
+func clear_transient_status() -> void:
+	_status_epoch += 1
+	_slow_timer = 0.0
+	_stagger_timer = 0.0
+	_status_text = "READY"
+	queue_redraw()
 
 
 func set_arena_position(arena_position: Vector2) -> void:
