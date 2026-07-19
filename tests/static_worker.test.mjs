@@ -55,7 +55,11 @@ test("routes same-origin weapon compilation through the server boundary", async 
   };
   const response = await worker.fetch(new Request("https://forge.example/api/compile-weapon", {
     method: "POST",
-    headers: { "content-type": "application/json", origin: "https://forge.example" },
+    headers: {
+      "content-type": "application/json",
+      origin: "https://forge.example",
+      "x-forge-session": "88888888888888888888888888888888",
+    },
     body: JSON.stringify(payload),
   }), environment([]));
   assert.equal(response.status, 200);

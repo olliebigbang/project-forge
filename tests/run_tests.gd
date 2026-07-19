@@ -16,6 +16,7 @@ func _init() -> void:
 	_test_attack_pattern_touch_selector()
 	_test_mobile_layout_policy()
 	await _test_forge_reset_state()
+	await _test_weapon_interpreter_response_context()
 	_test_orientation_prompt_rule()
 	_test_player_combat_gate()
 	_test_target_rules()
@@ -229,6 +230,45 @@ func _test_forge_reset_state() -> void:
 	forge.drawing_canvas.strokes.append(PackedVector2Array([Vector2(15, 15), Vector2(90, 45)]))
 	_expect(forge.description_input.text == "editable after reset" and not forge.drawing_canvas.is_empty(), "RESET allows immediate text and drawing input")
 	forge.queue_free()
+
+
+func _test_weapon_interpreter_response_context() -> void:
+	var interpreter := WeaponInterpreter.new()
+	root.add_child(interpreter)
+	await process_frame
+	_expect(interpreter._session_id.length() == 32, "interpreter creates a 128-bit per-client idempotency namespace")
+	interpreter.in_flight = true
+	interpreter.active_request_id = "expected-request"
+	interpreter._request_revision = 2
+	var balanced := PowerBudget.balance(WeaponSpec.fallback().to_dict())
+	var valid_response := {
+		"request_id": "expected-request",
+		"weapon_spec": balanced.values,
+		"corrections": [],
+	}
+	var accepted: Dictionary = interpreter._validate_server_result(valid_response, "expected-request")
+	_expect(bool(accepted.get("ok", false)), "matching server request_id passes client revalidation")
+	var stale_response := valid_response.duplicate(true)
+	stale_response.request_id = "stale-request"
+	var rejected: Dictionary = interpreter._validate_server_result(stale_response, "expected-request")
+	_expect(not bool(rejected.get("ok", false)) and rejected.reason == "stale_response", "mismatched server request_id is rejected")
+
+	var stale_node := HTTPRequest.new()
+	interpreter.add_child(stale_node)
+	var before_ignored := interpreter.late_response_ignored
+	interpreter._on_http_request_completed(
+		HTTPRequest.RESULT_SUCCESS,
+		200,
+		PackedStringArray(),
+		JSON.stringify(stale_response).to_utf8_buffer(),
+		1,
+		"stale-request",
+		stale_node,
+	)
+	_expect(interpreter.in_flight and interpreter.active_request_id == "expected-request", "late request A cannot overwrite active request B")
+	_expect(interpreter.late_response_ignored == before_ignored + 1, "late HTTP response is counted and discarded")
+	interpreter.cancel()
+	interpreter.queue_free()
 
 
 func _test_orientation_prompt_rule() -> void:

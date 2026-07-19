@@ -12,11 +12,14 @@ import {
 } from "../hosting/weapon_contract.mjs";
 import {
   DeterministicWeaponAdapter,
+  INGRESS_LIMITS,
   REQUEST_LIMITS,
   classifyInput,
   compileWeapon,
   handleCompileWeapon,
 } from "../hosting/weapon_interpreter.mjs";
+
+const TEST_SESSION = "0123456789abcdef0123456789abcdef";
 
 const schema = JSON.parse(await readFile(new URL("../schema/weapon_spec.schema.json", import.meta.url), "utf8"));
 const matrix = JSON.parse(await readFile(new URL("./m1b1_input_matrix.json", import.meta.url), "utf8"));
@@ -163,16 +166,30 @@ test("transient failures retry once and then return a validated fallback", async
 test("HTTP boundary rejects unsafe transport shape and same-origin violations", async () => {
   const endpoint = "https://forge.example/api/compile-weapon";
   assert.equal((await handleCompileWeapon(new Request(endpoint))).status, 405);
-  assert.equal((await handleCompileWeapon(new Request(endpoint, { method: "POST", body: "{}" }))).status, 415);
+  assert.equal((await handleCompileWeapon(new Request(endpoint, {
+    method: "POST",
+    headers: { "x-forge-session": TEST_SESSION },
+    body: "{}",
+  }))).status, 415);
   const crossOrigin = await handleCompileWeapon(new Request(endpoint, {
     method: "POST",
-    headers: { "content-type": "application/json", origin: "https://evil.example" },
+    headers: {
+      "content-type": "application/json",
+      origin: "https://evil.example",
+      "x-forge-session": TEST_SESSION,
+    },
     body: JSON.stringify(requestFor(matrix[0], "origin")),
   }));
   assert.equal(crossOrigin.status, 403);
-  const badJson = await handleCompileWeapon(new Request(endpoint, {
+  const missingSession = await handleCompileWeapon(new Request(endpoint, {
     method: "POST",
     headers: { "content-type": "application/json" },
+    body: JSON.stringify(requestFor(matrix[0], "missing-session")),
+  }));
+  assert.equal(missingSession.status, 400);
+  const badJson = await handleCompileWeapon(new Request(endpoint, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-forge-session": TEST_SESSION },
     body: "{bad",
   }));
   assert.equal(badJson.status, 400);
@@ -182,7 +199,11 @@ test("HTTP boundary returns a safe response and no-store policy", async () => {
   const entry = matrix.find((item) => item.id === "C01");
   const response = await handleCompileWeapon(new Request("https://forge.example/api/compile-weapon", {
     method: "POST",
-    headers: { "content-type": "application/json", origin: "https://forge.example" },
+    headers: {
+      "content-type": "application/json",
+      origin: "https://forge.example",
+      "x-forge-session": "11111111111111111111111111111111",
+    },
     body: JSON.stringify(requestFor(entry, "http")),
   }), {});
   assert.equal(response.status, 200);
@@ -198,7 +219,11 @@ test("request_id is idempotent and cannot be reused for a different concept", as
   const payload = requestFor(matrix[0], "idempotent");
   const makeRequest = (body) => new Request(endpoint, {
     method: "POST",
-    headers: { "content-type": "application/json", origin: "https://forge.example" },
+    headers: {
+      "content-type": "application/json",
+      origin: "https://forge.example",
+      "x-forge-session": "22222222222222222222222222222222",
+    },
     body: JSON.stringify(body),
   });
   const first = await handleCompileWeapon(makeRequest(payload));
@@ -209,6 +234,155 @@ test("request_id is idempotent and cannot be reused for a different concept", as
   const changed = { ...payload, description: "a fire cannon" };
   const conflict = await handleCompileWeapon(makeRequest(changed));
   assert.equal(conflict.status, 409);
+});
+
+test("concurrent idempotent requests share one in-flight provider operation", async () => {
+  let providerCalls = 0;
+  const adapter = {
+    provider: "test_provider",
+    model: "delayed_model",
+    async interpret(request) {
+      providerCalls += 1;
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      return {
+        intent: {
+          attack_pattern: "boomerang",
+          element: "ice",
+          special_ability: "return_strike",
+          status_effect: "freeze",
+          drawback: "slow_recovery",
+        },
+        confidence: 0.9,
+        estimated_cost: "UNKNOWN",
+      };
+    },
+  };
+  const payload = requestFor(matrix[0], "concurrent-idempotent");
+  const makeRequest = () => new Request("https://forge.example/api/compile-weapon", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: "https://forge.example",
+      "x-forge-session": "33333333333333333333333333333333",
+    },
+    body: JSON.stringify(payload),
+  });
+  const [first, second] = await Promise.all([
+    handleCompileWeapon(makeRequest(), {}, { adapter }),
+    handleCompileWeapon(makeRequest(), {}, { adapter }),
+  ]);
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 200);
+  assert.equal(providerCalls, 1);
+  assert.equal(second.headers.get("x-forge-idempotent-replay"), "true");
+  assert.equal(second.headers.get("x-forge-idempotent-inflight"), "true");
+  assert.deepEqual(await second.json(), await first.json());
+});
+
+test("idempotency keys are namespaced per client session", async () => {
+  let providerCalls = 0;
+  const adapter = new DeterministicWeaponAdapter();
+  const originalInterpret = adapter.interpret.bind(adapter);
+  adapter.interpret = async (...args) => {
+    providerCalls += 1;
+    return originalInterpret(...args);
+  };
+  const endpoint = "https://forge.example/api/compile-weapon";
+  const firstPayload = requestFor(matrix[0], "shared-id");
+  const secondPayload = { ...firstPayload, description: "a fire cannon" };
+  const makeRequest = (payload, session) => new Request(endpoint, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: "https://forge.example",
+      "x-forge-session": session,
+    },
+    body: JSON.stringify(payload),
+  });
+  const first = await handleCompileWeapon(
+    makeRequest(firstPayload, "44444444444444444444444444444444"),
+    {},
+    { adapter },
+  );
+  const second = await handleCompileWeapon(
+    makeRequest(secondPayload, "55555555555555555555555555555555"),
+    {},
+    { adapter },
+  );
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 200);
+  assert.equal(providerCalls, 2);
+});
+
+test("provider free text and nested metadata cannot leak into response or audit", async () => {
+  const marker = "sk-test-LEAK";
+  const adapter = {
+    provider: "test_provider",
+    model: "safe_model",
+    async interpret() {
+      return {
+        intent: {
+          name: marker,
+          attack_pattern: "boomerang",
+          element: "ice",
+          special_ability: "return_strike",
+          status_effect: "freeze",
+          drawback: "slow_recovery",
+        },
+        interpretation_summary: marker,
+        corrections: [marker],
+        provider_metadata: { provider: marker, model: marker, api_key: marker },
+        estimated_cost: { amount: 0.002, currency: "USD", api_key: marker },
+        confidence: 0.9,
+      };
+    },
+  };
+  const logs = [];
+  const originalInfo = console.info;
+  console.info = (value) => logs.push(String(value));
+  try {
+    const response = await handleCompileWeapon(new Request("https://forge.example/api/compile-weapon", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "https://forge.example",
+        "x-forge-session": "66666666666666666666666666666666",
+      },
+      body: JSON.stringify(requestFor(matrix[0], "metadata-leak")),
+    }), {}, { adapter });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(JSON.stringify(body).includes(marker), false);
+    assert.equal(logs.join("\n").includes(marker), false);
+    assert.deepEqual(body.estimated_cost, { amount: 0.002, currency: "USD" });
+    assert.match(body.interpretation_summary, /^Interpreted as /u);
+  } finally {
+    console.info = originalInfo;
+  }
+});
+
+test("per-session ingress quota rejects provider-cost spam with 429", async () => {
+  const session = "77777777777777777777777777777777";
+  const endpoint = "https://forge.example/api/compile-weapon";
+  const statuses = [];
+  for (let index = 0; index <= INGRESS_LIMITS.session_requests_per_minute; index += 1) {
+    const response = await handleCompileWeapon(new Request(endpoint, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "https://forge.example",
+        "x-forge-session": session,
+      },
+      body: JSON.stringify(requestFor(matrix[0], `quota-${index}`)),
+    }));
+    statuses.push(response.status);
+    if (response.status === 429) assert.ok(Number(response.headers.get("retry-after")) >= 1);
+  }
+  assert.deepEqual(
+    statuses.slice(0, INGRESS_LIMITS.session_requests_per_minute),
+    Array(INGRESS_LIMITS.session_requests_per_minute).fill(200),
+  );
+  assert.equal(statuses.at(-1), 429);
 });
 
 test("raw repair closes unknown fields, enum escape and over-budget values", () => {

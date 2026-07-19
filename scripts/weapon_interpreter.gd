@@ -22,6 +22,8 @@ var late_response_ignored := 0
 
 var _http_request: HTTPRequest
 var _compiler := WeaponCompiler.new()
+var _crypto := Crypto.new()
+var _session_id := ""
 var _request_revision := 0
 var _active_payload: Dictionary = {}
 var _active_test_options: Dictionary = {}
@@ -29,11 +31,7 @@ var _started_msec := 0
 
 
 func _ready() -> void:
-	_http_request = HTTPRequest.new()
-	_http_request.name = "WeaponInterpreterHttp"
-	_http_request.timeout = REQUEST_TIMEOUT_SECONDS
-	_http_request.request_completed.connect(_on_http_request_completed)
-	add_child(_http_request)
+	_session_id = _random_token(16)
 
 
 func start_interpretation(
@@ -48,7 +46,7 @@ func start_interpretation(
 	attempts = 1
 	_request_revision += 1
 	_started_msec = Time.get_ticks_msec()
-	active_request_id = "m1b1-%d-%d" % [int(Time.get_unix_time_from_system() * 1000.0), request_count]
+	active_request_id = "m1b1-%s" % _random_token(16)
 	_active_payload = {
 		"description": description,
 		"drawing_summary": _normalize_drawing_summary(drawing_summary),
@@ -74,14 +72,30 @@ func start_interpretation(
 	if endpoint.is_empty():
 		call_deferred("_complete_with_fallback", _request_revision, "backend_unavailable")
 		return active_request_id
-	var headers := PackedStringArray(["Content-Type: application/json", "Accept: application/json"])
-	var error := _http_request.request(
+	var request_revision := _request_revision
+	var request_id := active_request_id
+	var request_node := HTTPRequest.new()
+	request_node.name = "WeaponInterpreterHttp_%d" % request_revision
+	request_node.timeout = REQUEST_TIMEOUT_SECONDS
+	add_child(request_node)
+	_http_request = request_node
+	request_node.request_completed.connect(
+		_on_http_request_completed.bind(request_revision, request_id, request_node),
+		CONNECT_ONE_SHOT,
+	)
+	var headers := PackedStringArray([
+		"Content-Type: application/json",
+		"Accept: application/json",
+		"X-Forge-Session: %s" % _session_id,
+	])
+	var error := request_node.request(
 		endpoint,
 		headers,
 		HTTPClient.METHOD_POST,
 		JSON.stringify(_active_payload),
 	)
 	if error != OK:
+		_release_http_request(request_node)
 		call_deferred("_complete_with_fallback", _request_revision, "network_unavailable")
 	return active_request_id
 
@@ -99,7 +113,10 @@ func cancel() -> bool:
 	_active_payload = {}
 	_active_test_options = {}
 	if _http_request != null:
-		_http_request.cancel_request()
+		var request_node := _http_request
+		_http_request = null
+		request_node.cancel_request()
+		request_node.queue_free()
 	interpretation_cancelled.emit(cancelled_request)
 	return true
 
@@ -190,9 +207,16 @@ func _on_http_request_completed(
 	response_code: int,
 	_headers: PackedStringArray,
 	body: PackedByteArray,
+	revision: int,
+	expected_request_id: String,
+	request_node: HTTPRequest,
 ) -> void:
-	var revision := _request_revision
-	if not in_flight:
+	_release_http_request(request_node)
+	if (
+		revision != _request_revision
+		or expected_request_id != active_request_id
+		or not in_flight
+	):
 		late_response_ignored += 1
 		return
 	if result_code != HTTPRequest.RESULT_SUCCESS:
@@ -207,14 +231,19 @@ func _on_http_request_completed(
 	if not decoded is Dictionary:
 		_complete_with_fallback(revision, "invalid_provider_response")
 		return
-	var validated := _validate_server_result(decoded)
+	var validated := _validate_server_result(decoded, expected_request_id)
 	if not bool(validated.get("ok", false)):
 		_complete_with_fallback(revision, str(validated.get("reason", "invalid_provider_response")))
 		return
 	_finish(revision, validated.result)
 
 
-func _validate_server_result(server_result: Dictionary) -> Dictionary:
+func _validate_server_result(server_result: Dictionary, expected_request_id: String = "") -> Dictionary:
+	var expected := expected_request_id if not expected_request_id.is_empty() else active_request_id
+	if expected.is_empty() or expected != active_request_id:
+		return {"ok": false, "reason": "stale_response"}
+	if str(server_result.get("request_id", "")) != expected:
+		return {"ok": false, "reason": "stale_response"}
 	var raw_spec: Variant = server_result.get("weapon_spec")
 	if not raw_spec is Dictionary:
 		return {"ok": false, "reason": "invalid_provider_response"}
@@ -339,6 +368,25 @@ func _resolve_endpoint() -> String:
 		if origin != null and str(origin).begins_with("http"):
 			return str(origin).trim_suffix("/") + ENDPOINT_PATH
 	return ""
+
+
+func _release_http_request(request_node: HTTPRequest) -> void:
+	if request_node == _http_request:
+		_http_request = null
+	if is_instance_valid(request_node) and not request_node.is_queued_for_deletion():
+		request_node.queue_free()
+
+
+func _random_token(byte_count: int) -> String:
+	var random_bytes: PackedByteArray = _crypto.generate_random_bytes(byte_count)
+	if random_bytes.size() == byte_count:
+		return random_bytes.hex_encode()
+	var fallback_seed := "%d:%d:%d" % [
+		Time.get_unix_time_from_system(),
+		Time.get_ticks_usec(),
+		randi(),
+	]
+	return fallback_seed.sha256_text().left(byte_count * 2)
 
 
 func _normalize_drawing_summary(value: Dictionary) -> Dictionary:

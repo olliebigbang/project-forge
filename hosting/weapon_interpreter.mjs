@@ -14,8 +14,14 @@ export const REQUEST_LIMITS = Object.freeze({
   body_bytes: 8192,
   description_characters: 512,
   request_id_characters: 64,
+  session_id_characters: 64,
   timeout_ms: 8000,
   maximum_attempts: 2,
+});
+
+export const INGRESS_LIMITS = Object.freeze({
+  session_requests_per_minute: 8,
+  network_requests_per_minute: 60,
 });
 
 const TRANSIENT_CODES = new Set([
@@ -27,6 +33,8 @@ const TRANSIENT_CODES = new Set([
 const IDEMPOTENCY_TTL_MS = 5 * 60 * 1000;
 const IDEMPOTENCY_LIMIT = 128;
 const responseCache = new Map();
+const RATE_WINDOW_MS = 60 * 1000;
+const rateBuckets = new Map();
 
 const SAFETY_RULES = Object.freeze([
   {
@@ -138,7 +146,62 @@ function pruneResponseCache(now = Date.now()) {
   for (const [key, entry] of responseCache) {
     if (now - entry.createdAt > IDEMPOTENCY_TTL_MS) responseCache.delete(key);
   }
-  while (responseCache.size >= IDEMPOTENCY_LIMIT) responseCache.delete(responseCache.keys().next().value);
+  while (responseCache.size >= IDEMPOTENCY_LIMIT) {
+    const completedKey = [...responseCache].find(([, entry]) => entry.result)?.[0];
+    if (!completedKey) break;
+    responseCache.delete(completedKey);
+  }
+}
+
+function validateSessionId(value) {
+  const sessionId = String(value ?? "").trim();
+  if (
+    sessionId.length < 16 ||
+    sessionId.length > REQUEST_LIMITS.session_id_characters ||
+    !/^[A-Za-z0-9_-]+$/u.test(sessionId)
+  ) {
+    throw new InterpreterError("invalid_session", "x-forge-session is missing or invalid.", 400);
+  }
+  return sessionId;
+}
+
+function consumeRateLimit(key, limit, now = Date.now()) {
+  const current = rateBuckets.get(key);
+  const bucket = !current || now - current.startedAt >= RATE_WINDOW_MS
+    ? { startedAt: now, count: 0 }
+    : current;
+  bucket.count += 1;
+  rateBuckets.set(key, bucket);
+  return {
+    allowed: bucket.count <= limit,
+    retryAfter: Math.max(1, Math.ceil((bucket.startedAt + RATE_WINDOW_MS - now) / 1000)),
+  };
+}
+
+function pruneRateBuckets(now = Date.now()) {
+  for (const [key, bucket] of rateBuckets) {
+    if (now - bucket.startedAt >= RATE_WINDOW_MS * 2) rateBuckets.delete(key);
+  }
+}
+
+function safeIdentifier(value, fallback, maximum) {
+  const text = String(value ?? "").trim();
+  if (!text || !/^[A-Za-z0-9._:/-]+$/u.test(text)) return fallback;
+  return text.slice(0, maximum);
+}
+
+function sanitizeEstimatedCost(value) {
+  if (value === "UNKNOWN") return "UNKNOWN";
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "UNKNOWN";
+  const amount = Number(value.amount);
+  const currency = String(value.currency ?? "").trim().toUpperCase();
+  if (!Number.isFinite(amount) || amount < 0 || amount > 100 || currency !== "USD") return "UNKNOWN";
+  return { amount: Math.round(amount * 1e9) / 1e9, currency };
+}
+
+function safeCorrections(values) {
+  const source = Array.isArray(values) ? values : [];
+  return [...new Set(source.map((value) => String(value).slice(0, 160)))].slice(0, 64);
 }
 
 function codePointLength(value) {
@@ -331,9 +394,7 @@ export class DeterministicWeaponAdapter {
     if (element === "electric" && containsAny(text, ["chain", "crowd", "group", "一群", "群体"])) {
       ability = request.supported_abilities.includes("chain_arc") ? "chain_arc" : ability;
     }
-    if (containsAny(text, ["shield me", "front shield", "挡住", "护盾"])) {
-      corrections.push("interpretation: requested defensive shield is not executable in M1B1 and was omitted");
-    }
+    if (containsAny(text, ["shield me", "front shield", "挡住", "护盾"])) ability = "front_shield";
     return {
       intent: {
         name: generatedName(attackPattern, element, request.drawing_summary),
@@ -359,20 +420,22 @@ function semanticIntentToRaw(intent, request) {
   if (Object.keys(semantic).length === 0) fallbackReason = "invalid_provider_response";
   let pattern = String(semantic.attack_pattern ?? "").trim().toLowerCase();
   if (!request.supported_attack_patterns.includes(pattern)) {
-    if (pattern) corrections.push(`interpretation: unsupported attack_pattern '${pattern}' repaired`);
-    pattern = "melee_slash";
+    if (pattern) corrections.push("interpretation: unsupported attack_pattern repaired");
+    pattern = request.supported_attack_patterns.includes("melee_slash")
+      ? "melee_slash"
+      : request.supported_attack_patterns[0];
     fallbackReason ||= "provider_output_repaired";
   }
   let element = String(semantic.element ?? "").trim().toLowerCase();
   if (!request.supported_elements.includes(element)) {
-    if (element) corrections.push(`interpretation: unsupported element '${element}' repaired`);
-    element = "normal";
+    if (element) corrections.push("interpretation: unsupported element repaired");
+    element = request.supported_elements.includes("normal") ? "normal" : request.supported_elements[0];
     fallbackReason ||= "provider_output_repaired";
   }
   const raw = baseProfile(pattern);
-  raw.name = typeof semantic.name === "string" && semantic.name.trim()
-    ? semantic.name.trim()
-    : generatedName(pattern, element, request.drawing_summary);
+  // Provider free text is never reflected into executable/display output. Names,
+  // summaries, corrections and audit labels are generated from allow-listed data.
+  raw.name = generatedName(pattern, element, request.drawing_summary);
   raw.element = element;
   raw.visual_material = elementMaterial(element);
   raw.status_effect = elementStatus(element, raw.status_effect);
@@ -384,7 +447,7 @@ function semanticIntentToRaw(intent, request) {
     if (allowed.includes(value) && (field !== "special_ability" || request.supported_abilities.includes(value))) {
       raw[field] = value;
     } else {
-      corrections.push(`interpretation: unsupported ${field} '${value}' ignored`);
+      corrections.push(`interpretation: unsupported ${field} ignored`);
       fallbackReason ||= "provider_output_repaired";
     }
   }
@@ -395,7 +458,7 @@ function semanticIntentToRaw(intent, request) {
   }
   for (const field of Object.keys(semantic)) {
     if (!["name", "attack_pattern", "element", "special_ability", "status_effect", "drawback", ...numericFields].includes(field)) {
-      corrections.push(`interpretation: unknown semantic field '${field}' ignored`);
+      corrections.push("interpretation: unknown semantic field ignored");
     }
   }
   return { raw, corrections, fallbackReason };
@@ -403,11 +466,11 @@ function semanticIntentToRaw(intent, request) {
 
 function safeFallbackResponse(request, reason, startedAt, details = {}) {
   const balanced = balanceWeaponSpec(fallbackWeaponSpec(), request.maximum_power_score);
-  const corrections = [
+  const corrections = safeCorrections([
     `fallback: ${reason}`,
     ...(details.corrections ?? []),
     ...balanced.corrections,
-  ];
+  ]);
   const latencyMs = Math.max(0, Date.now() - startedAt);
   return {
     request_id: request.request_id,
@@ -417,9 +480,9 @@ function safeFallbackResponse(request, reason, startedAt, details = {}) {
     corrections,
     fallback_reason: reason,
     provider_metadata: {
-      provider: details.provider ?? "none",
-      model: details.model ?? "none",
-      attempts: details.attempts ?? 0,
+      provider: safeIdentifier(details.provider, "none", 48),
+      model: safeIdentifier(details.model, "none", 80),
+      attempts: boundedNumber(details.attempts, 0, 0, REQUEST_LIMITS.maximum_attempts, true),
     },
     latency: { total_ms: latencyMs, provider_ms: details.providerMs ?? 0, attempts: details.attempts ?? 0 },
     latency_ms: latencyMs,
@@ -496,11 +559,10 @@ export async function compileWeapon(requestInput, options = {}) {
 
   const normalized = semanticIntentToRaw(adapterResult.intent, request);
   const balanced = balanceWeaponSpec(normalized.raw, request.maximum_power_score);
-  const corrections = [
-    ...(Array.isArray(adapterResult.corrections) ? adapterResult.corrections.map(String) : []),
+  const corrections = safeCorrections([
     ...normalized.corrections,
     ...balanced.corrections,
-  ];
+  ]);
   const schemaErrors = schemaValidationErrors(balanced.values);
   const runtimeValid = isSafeWeaponSpec(balanced.values, request.maximum_power_score);
   if (schemaErrors.length > 0 || !balanced.within_budget || !runtimeValid) {
@@ -513,34 +575,28 @@ export async function compileWeapon(requestInput, options = {}) {
     });
   }
 
-  const providerMetadata = adapterResult.provider_metadata && typeof adapterResult.provider_metadata === "object"
-    ? adapterResult.provider_metadata
-    : {};
   const latencyMs = Math.max(0, Date.now() - startedAt);
   const fallbackReason = normalized.fallbackReason;
   return {
     request_id: request.request_id,
     weapon_spec: balanced.values,
-    interpretation_summary: String(
-      adapterResult.interpretation_summary ||
-      semanticSummary(
-        balanced.values.attack_pattern,
-        balanced.values.element,
-        balanced.values.status_effect,
-        balanced.values.special_ability,
-      ),
-    ).slice(0, 240),
+    interpretation_summary: semanticSummary(
+      balanced.values.attack_pattern,
+      balanced.values.element,
+      balanced.values.status_effect,
+      balanced.values.special_ability,
+    ),
     confidence: boundedNumber(adapterResult.confidence, 0, 0, 1),
     corrections,
     fallback_reason: fallbackReason,
     provider_metadata: {
-      provider: String(providerMetadata.provider ?? adapter.provider ?? "unknown").slice(0, 48),
-      model: String(providerMetadata.model ?? adapter.model ?? "unknown").slice(0, 80),
+      provider: safeIdentifier(adapter.provider, "unknown", 48),
+      model: safeIdentifier(adapter.model, "unknown", 80),
       attempts,
     },
     latency: { total_ms: latencyMs, provider_ms: providerMs, attempts },
     latency_ms: latencyMs,
-    estimated_cost: adapterResult.estimated_cost ?? "UNKNOWN",
+    estimated_cost: sanitizeEstimatedCost(adapterResult.estimated_cost),
     power_budget: balanced.after,
     schema_valid: true,
     allow_list_valid: true,
@@ -562,6 +618,7 @@ export function resolveAdapter(env = {}) {
 }
 
 function minimalAudit(result, requestLength) {
+  const safeCost = sanitizeEstimatedCost(result.estimated_cost);
   return {
     event: "weapon_interpretation",
     request_id: result.request_id,
@@ -572,7 +629,9 @@ function minimalAudit(result, requestLength) {
     latency_ms: result.latency_ms,
     fallback_reason: result.fallback_reason,
     correction_count: result.corrections?.length ?? 0,
-    estimated_cost: result.estimated_cost,
+    estimated_cost: safeCost === "UNKNOWN"
+      ? "UNKNOWN"
+      : { amount: safeCost.amount, currency: safeCost.currency },
     runtime_valid: result.runtime_valid,
   };
 }
@@ -589,6 +648,12 @@ export async function handleCompileWeapon(request, env = {}, options = {}) {
     } catch {
       return jsonResponse({ error: "invalid_origin" }, 403);
     }
+  }
+  let sessionId;
+  try {
+    sessionId = validateSessionId(request.headers.get("x-forge-session"));
+  } catch (error) {
+    return jsonResponse({ error: error.code ?? "invalid_session" }, error.status ?? 400);
   }
   const contentType = request.headers.get("content-type") ?? "";
   if (!contentType.toLowerCase().includes("application/json")) {
@@ -616,39 +681,87 @@ export async function handleCompileWeapon(request, env = {}, options = {}) {
     return jsonResponse({ error: code }, status);
   }
   pruneResponseCache();
-  const fingerprint = privacyFingerprint({ ...payload, request_id: undefined });
-  const cached = responseCache.get(safeRequest.request_id);
+  pruneRateBuckets();
+  const networkAddress = String(request.headers.get("cf-connecting-ip") ?? "unattributed").slice(0, 96);
+  const networkNamespace = privacyFingerprint({ networkAddress });
+  const clientNamespace = privacyFingerprint({ networkNamespace, sessionId });
+  const sessionRate = consumeRateLimit(
+    `session:${clientNamespace}`,
+    INGRESS_LIMITS.session_requests_per_minute,
+  );
+  const networkRate = consumeRateLimit(
+    `network:${networkNamespace}`,
+    INGRESS_LIMITS.network_requests_per_minute,
+  );
+  if (!sessionRate.allowed || !networkRate.allowed) {
+    return jsonResponse(
+      { error: "rate_limited" },
+      429,
+      { "retry-after": String(Math.max(sessionRate.retryAfter, networkRate.retryAfter)) },
+    );
+  }
+
+  const testMode = String(env.WEAPON_INTERPRETER_TEST_MODE ?? "").toLowerCase() === "true";
+  const scenario = testMode ? String(payload.test_scenario ?? "success") : "success";
+  const fingerprint = privacyFingerprint({ ...safeRequest, test_scenario: scenario });
+  const cacheKey = `${clientNamespace}:${safeRequest.request_id}`;
+  const cached = responseCache.get(cacheKey);
   if (cached) {
     if (cached.fingerprint !== fingerprint) return jsonResponse({ error: "request_id_conflict" }, 409);
-    return jsonResponse(cached.result, 200, { "x-forge-idempotent-replay": "true" });
+    const wasInflight = !cached.result;
+    try {
+      const result = cached.result ?? await cached.promise;
+      return jsonResponse(result, 200, {
+        "x-forge-idempotent-replay": "true",
+        ...(wasInflight ? { "x-forge-idempotent-inflight": "true" } : {}),
+      });
+    } catch {
+      responseCache.delete(cacheKey);
+      return jsonResponse({ error: "internal_error" }, 500);
+    }
+  }
+  if (responseCache.size >= IDEMPOTENCY_LIMIT) {
+    return jsonResponse({ error: "backend_busy" }, 503, { "retry-after": "1" });
   }
 
-  let adapter;
-  try {
-    adapter = options.adapter ?? resolveAdapter(env);
-  } catch (error) {
-    const result = safeFallbackResponse(safeRequest, error.code ?? "provider_unconfigured", Date.now());
+  const operation = (async () => {
+    let adapter;
+    let result;
+    try {
+      adapter = options.adapter ?? resolveAdapter(env);
+    } catch (error) {
+      result = safeFallbackResponse(safeRequest, error.code ?? "provider_unconfigured", Date.now());
+      console.info(`[WeaponInterpreter] ${JSON.stringify(minimalAudit(result, safeRequest.description.length))}`);
+      return result;
+    }
+
+    try {
+      result = await compileWeapon(payload, {
+        adapter,
+        scenario,
+        timeoutMs: options.timeoutMs,
+        maximumAttempts: options.maximumAttempts,
+      });
+    } catch {
+      result = safeFallbackResponse(safeRequest, "internal_error", Date.now(), {
+        provider: adapter.provider ?? "unknown",
+        model: adapter.model ?? "unknown",
+      });
+    }
     console.info(`[WeaponInterpreter] ${JSON.stringify(minimalAudit(result, safeRequest.description.length))}`);
-    responseCache.set(safeRequest.request_id, { fingerprint, result, createdAt: Date.now() });
-    return jsonResponse(result, 200);
-  }
-
+    return result;
+  })();
+  const entry = { fingerprint, promise: operation, createdAt: Date.now() };
+  responseCache.set(cacheKey, entry);
   try {
-    const testMode = String(env.WEAPON_INTERPRETER_TEST_MODE ?? "").toLowerCase() === "true";
-    const scenario = testMode ? String(payload.test_scenario ?? "success") : "success";
-    const result = await compileWeapon(payload, {
-      adapter,
-      scenario,
-      timeoutMs: options.timeoutMs,
-      maximumAttempts: options.maximumAttempts,
-    });
-    console.info(`[WeaponInterpreter] ${JSON.stringify(minimalAudit(result, String(payload.description ?? "").length))}`);
-    responseCache.set(safeRequest.request_id, { fingerprint, result, createdAt: Date.now() });
+    const result = await operation;
+    entry.result = result;
+    delete entry.promise;
+    entry.createdAt = Date.now();
     return jsonResponse(result, 200);
-  } catch (error) {
-    const status = error instanceof InterpreterError ? error.status : 500;
-    const code = error instanceof InterpreterError ? error.code : "internal_error";
-    return jsonResponse({ error: code }, status);
+  } catch {
+    responseCache.delete(cacheKey);
+    return jsonResponse({ error: "internal_error" }, 500);
   }
 }
 
