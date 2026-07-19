@@ -10,6 +10,7 @@ build/web/*
 dist/
 release/*.zip
 release/*.tar.gz
+release/staging/
 
 # Test and capture artifacts
 artifacts/runtime/
@@ -31,6 +32,10 @@ output/playwright/*
 !output/playwright/m1a-piercing.png
 !output/playwright/m1a-piercing-result.png
 !output/playwright/m1a-public-mobile.png
+!output/playwright/m1a-public-melee-fixed.png
+!output/playwright/m1a-public-piercing-result.png
+!output/playwright/m1a-public-reforge.png
+!output/playwright/m1a-public-915x412.png
 
 # OS/editor noise
 .DS_Store

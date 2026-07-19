@@ -19,7 +19,7 @@ visible without being silently pulled into the deterministic compiler milestone.
 | M1A-09 | At least 20 deterministic acceptance inputs | **CONFIRMED — 32** | `tests/m1a_input_matrix.json` |
 | M1A-10 | Moving, shield, and grouped targets validate attack tradeoffs | **CONFIRMED** | Target lab and rule tests |
 | M1A-11 | Spec, budget, repairs, and results are recorded | **CONFIRMED** | Runtime JSONL and artifacts |
-| M1A-12 | Full tests, Web build, public browser console, and mobile layout pass | **TO VALIDATE** | Final regression report |
+| M1A-12 | Full tests, Web build, public browser console, and mobile layout pass | **CONFIRMED** | `artifacts/M1A_TEST_RESULTS.md` and QA report |
 
 ## Status vocabulary
 

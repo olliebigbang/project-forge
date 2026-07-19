@@ -35,6 +35,13 @@ session log at `user://m1a_generation_log.jsonl`.
 The checked-in acceptance definitions live in `tests/m1a_input_matrix.json`; the
 final execution summary and representative records live under `artifacts/`.
 
+## Downloadable Web bundle
+
+Run `./scripts/package_web_release.ps1` to produce
+`release/Project-Forge-M1A-Web.zip`. The archive includes the exported files,
+`START_WEB.ps1`, a Node HTTP server, and offline instructions. This provides a
+recoverable handoff even if the public host later becomes unavailable.
+
 ## Scope boundary
 
 M1A deliberately does not include paid AI, production moderation/backend, formal
