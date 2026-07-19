@@ -1,6 +1,7 @@
 # M1B1 AI Safety / Red-Team Report
 
-Document state: **Baseline threat model and test design complete**
+Document state: **Final vendor-neutral regression PASS; real-provider selection
+and deployed evidence remain BLOCKED / TBD**
 
 Prepared on: 2026-07-19
 
@@ -9,7 +10,9 @@ Stable baseline: `b09bd8fb6fa7d4466251f73e6d647823682d513e`
 
 Safety branch: `codex/qa/m1b1-ai-safety`
 
-Integrated M1B1 regression: **TO VALIDATE — main implementation not yet supplied**
+Integrated M1B1 regression: `104fddbec98060741401316d25185f130caaa1c0` -
+**PASS** for the vendor-neutral boundary; **BLOCKED** for a public real-provider
+claim until the provider decision and deployed evidence exist
 
 ## 1. Scope and independence
 
@@ -440,3 +443,302 @@ timeout/retry/cancel and stale-response findings above.
 fallback, public Web deployment and physical iPhone operation. This baseline does
 not approve M1B2 drawing-semantic interpretation and does not claim that a real
 AI provider has been tested.
+## 15. Integrated candidate regression
+
+### 15.1 Provenance
+
+- **CONFIRMED** Initial integration candidate audited:
+  `7065e9481b3096bbf47e79755e80aa9a9fcd7488`.
+- **CONFIRMED** Safety-race fix independently retested:
+  `50715e8eb91c7da05cd2b0a56e13c1ffc73724a9`.
+- **CONFIRMED** D1 durable-boundary candidate audited:
+  `6dc5b2dd9a38e2131dea214d0c6d18983896abc8`.
+- **CONFIRMED** Final fail-closed repair and exact candidate retested:
+  `104fddbec98060741401316d25185f130caaa1c0`.
+- **CONFIRMED** QA branch:
+  `codex/qa/m1b1-ai-safety-regression` in an isolated Worktree.
+- **CONFIRMED** QA changed no game, backend, Schema, build or deployment code.
+  This report is the only tracked QA change.
+- **TBD** Real provider, model, credential, moderation service, production
+  authentication and cost source remain unselected.
+- **TO VALIDATE** All results in this section use the deterministic adapter or
+  deliberately hostile local adapters. They do not claim a real provider call.
+
+### 15.2 Verification results at `50715e8`
+
+| Command / probe | Result |
+| --- | --- |
+| `node --test tests/weapon_interpreter.test.mjs` | **PASS** - 66/66, including the 48-case M1B1 matrix and the four safety-race regressions |
+| `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test.ps1` | **PASS** |
+| Godot import and warning-as-error parse | **PASS**, Godot 4.7.1 stable |
+| M1A deterministic suite | **PASS**, 32 cases / 458 assertions / 0 failures |
+| Main scene headless smoke | **PASS** |
+| Sites worker route suite | **PASS**, 4/4 |
+| WASM chunk loader | **PASS**, 1/1 |
+| M1B1 server suite inside the full run | **PASS**, 66/66 |
+| Source secret/provider-key scan | **PASS**, no real provider key or direct provider endpoint found |
+
+The first full-test attempt could not write the Worktree's ignored `.godot`
+cache under the restricted process token. The same repository script was rerun
+with permission to write that local import cache and completed successfully. No
+tracked source file was changed by the test.
+
+### 15.3 Browser/build evidence from the initial candidate
+
+The following evidence was collected at `7065e94`, before the server/client
+safety-race fix. It remains useful UI evidence but is not substituted for a
+post-fix public deployment run:
+
+- `scripts/build_web.ps1`: **PASS**.
+- `scripts/build_sites_preview.ps1`: **PASS**.
+- Chromium M1B1 regression: **PASS**, including 844x390, 852x393, 915x412 and
+  844x343, retry/fallback paths, cancellation, five attack patterns and three
+  rotation cycles.
+- WebKit M1B1 regression: **PASS** with the same functional coverage. The runner
+  exited 0. WebKit emitted repeated Godot/WebGL
+  `glBlitFramebuffer` validation messages and `WEBGL_polygon_mode` warnings;
+  these were non-fatal in this run but remain visible browser-console noise.
+- **TO VALIDATE** Rebuild, Chromium/WebKit rerun, public same-origin route and
+  physical iPhone behavior at the final integrated/deployed revision.
+
+## 16. P1 safety-race retest
+
+The first audit of `7065e94` reproduced four release-blocking behaviors. The
+main integrator supplied `50715e8`; QA then reran independent hostile probes in
+addition to the new owner-authored tests.
+
+| Probe | Before (`7065e94`) | Retest (`50715e8`) | Status |
+| --- | --- | --- | --- |
+| Two simultaneous requests with the same session, request ID and fingerprint | `provider_calls=2`; neither response identified a replay | `provider_calls=1`; both HTTP 200; waiter returned `x-forge-idempotent-inflight: true`; bodies identical | **PASS** in one server isolate |
+| Provider returns a secret marker in summary, corrections, nested metadata and `estimated_cost.api_key` | Marker was reflected in the response and server audit | Marker absent from response and captured audit; cost reduced exactly to `{amount: 0.002, currency: "USD"}` | **PASS** |
+| Late request A callback arrives while request B is authoritative | Mismatched `request_id` was accepted and could commit stale state | Server result ID must equal the bound expected ID; callback also binds revision, ID and HTTP node. Godot assertions `late request A cannot overwrite active request B` and `late HTTP response is counted and discarded` pass | **PASS** |
+| Nine unique paid-path requests in one minute from one session | No endpoint quota; all tested unique requests reached the adapter | First 8 returned 200; ninth returned 429 with `Retry-After: 60` | **PASS** in one server isolate |
+
+The independent post-fix probe emitted:
+
+```json
+{
+  "concurrency": {
+    "provider_calls": 1,
+    "statuses": [200, 200],
+    "inflight_replay": "true"
+  },
+  "provider_output_redaction": {
+    "response_contains_marker": false,
+    "logs_contain_marker": false,
+    "estimated_cost": { "amount": 0.002, "currency": "USD" }
+  },
+  "ingress_quota": {
+    "statuses": [200, 200, 200, 200, 200, 200, 200, 200, 429],
+    "retry_after": "60"
+  }
+}
+```
+
+## 17. Finding closure matrix
+
+`PASS` means the current deterministic boundary has an executable test. `OPEN`
+means a code/evidence gap remains. `BLOCKED` means the real-provider claim cannot
+be tested until the provider, adapter or production service is supplied.
+
+| ID | Current status | Regression conclusion |
+| --- | --- | --- |
+| M1B1-RT-001 | **PASS vendor-neutral / BLOCKED real provider** | Same-origin `/api/compile-weapon`, server-only adapter selection, no client credential, safe fallback, D1 guard, and missing/partial-D1 fail-closed probes pass. A real adapter, credential and provider account spend cap remain TBD. |
+| M1B1-RT-002 | **OPEN / BLOCKED** | Deterministic English/Chinese safety categories and unconditional output gates pass local tests. Obfuscated/multilingual/provider-specific moderation behavior and the real structured prompt remain unvalidated. Regex classification must not become the sole real-provider safety boundary. |
+| M1B1-RT-003 | **PASS** | Privacy-mode compiler logging is minimized. Provider summary/correction/metadata reflection is now removed, and `estimated_cost` has a strict scalar object allow-list. Actual provider SDK logs remain **TO VALIDATE**. |
+| M1B1-RT-004 | **OPEN / BLOCKED** | Checked-in Schema parity, final server validation, runtime repair and Godot revalidation pass. The implementation evaluates the repository's known Schema subset; strict raw real-provider JSON/envelope/size handling with an actual provider response remains untested. |
+| M1B1-RT-005 | **PASS** | Ability/status/material semantic compatibility is repaired before final calculation and covered in JavaScript/GDScript tests. |
+| M1B1-RT-006 | **PASS** | `slow_projectile` cannot receive irrelevant drawback credit on non-projectile attacks. |
+| M1B1-RT-007 | **PASS** | Boomerang `return_speed` has an explicit budget component and paired regression. |
+| M1B1-RT-008 | **OPEN (P2)** | Repair rejects non-finite values, but final `WeaponSpec.validation_errors()` still lacks explicit NaN/Infinity checks for direct post-construction mutation. No current untrusted construction path bypass was reproduced. |
+| M1B1-RT-009 | **PASS** | Provider free text no longer supplies the displayed weapon name, summary, correction strings or audit identifiers; those values are generated from bounded allow-listed semantics. |
+| M1B1-RT-010 | **PASS vendor-neutral / TO VALIDATE deployed** | Random client IDs, SHA-256 namespaces, D1 shared-owner replay/conflict/lease cleanup, atomic quota, one-retry cap, cooperative abort, uncooperative no-retry, cancel and stale-response gates pass locally. Actual Sites D1 and the selected provider transport remain TO VALIDATE. |
+| M1B1-RT-011 | **PASS** | Content type, byte size, JSON/object shape, Description type/length, request ID and bounded drawing fields are rejected or safely classified before adapter use. |
+| M1B1-RT-012 | **PASS** | Caller capability lists are intersected with server allow-lists and caller maximum power cannot exceed the server cap of 100. |
+
+## 18. Real-provider gate and prior-blocker closure
+
+### M1B1-REG-005 - Provider integration is intentionally absent
+
+**Status: BLOCKED / TBD.** `resolveAdapter()` selects only the deterministic/local
+adapter; no real provider/model/credential has been configured. Therefore this
+audit cannot measure real semantic accuracy, provider latency, token usage, cost,
+moderation behavior, provider JSON failures or SDK logging. This is not a defect
+in the provider-independent spike, but it prevents a **Real Text-to-Weapon AI**
+release claim.
+
+### M1B1-REG-006 - Durable quota and idempotency
+
+**Severity: former P1. Status: CLOSED in the vendor-neutral implementation.**
+`104fddb` uses a Sites D1 request ledger and atomic rate windows. Two independent
+binding objects sharing one database produced one owner/provider call and one
+exact replay. Eight same-session requests were allowed and the ninth denied.
+Expired owner tokens cannot overwrite reclaimed work, and abandoned expired
+leases are removed.
+
+The audit first found that `6dc5b2d` silently downgraded to memory if `DB` was
+missing or lacked `batch()`. The exact hostile probes invoked a custom paid-like
+adapter twice and returned HTTP 200. At `104fddb`, missing DB, partial DB,
+configured non-local provider without DB, and explicit durable-required mode all
+return HTTP 503 `request_guard_unavailable` before the provider; call count is 0.
+
+**TO VALIDATE:** the deployed Sites D1 binding under real separate isolates,
+cold starts and platform faults. A provider-account spend ceiling and kill switch
+remain mandatory before paid public traffic.
+
+### M1B1-REG-007 - Abort and no-double-charge retry policy
+
+**Severity: former P1. Status: CLOSED in the vendor-neutral implementation.**
+Every adapter attempt receives an `AbortSignal`. A wrapper timeout aborts a
+cooperative adapter and never retries. An uncooperative adapter may finish its
+single underlying call, but the wrapper still starts no second call. Only an
+adapter-thrown transient error explicitly marked `retrySafe` may use attempt 2.
+
+**TO VALIDATE:** the selected real provider adapter propagates the signal,
+classifies only demonstrably pre-send/unbilled failures as retry-safe, forwards a
+provider idempotency key where available, and handles provider `Retry-After`
+within the product's bounded wait policy.
+
+## 19. Regression disposition
+
+**PASS - final vendor-neutral M1B1 boundary at `104fddb`.** No P0/P1 code blocker
+remains in the audited provider-neutral boundary. Schema/allow-list/PowerBudget
+repair, semantic compatibility, fallback, privacy redaction, request bounds,
+SHA-256 namespacing, D1 concurrency/quota, fail-closed handling, abort/no-retry,
+client stale-response handling and M1A regression are green.
+
+**BLOCKED - public real-provider M1B1 release.** Provider/model/credential are
+still **TBD**. Actual Sites D1 behavior, the provider adapter, moderation, spend
+cap, real latency/accuracy/cost and physical iPhone behavior have not been
+measured. Cost remains exactly `UNKNOWN`; no real-provider claim is made. Do not
+deploy a paid key or mark Real Text-to-Weapon AI accepted until those gates and
+the full public Web/iPhone regression are complete.
+
+This audit does not authorize M1B2 drawing-semantic interpretation or additional
+features.
+
+## 20. Final vendor-neutral candidate audit (`104fddb`)
+
+### 20.1 Exact revision and ownership
+
+| Item | Value |
+| --- | --- |
+| Candidate | `104fddbec98060741401316d25185f130caaa1c0` |
+| Candidate branch | `codex/feat/m1b1-real-text-interpreter` |
+| QA branch | `codex/qa/m1b1-ai-safety-regression` |
+| QA-owned tracked file | `docs/M1B1_RED_TEAM_REPORT.md` only |
+| Real provider/model/credential | **TBD / not present** |
+| Cost | `UNKNOWN` |
+
+### 20.2 Commands and counts
+
+| Command | Result |
+| --- | --- |
+| `node --test tests/weapon_interpreter.test.mjs tests/durable_request_guard.test.mjs` | **PASS**, 77/77: interpreter 68/68 plus D1 9/9 |
+| `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test.ps1` | **PASS** |
+| Godot project import and warning-as-error parse | **PASS**, Godot 4.7.1 stable |
+| Godot deterministic suite | **PASS**, 32 cases / 458 assertions / 0 failures |
+| Main-scene headless smoke | **PASS** |
+| Sites static worker | **PASS**, 4/4 |
+| WASM chunk loader | **PASS**, 1/1 |
+| M1B1 interpreter within full run | **PASS**, 68/68 |
+| D1 guard within full run | **PASS**, 9/9 |
+| `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_sites_preview.ps1` | **PASS**, fresh Web export and complete Sites server/client bundle |
+| Source scan for real key formats, bearer values and direct provider endpoints | **PASS**, no matches |
+| Fresh `build/web` and `dist` binary/text scan for the same values/endpoints | **PASS**, no matches |
+
+The source contains three documentation-only placeholders in
+`docs/M1B1_PROVIDER_DECISION.md`: `OPENAI_API_KEY=<secret>`,
+`GEMINI_API_KEY=<secret>` and `ANTHROPIC_API_KEY=<secret>`. They are not values,
+are not used by code, and were absent from the Web/Sites build scan.
+
+The D1 Node test uses Node's experimental built-in SQLite module and emits its
+standard `ExperimentalWarning`; all assertions pass. Actual Sites D1 is not
+replaced by this emulator and remains a deployment gate.
+
+### 20.3 Independent combined hostile probe
+
+QA created a temporary, untracked-equivalent probe, ran it, recorded the result
+below, then deleted it. It used two separate D1-like bindings sharing one SQLite
+store, hostile provider metadata, missing/partial guards, cooperative and
+uncooperative adapters, and independent Schema/Power recomputation.
+
+```json
+{
+  "durable_cross_binding": {
+    "statuses": [200, 200],
+    "provider_calls": 1,
+    "replay": true,
+    "namespace": "2b5c28f74225cef5025af3fea9f79b84",
+    "fingerprint": "6eb64b26178b6627e169554acb26f118",
+    "scopes": [
+      "network:1489c25230a829ff00bb7af57602b2fb",
+      "session:2b5c28f74225cef5025af3fea9f79b84"
+    ]
+  },
+  "durable_quota": { "allowed": 8, "denied": 1 },
+  "fail_closed": {
+    "statuses": [503, 503, 503],
+    "provider_calls": 0
+  },
+  "timeout": {
+    "cooperative": { "calls": 1, "aborts": 1, "attempts": 1 },
+    "uncooperative": { "calls": 1, "completions": 1, "attempts": 1 },
+    "explicit_retry_safe": { "calls": 2, "attempts": 2 }
+  },
+  "metadata_redaction": {
+    "response_contains_marker": false,
+    "logs_contain_marker": false,
+    "estimated_cost": { "amount": 0.002, "currency": "USD" }
+  },
+  "all_specs_schema_allowlist_power_valid": true
+}
+```
+
+The namespace and fingerprint are the first 128 bits of SHA-256 rendered as 32
+lowercase hexadecimal characters. QA independently calculated the namespace
+from the stable serialized session input and obtained the exact stored value.
+Neither the raw session, IP nor Description appeared in the D1 namespace,
+fingerprint, rate scopes or stored result JSON.
+
+### 20.4 Fail-closed blocker and closure
+
+| Revision | Missing DB | Partial `DB.prepare`-only object | Configured non-local provider without DB | Provider calls | Result |
+| --- | --- | --- | --- | --- | --- |
+| `6dc5b2d` | 200 | 200 | not needed to prove bypass | 2 | **P1 BLOCKER** - silently downgraded to memory |
+| `104fddb` | 503 | 503 | 503 | 0 | **PASS / CLOSED** |
+
+An additional `WEAPON_INTERPRETER_REQUIRE_DURABLE_GUARD=true` probe also returned
+503 `request_guard_unavailable` with no provider call. A broken object exposing
+both D1 methods likewise fails before adapter selection. Local deterministic
+development may explicitly use memory; custom or configured non-local providers
+cannot silently opt into it.
+
+### 20.5 Final control disposition
+
+| Control | Result | Remaining evidence |
+| --- | --- | --- |
+| D1 cross-binding owner/replay/conflict/lease cleanup | **PASS** | **TO VALIDATE** on deployed Sites D1 and actual separate isolates/cold starts |
+| Atomic session/network rate window | **PASS**, 8 allowed / ninth denied | **TO VALIDATE** deployed 429 and `Retry-After` |
+| Missing, partial or broken durable guard | **PASS**, 503 before adapter | Verify final Sites environment actually binds `DB` |
+| SHA-256 privacy namespace/fingerprint | **PASS** | None for vendor-neutral code |
+| Cooperative wrapper timeout | **PASS**, one call, one abort, no retry | Real adapter must propagate the signal |
+| Uncooperative wrapper timeout | **PASS**, one underlying call, no second call | Selected provider behavior remains **TO VALIDATE** |
+| Explicit retry-safe failure | **PASS**, exactly two attempts | Real adapter may mark only proven unbilled/pre-send failures retry-safe |
+| Provider output/metadata/cost redaction | **PASS** | Real SDK logs remain **TO VALIDATE** |
+| Schema, allow-list, semantic compatibility and PowerBudget | **PASS**, 48/48 M1B1 matrix plus hostile repairs | Real-provider accuracy remains **TO VALIDATE** |
+| Secrets/direct-provider endpoint scan | **PASS**, source and builds | Repeat after provider adapter and secret configuration |
+| Real provider, moderation, latency, accuracy and spend cap | **BLOCKED / TBD** | Product-owner provider decision and deployment required |
+
+### 20.6 Final QA decision
+
+**PASS: `104fddb` is acceptable as the final vendor-neutral M1B1 boundary.** No
+P0 or P1 implementation blocker remains in the supplied provider-neutral scope.
+The previously reproduced fail-open, concurrent idempotency, stale response and
+metadata-leak blockers are closed and independently retested.
+
+**NOT AN ACCEPTANCE OF REAL AI:** provider/model/credential, actual Sites D1,
+provider moderation, server-secret deployment, account spend cap, real 40+ case
+accuracy/latency/cost, public Web asset identity, Chromium/WebKit deployment and
+physical iPhone Safari remain **TBD / TO VALIDATE**. The branch must not claim
+Real Text-to-Weapon AI completion or enter M1B2 until those gates are completed.
