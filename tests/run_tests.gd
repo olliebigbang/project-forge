@@ -13,6 +13,8 @@ func _init() -> void:
 	_test_power_budget()
 	_test_schema_runtime_parity()
 	_test_drawing_summary()
+	_test_attack_pattern_touch_selector()
+	_test_orientation_prompt_rule()
 	_test_player_combat_gate()
 	_test_target_rules()
 	var result := {"matrix_cases": _matrix_cases, "passed": _passed, "failed": _failed}
@@ -132,6 +134,45 @@ func _test_drawing_summary() -> void:
 	var summary := DrawingCanvas.summarize_strokes(strokes, Vector2(400, 200))
 	_expect(summary.point_count == 5 and summary.stroke_count == 2, "drawing summary counts points and strokes")
 	_expect(float(summary.aspect_ratio) > 2.0 and float(summary.coverage) > 0.0, "drawing summary captures shape")
+
+
+func _test_attack_pattern_touch_selector() -> void:
+	var selector := AttackPatternSelector.new()
+	selector._ready()
+	var buttons := selector.buttons()
+	_expect(buttons.size() == 5, "touch selector exposes five persistent buttons")
+	_expect(selector.selected_index == 0 and selector.selected_pattern() == "melee_slash", "touch selector defaults to melee slash")
+	for index in AttackPatternSelector.PATTERNS.size():
+		buttons[index].emit_signal(&"pressed")
+		_expect(selector.selected_index == index, "touch selector selects %s" % AttackPatternSelector.PATTERNS[index])
+		var active_count := 0
+		for button in buttons:
+			if button.button_pressed: active_count += 1
+		_expect(active_count == 1, "touch selector keeps exactly one active button")
+		_expect(buttons[index].text.begins_with("[X]"), "selected pattern has a visible check mark")
+		_expect(buttons[index].custom_minimum_size.y >= 102.0, "pattern touch target remains at least 48 CSS pixels with Safari chrome")
+		_expect(selector.selected_idea() == AttackPatternSelector.IDEAS[index], "LOAD IDEA maps to the selected pattern")
+		var compiler := WeaponCompiler.new()
+		var spec := compiler.compile("conflicting boomerang blast text", {"aspect_ratio": 1.0}, selector.selected_pattern())
+		_expect(spec.attack_pattern == selector.selected_pattern(), "M1A compile override produces the selected pattern")
+		_expect(str(compiler.last_record.forced_attack_pattern) == selector.selected_pattern(), "compile audit records the M1A override")
+	for step in 20:
+		var index := step % AttackPatternSelector.PATTERNS.size()
+		buttons[index].emit_signal(&"pressed")
+		var active_count := 0
+		for button in buttons:
+			if button.button_pressed: active_count += 1
+		_expect(selector.selected_index == index and active_count == 1, "rapid selector switch %d remains responsive and exclusive" % (step + 1))
+	selector.queue_free()
+
+
+func _test_orientation_prompt_rule() -> void:
+	_expect(RotationPrompt.should_show_for(Vector2(390, 844)), "portrait viewport shows the rotate prompt")
+	for viewport in [Vector2(844, 390), Vector2(852, 393), Vector2(915, 412)]:
+		_expect(not RotationPrompt.should_show_for(viewport), "%dx%d landscape viewport hides the rotate prompt" % [viewport.x, viewport.y])
+	var rotations := [Vector2(390, 844), Vector2(844, 390), Vector2(390, 844), Vector2(844, 390), Vector2(390, 844), Vector2(844, 390)]
+	for index in rotations.size():
+		_expect(RotationPrompt.should_show_for(rotations[index]) == (index % 2 == 0), "rotation transition %d has the expected prompt state" % (index + 1))
 
 
 func _test_player_combat_gate() -> void:

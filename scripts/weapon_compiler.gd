@@ -9,14 +9,15 @@ const BLOCKED_KEYWORDS: PackedStringArray = [
 var last_record: Dictionary = {}
 
 
-func compile(description: String, drawing_summary: Dictionary = {}) -> WeaponSpec:
+func compile(description: String, drawing_summary: Dictionary = {}, forced_attack_pattern: String = "") -> WeaponSpec:
 	var started := Time.get_ticks_msec()
 	var normalized := description.strip_edges().to_lower().left(512)
+	var forced_pattern := forced_attack_pattern if forced_attack_pattern in WeaponSpec.ATTACK_PATTERNS else ""
 	var fallback_reason := ""
 	if normalized.is_empty(): fallback_reason = "empty_description"
 	elif _contains_any(normalized, BLOCKED_KEYWORDS): fallback_reason = "blocked_input"
 
-	var raw := _fallback_profile() if not fallback_reason.is_empty() else _profile_for(normalized, drawing_summary)
+	var raw := _fallback_profile(forced_pattern) if not fallback_reason.is_empty() else _profile_for(normalized, drawing_summary, forced_pattern)
 	var balanced := PowerBudget.balance(raw)
 	var spec := WeaponSpec.from_dict(balanced.values)
 	spec.corrections.assign(balanced.corrections)
@@ -25,6 +26,7 @@ func compile(description: String, drawing_summary: Dictionary = {}) -> WeaponSpe
 		"timestamp_unix": int(Time.get_unix_time_from_system()),
 		"mode": "deterministic_mock_m1a",
 		"input": normalized.left(160),
+		"forced_attack_pattern": forced_pattern,
 		"drawing_summary": drawing_summary,
 		"raw_spec": raw,
 		"weapon_spec": spec.to_dict(),
@@ -57,8 +59,8 @@ func compile_raw(raw: Dictionary) -> WeaponSpec:
 	return spec
 
 
-func _profile_for(text: String, drawing: Dictionary) -> Dictionary:
-	var pattern := _detect_pattern(text)
+func _profile_for(text: String, drawing: Dictionary, forced_pattern: String = "") -> Dictionary:
+	var pattern := forced_pattern if forced_pattern in WeaponSpec.ATTACK_PATTERNS else _detect_pattern(text)
 	var element := _detect_element(text)
 	var profile := _base_profile(pattern)
 	profile.element = element
@@ -97,8 +99,8 @@ func _base_profile(pattern: String) -> Dictionary:
 	return common
 
 
-func _fallback_profile() -> Dictionary:
-	return _base_profile("melee_slash")
+func _fallback_profile(forced_pattern: String = "") -> Dictionary:
+	return _base_profile(forced_pattern if forced_pattern in WeaponSpec.ATTACK_PATTERNS else "melee_slash")
 
 
 func _detect_pattern(text: String) -> String:

@@ -7,22 +7,15 @@ const TEXT := Color("#edf4ff")
 const MUTED := Color("#9bb0cf")
 const CYAN := Color("#65d9ff")
 const ORANGE := Color("#ffb65c")
-const IDEA_TEXT := [
-	"a solid normal blade for close combat",
-	"a fast ice projectile launcher",
-	"a returning fire boomerang",
-	"an electric area blast for a crowd",
-	"a piercing normal lance that breaks shields",
-]
-
 var service := MockAIService.new()
 var world: Node2D
 var player: ForgePlayer
 var targets: Array[TrainingDummy] = []
 var drawing_canvas: DrawingCanvas
 var description_input: LineEdit
-var idea_selector: OptionButton
+var pattern_selector: AttackPatternSelector
 var forge_overlay: Control
+var orientation_prompt: RotationPrompt
 var forge_status: Label
 var stats_label: Label
 var budget_label: Label
@@ -35,12 +28,13 @@ var current_strokes: Array[PackedVector2Array] = []
 
 
 func _ready() -> void:
-	set_process_unhandled_input(true)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build_world()
 	_build_hud()
 	_build_forge_overlay()
-	resized.connect(_layout_world)
-	_layout_world()
+	_build_orientation_prompt()
+	resized.connect(_on_viewport_resized)
+	_on_viewport_resized()
 	queue_redraw()
 
 
@@ -88,8 +82,10 @@ func _build_hud() -> void:
 	top_panel.position = Vector2(18, 16)
 	top_panel.size = Vector2(500, 184)
 	top_panel.add_theme_stylebox_override("panel", _panel_style(PANEL, CYAN, 2))
+	top_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(top_panel)
 	var top_margin := MarginContainer.new()
+	top_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]: top_margin.add_theme_constant_override(side, 12)
 	top_panel.add_child(top_margin)
 	stats_label = Label.new()
@@ -97,6 +93,7 @@ func _build_hud() -> void:
 	stats_label.add_theme_color_override("font_color", TEXT)
 	stats_label.add_theme_font_size_override("font_size", 15)
 	stats_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	stats_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top_margin.add_child(stats_label)
 
 	var budget_panel := PanelContainer.new()
@@ -104,8 +101,10 @@ func _build_hud() -> void:
 	budget_panel.position = Vector2(534, 16)
 	budget_panel.size = Vector2(450, 184)
 	budget_panel.add_theme_stylebox_override("panel", _panel_style(PANEL, Color("#b392ff"), 2))
+	budget_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(budget_panel)
 	var budget_margin := MarginContainer.new()
+	budget_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]: budget_margin.add_theme_constant_override(side, 12)
 	budget_panel.add_child(budget_margin)
 	budget_label = Label.new()
@@ -113,6 +112,7 @@ func _build_hud() -> void:
 	budget_label.add_theme_color_override("font_color", TEXT)
 	budget_label.add_theme_font_size_override("font_size", 14)
 	budget_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	budget_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	budget_margin.add_child(budget_label)
 
 	reforge_button = _button("REFORGE", ORANGE, 17)
@@ -128,6 +128,7 @@ func _build_hud() -> void:
 	combat_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	combat_status.add_theme_color_override("font_color", MUTED)
 	combat_status.add_theme_font_size_override("font_size", 15)
+	combat_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	combat_status.anchor_right = 1.0
 	combat_status.offset_top = 208.0
 	combat_status.offset_bottom = 236.0
@@ -137,6 +138,7 @@ func _build_hud() -> void:
 	target_health_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	target_health_label.add_theme_color_override("font_color", Color("#78eea6"))
 	target_health_label.add_theme_font_size_override("font_size", 13)
+	target_health_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	target_health_label.anchor_right = 1.0
 	target_health_label.offset_top = 238.0
 	target_health_label.offset_bottom = 266.0
@@ -148,6 +150,7 @@ func _build_hud() -> void:
 	movement.add_theme_constant_override("separation", 10)
 	movement.position = Vector2(18, size.y - 96)
 	movement.size = Vector2(252, 76)
+	movement.mouse_filter = Control.MOUSE_FILTER_PASS
 	add_child(movement)
 	var left_button := _button("LEFT", CYAN, 17)
 	left_button.name = "MoveLeftButton"
@@ -177,82 +180,92 @@ func _build_forge_overlay() -> void:
 	forge_overlay.color = Color(0.02, 0.04, 0.075, 1.0)
 	forge_overlay.z_index = 100
 	forge_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	forge_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	# The forge background is visual only. Interactive children receive their own
+	# bounded events; no invisible full-screen Control is allowed to capture touch.
+	forge_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(forge_overlay)
 	var panel := PanelContainer.new()
-	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 28)
+	panel.name = "ForgePanel"
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 24)
 	panel.add_theme_stylebox_override("panel", _panel_style(PANEL, CYAN, 3))
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	forge_overlay.add_child(panel)
 	var margin := MarginContainer.new()
-	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]: margin.add_theme_constant_override(side, 16)
+	margin.mouse_filter = Control.MOUSE_FILTER_PASS
+	margin.add_theme_constant_override("margin_left", 18)
+	margin.add_theme_constant_override("margin_right", 18)
+	margin.add_theme_constant_override("margin_top", 14)
+	margin.add_theme_constant_override("margin_bottom", 22)
 	panel.add_child(margin)
 	var layout := VBoxContainer.new()
-	layout.add_theme_constant_override("separation", 8)
+	layout.name = "ForgeLayout"
+	layout.mouse_filter = Control.MOUSE_FILTER_PASS
+	layout.add_theme_constant_override("separation", 6)
 	margin.add_child(layout)
 
 	var title_row := HBoxContainer.new()
+	title_row.mouse_filter = Control.MOUSE_FILTER_PASS
 	layout.add_child(title_row)
 	var title := Label.new()
 	title.text = "PROJECT FORGE  /  M1A WEAPON COMPILER"
 	title.add_theme_color_override("font_color", TEXT)
 	title.add_theme_font_size_override("font_size", 25)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_row.add_child(title)
 	var close_button := _button("BACK", MUTED, 15)
 	close_button.name = "BackButton"
-	close_button.custom_minimum_size = Vector2(100, 60)
+	close_button.custom_minimum_size = Vector2(128, 102)
 	close_button.pressed.connect(_close_reforge)
 	title_row.add_child(close_button)
 
-	var guide := Label.new()
-	guide.text = "Draw with mouse/touch. Describe one weapon. The local compiler validates, budgets and repairs every field."
-	guide.add_theme_color_override("font_color", MUTED)
-	guide.add_theme_font_size_override("font_size", 15)
-	layout.add_child(guide)
 	drawing_canvas = DrawingCanvas.new()
 	drawing_canvas.name = "DrawingCanvas"
-	drawing_canvas.custom_minimum_size = Vector2(0, 235)
+	drawing_canvas.custom_minimum_size = Vector2(0, 120)
 	drawing_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	layout.add_child(drawing_canvas)
 
 	var input_row := HBoxContainer.new()
+	input_row.mouse_filter = Control.MOUSE_FILTER_PASS
 	input_row.add_theme_constant_override("separation", 10)
 	layout.add_child(input_row)
 	var prompt_label := Label.new()
 	prompt_label.text = "DESCRIPTION"
-	prompt_label.custom_minimum_size = Vector2(125, 66)
+	prompt_label.custom_minimum_size = Vector2(142, 90)
 	prompt_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	prompt_label.add_theme_color_override("font_color", CYAN)
-	prompt_label.add_theme_font_size_override("font_size", 15)
+	prompt_label.add_theme_font_size_override("font_size", 18)
+	prompt_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	input_row.add_child(prompt_label)
 	description_input = LineEdit.new()
 	description_input.name = "DescriptionInput"
 	description_input.placeholder_text = "e.g. a returning fire boomerang"
 	description_input.clear_button_enabled = true
 	description_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	description_input.custom_minimum_size.y = 66
-	description_input.add_theme_font_size_override("font_size", 17)
+	description_input.custom_minimum_size.y = 90
+	description_input.mouse_filter = Control.MOUSE_FILTER_STOP
+	description_input.add_theme_font_size_override("font_size", 22)
 	input_row.add_child(description_input)
 
+	pattern_selector = AttackPatternSelector.new()
+	pattern_selector.name = "AttackPatternSelector"
+	pattern_selector.pattern_selected.connect(_on_pattern_selected)
+	layout.add_child(pattern_selector)
+
 	var action_row := HBoxContainer.new()
+	action_row.mouse_filter = Control.MOUSE_FILTER_PASS
 	action_row.add_theme_constant_override("separation", 8)
 	layout.add_child(action_row)
-	var clear_button := _button("CLEAR", MUTED, 14)
+	var clear_button := _button("CLEAR", MUTED, 18)
 	clear_button.name = "ClearDrawingButton"
-	clear_button.custom_minimum_size = Vector2(105, 70)
+	clear_button.custom_minimum_size = Vector2(126, 102)
 	clear_button.pressed.connect(drawing_canvas.clear_drawing)
 	action_row.add_child(clear_button)
-	idea_selector = OptionButton.new()
-	idea_selector.name = "IdeaSelector"
-	idea_selector.custom_minimum_size = Vector2(230, 70)
-	idea_selector.add_theme_font_size_override("font_size", 15)
-	for label_text in ["MELEE SLASH", "STRAIGHT PROJECTILE", "BOOMERANG", "AREA BLAST", "PIERCING"]: idea_selector.add_item(label_text)
-	idea_selector.item_selected.connect(func(index: int): description_input.text = IDEA_TEXT[index])
-	action_row.add_child(idea_selector)
-	var load_button := _button("LOAD IDEA", Color("#b392ff"), 14)
+	var load_button := _button("LOAD IDEA", Color("#b392ff"), 18)
 	load_button.name = "LoadIdeaButton"
-	load_button.custom_minimum_size = Vector2(125, 70)
-	load_button.pressed.connect(func(): description_input.text = IDEA_TEXT[idea_selector.selected])
+	load_button.custom_minimum_size = Vector2(158, 102)
+	load_button.pressed.connect(_load_selected_idea)
 	action_row.add_child(load_button)
 	forge_status = Label.new()
 	forge_status.text = "Offline deterministic mock — no API key."
@@ -260,11 +273,12 @@ func _build_forge_overlay() -> void:
 	forge_status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	forge_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	forge_status.add_theme_color_override("font_color", MUTED)
-	forge_status.add_theme_font_size_override("font_size", 13)
+	forge_status.add_theme_font_size_override("font_size", 16)
+	forge_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	action_row.add_child(forge_status)
-	var generate_button := _button("COMPILE WEAPON", ORANGE, 17)
+	var generate_button := _button("COMPILE WEAPON", ORANGE, 20)
 	generate_button.name = "GenerateWeaponButton"
-	generate_button.custom_minimum_size = Vector2(190, 70)
+	generate_button.custom_minimum_size = Vector2(226, 102)
 	generate_button.pressed.connect(_generate_weapon)
 	action_row.add_child(generate_button)
 
@@ -275,9 +289,14 @@ func _generate_weapon() -> void:
 		forge_status.add_theme_color_override("font_color", Color("#ff8f8f"))
 		return
 	current_strokes = drawing_canvas.get_normalized_strokes()
-	current_spec = service.generate(description_input.text, drawing_canvas.drawing_summary())
+	current_spec = service.generate(
+		description_input.text,
+		drawing_canvas.drawing_summary(),
+		pattern_selector.selected_pattern(),
+	)
 	player.equip(current_spec, current_strokes)
 	player.set_combat_enabled(true)
+	description_input.release_focus()
 	stats_label.text = (
 		"%s\nDAMAGE %d   POWER %d/100   SPEED %.2f\nATTACK  %s\nELEMENT  %s   SPECIAL  %s\nWEAKNESS  %s"
 		% [current_spec.display_name, current_spec.damage, current_spec.power_score, current_spec.attack_speed,
@@ -310,7 +329,10 @@ func _arm_attack_button() -> void:
 
 func _close_reforge() -> void:
 	if current_spec == null:
+		forge_status.text = "Forge one weapon before returning to combat."
+		forge_status.add_theme_color_override("font_color", Color("#ffca78"))
 		return
+	description_input.release_focus()
 	forge_overlay.hide()
 	player.set_combat_enabled(true)
 	combat_status.text = "%s ready. Use A/D or touch, then SPACE/ATTACK." % current_spec.attack_label()
@@ -323,10 +345,23 @@ func _open_reforge() -> void:
 	_clear_transient_combat()
 	drawing_canvas.clear_drawing()
 	description_input.clear()
+	description_input.release_focus()
+	var current_index := AttackPatternSelector.PATTERNS.find(current_spec.attack_pattern) if current_spec else 0
+	pattern_selector.select_pattern(maxi(current_index, 0), false)
 	forge_status.text = "Draw again; a valid replacement is committed only after compile."
 	forge_status.add_theme_color_override("font_color", MUTED)
 	forge_overlay.show()
-	description_input.grab_focus()
+
+
+func _load_selected_idea() -> void:
+	description_input.text = pattern_selector.selected_idea()
+	forge_status.text = "%s example loaded. Edit it or compile directly." % pattern_selector.selected_pattern().replace("_", " ").to_upper()
+	forge_status.add_theme_color_override("font_color", MUTED)
+
+
+func _on_pattern_selected(_index: int, pattern: String) -> void:
+	forge_status.text = "%s selected. LOAD IDEA or compile your text with this M1A test override." % pattern.replace("_", " ").to_upper()
+	forge_status.add_theme_color_override("font_color", Color("#b9eaff"))
 
 
 func _clear_transient_combat() -> void:
@@ -421,10 +456,43 @@ func _layout_world() -> void:
 	queue_redraw()
 
 
+func _build_orientation_prompt() -> void:
+	orientation_prompt = RotationPrompt.new()
+	orientation_prompt.name = "LandscapeRotationPrompt"
+	orientation_prompt.z_index = 500
+	orientation_prompt.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(orientation_prompt)
+
+
+func _on_viewport_resized() -> void:
+	_layout_world()
+	_update_orientation_prompt()
+
+
+func _update_orientation_prompt() -> void:
+	if orientation_prompt == null:
+		return
+	var portrait := RotationPrompt.should_show_for(size)
+	orientation_prompt.visible = portrait
+	if portrait:
+		description_input.release_focus()
+		player.set_combat_enabled(false)
+		player.set_touch_axis(0.0)
+		attack_button.disabled = true
+	elif forge_overlay.visible:
+		player.set_combat_enabled(false)
+		attack_button.disabled = true
+	elif current_spec:
+		player.set_combat_enabled(true)
+		attack_button.disabled = false
+
+
 func _button(label_text: String, accent: Color, font_size: int) -> Button:
 	var button := Button.new()
 	button.text = label_text
 	button.focus_mode = Control.FOCUS_NONE
+	button.mouse_filter = Control.MOUSE_FILTER_STOP
+	button.action_mode = BaseButton.ACTION_MODE_BUTTON_RELEASE
 	button.add_theme_font_size_override("font_size", font_size)
 	button.add_theme_color_override("font_color", TEXT)
 	button.add_theme_color_override("font_hover_color", TEXT)

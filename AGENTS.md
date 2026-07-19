@@ -23,6 +23,10 @@ assets, balance data, or development direction from Cat Battle or another projec
 - Power cost must be explicit, deterministic, capped at 100, and logged.
 - Strong capabilities must have a visible drawback or deterministic stat cost.
 - Test against stationary, moving, shield, and grouped targets.
+- Keep M1B and all new features paused until the user accepts the replacement
+  build on a physical iPhone Safari session.
+- The M1A forge uses five persistent attack-pattern test buttons. Never restore
+  an `OptionButton`, `PopupMenu`, or full-screen modal selector for this flow.
 
 Do not add paid AI, secrets, production levels or art, voice, accounts, cloud
 saves, sharing, monetization, multiplayer, or store submission in M1A.
@@ -48,7 +52,7 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
 
 ## Git and agent workflow
 
-- Main integration branch: `codex/m1a-deterministic-compiler`.
+- Current integration branch: `codex/fix/iphone-safari-touch-layout`.
 - QA and art work remain isolated in their assigned worktrees/branches.
 - Only the main integrator selects changes into the delivery branch.
 - Never merge, delete branches/worktrees, or clean user work without confirmation.

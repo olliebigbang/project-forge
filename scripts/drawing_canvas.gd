@@ -16,13 +16,15 @@ var _active_pointer := -1
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	clip_contents = true
-	focus_mode = Control.FOCUS_ALL
+	focus_mode = Control.FOCUS_NONE
 	resized.connect(queue_redraw)
 
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
+			if not Rect2(Vector2.ZERO, size).has_point(event.position):
+				return
 			_begin_stroke(event.position, -1)
 		else:
 			_end_stroke(-1)
@@ -32,6 +34,8 @@ func _gui_input(event: InputEvent) -> void:
 		accept_event()
 	elif event is InputEventScreenTouch:
 		if event.pressed:
+			if not Rect2(Vector2.ZERO, size).has_point(event.position):
+				return
 			_begin_stroke(event.position, event.index)
 		else:
 			_end_stroke(event.index)
@@ -138,4 +142,3 @@ func _draw() -> void:
 	if strokes.is_empty():
 		var font := ThemeDB.fallback_font
 		draw_string(font, Vector2(24, 42), "DRAW YOUR WEAPON HERE", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color("#8296b6"))
-

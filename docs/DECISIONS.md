@@ -21,6 +21,9 @@ This log records current decisions without turning untested defaults into facts.
 | D-013 | **CONFIRMED** Power is an explicit component sum capped at 100; strong capability cannot retain `none` as its drawback | Current-round acceptance |
 | D-014 | **CONFIRMED** JSON Schema and runtime repair are independently checked and kept in field/enum parity | Current-round acceptance |
 | D-015 | **CONFIRMED** Public Web hosting reconstructs an exact two-part WASM payload because the provider rejects the raw 39.5 MB file | Deployment evidence |
+| D-016 | **CONFIRMED** M1A exposes five always-visible, mutually exclusive attack-pattern buttons only as deterministic compiler test tools; `LOAD IDEA` and compile use the selected pattern | Real iPhone Safari showed the former `OptionButton`/`PopupMenu` could capture all page touch |
+| D-017 | **CONFIRMED** In M1B player-facing generation, attack pattern is inferred from drawing/text/voice; the five manual buttons are hidden unless developer test mode is enabled or the player explicitly chooses “modify recognition result” | Prevent M1A test UI from becoming the final player flow |
+| D-018 | **CONFIRMED** The Web game targets landscape but does not rely on browser orientation lock; portrait shows a reversible bilingual rotate prompt and automatically resumes after landscape rotation | Mobile Safari cannot reliably honor Web orientation lock |
 
 ## Assumptions
 
@@ -37,13 +40,14 @@ This log records current decisions without turning untested defaults into facts.
 
 | ID | Question / hypothesis | Planned evidence |
 | --- | --- | --- |
-| V-001 | **CONFIRMED (Web emulation)** Touch drawing remains controllable at 844×390 and the layout remains usable at 915×412 | Native Android/iOS devices remain an M3 validation |
+| V-001 | **TO VALIDATE (real iPhone recheck)** The five-button replacement, drawing, keyboard, compile, BACK, and rotation recovery remain usable in real iPhone Safari | User must accept the newly deployed fix; browser automation alone cannot close this gate |
 | V-002 | **TO VALIDATE** Player strokes remain recognizable when attached to the character | M0 screenshots and user test |
 | V-003 | **TO VALIDATE** Melee and projectile behavior feel mechanically distinct | M0 hands-on test |
 | V-004 | **TO VALIDATE** Players change ideas rather than re-roll for higher damage | M1/M2 playtest; deterministic M0 values avoid false reward |
 | V-005 | **CONFIRMED (M1A prototype)** Five attack forms and four elements fit one stable compiler/budget | 32-case matrix and five browser combat runs; balance feel remains M2 |
 | V-006 | **TO VALIDATE** Native safe areas, touch latency, and performance | M3 Android/iOS device matrix |
 | V-007 | **TO VALIDATE** Moderation, malformed output, timeout, caching, latency, and cost behavior | Backend prototype before paid integration |
+| V-008 | **TO VALIDATE** Physical iPhone Safari safe-area and toolbar behavior at 844×390/852×393-equivalent visual viewports | User regression after the touch-layout fix deployment |
 
 ## TBD
 
