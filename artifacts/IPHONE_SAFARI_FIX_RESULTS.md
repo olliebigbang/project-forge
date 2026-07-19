@@ -1,9 +1,9 @@
 # iPhone Safari Touch/Layout Fix Results
 
 Run date: 2026-07-19 (Australia/Sydney)  
-Frozen local fix: `8cdea56b248d88db76a4e529ad94ffa4a7fadb97`  
+Published source: `b403d9e9f0add5a6b069080a804cf76a200e6e45`
 Branch: `codex/fix/iphone-safari-touch-layout`  
-Milestone status: **TO VALIDATE — physical iPhone Safari and replacement public deployment remain open**
+Milestone status: **TO VALIDATE — replacement deployment is live and automated checks pass; physical iPhone Safari remains the user acceptance gate**
 
 ## Root cause
 
@@ -45,6 +45,8 @@ compiler into a very tall canvas and pushed the popup over the bottom controls.
 | Static hosting worker | **PASS — 3/3** |
 | WASM chunk loader | **PASS — 1/1** |
 | Web export | **PASS** |
+| GitHub Push + PR CI | **PASS** — both runs green at published source |
+| Public deployment HTTP and asset identity | **PASS** — Sites v8, HTTP 200, new PCK/WASM chunk hashes |
 | Chromium true-touch drawing and 30 selector switches | **PASS** |
 | Chromium five LOAD IDEA → compile → attack → REFORGE cycles | **PASS** |
 | Chromium 844×390, 852×393, 915×412 and three rotation cycles | **PASS; no scroll** |
@@ -72,9 +74,13 @@ physical Safari acceptance.
 - `index.wasm`: 39,513,091 bytes
 - `index.wasm` SHA-256: `35116F68540AC41ACF7D71EA457ADDED91B5E960A9CCA3E2ACC72918EAF01277`
 
-These hashes differ from the currently published v7 resources. A replacement
-deployment must publish these new bytes; changing only a query string is not an
-acceptable cache workaround.
+The public Sites v8 deployment now serves these new bytes. A direct no-query
+download of `/index.pck` returned HTTP 200 and the exact PCK hash above. Its two public WASM
+chunks also match the frozen build: part 0 is 20,971,520 bytes with SHA-256
+`C275B33C7A910B2CC899BDB23DAF5F6636F120850EDC6EDCBAC341403DF7EB5B`;
+part 1 is 18,541,571 bytes with SHA-256
+`18646FB4D2C6B6FD2D6E90173B1E2904B501D2F1D33CC94710FCE6D3D1DB9CC4`.
+This is a real resource replacement, not a query-string-only cache workaround.
 
 ## Screenshots
 
@@ -109,17 +115,22 @@ visible beneath the prompt.
 
 ## Delivery gate
 
-No normal Git remote is configured (`git remote -v` is empty). Therefore a real
-PR cannot be opened and hosted CI cannot run. The user's required order is PR → CI
-→ replacement public deployment, so deployment is intentionally paused at this
-gate. Minimum unblock: configure a GitHub/GitLab remote for this repository, grant
-push/PR permission for `codex/fix/iphone-safari-touch-layout`, and provide or allow
-a CI workflow that runs `scripts/test.ps1` plus the Web export.
+The private GitHub repository is
+<https://github.com/olliebigbang/project-forge>. Draft PR #1 is
+<https://github.com/olliebigbang/project-forge/pull/1>. Push and pull-request CI
+both pass at the published source. The branch remains unmerged as required.
 
-The old public v7 URL is not the acceptance build and should not be retested as if
-it contained this fix.
+Public acceptance build:
+<https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?release=v8-b403d9e>
 
-The downloadable fallback is
+The stable hostname is unchanged, but Sites version 8 and the underlying PCK/WASM
+resources are new. Public Chromium regression passed all five compile/attack cycles,
+30 selector switches, three rotation cycles, the 844×390, 852×393, and 915×412
+layout matrix, and produced zero console errors or warnings. Public WebKit iPhone
+15 landscape regression passed the same five functional cycles and 30 selector
+switches at a 734×343 visual viewport with no scroll.
+
+The downloadable fallback remains
 `release/Project-Forge-M1A-iPhone-Touch-Fix-Web.zip`. It contains the exact Web
 export, a local Node HTTP server, launch instructions, and a build identity file.
 Archive SHA-256: `045AC90A37641110E61D9D425CA89E8876B38965AC4E50DF3D4FF7A309E51E76`.

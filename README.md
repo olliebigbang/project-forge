@@ -9,10 +9,14 @@ Battle or any previous game.
 
 ## Public trial
 
-[Open the phone-accessible Web preview](https://project-forge-weapon-lab.hongningliu0130.chatgpt.site)
+[Open the iPhone touch-fix Web preview](https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?release=v8-b403d9e)
 
 The preview is a landscape Web build. It contains no paid AI call, API key,
 account, store, advertising, multiplayer, or production art.
+
+Source and review: [GitHub repository](https://github.com/olliebigbang/project-forge)
+and [Draft PR #1](https://github.com/olliebigbang/project-forge/pull/1). The PR
+remains unmerged until the physical iPhone Safari acceptance is complete.
 
 ## M1A contents
 

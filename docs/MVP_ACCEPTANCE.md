@@ -10,7 +10,7 @@ iPhone Safari acceptance; browser emulation is evidence, not a substitute.
 
 | ID | Acceptance criterion | Status | Evidence target |
 | --- | --- | --- | --- |
-| M1A-01 | Public, phone-accessible Web URL; not localhost | **TO VALIDATE** | Replacement touch-fix deployment, HTTP 200, and physical iPhone check |
+| M1A-01 | Public, phone-accessible Web URL; not localhost | **CONFIRMED** | Sites v8 public deployment returns HTTP 200 and exact replacement asset hashes |
 | M1A-02 | Public flow covers draw, generate, move, attack, and re-forge | **TO VALIDATE (real iPhone)** | Chromium/WebKit automation passes; physical iPhone remains the final gate |
 | M1A-03 | Five attack modules execute and look/behave differently | **CONFIRMED** | Five browser combat runs |
 | M1A-04 | Normal, fire, ice, and electric compile and execute | **CONFIRMED** | Matrix plus combat effect checks |
@@ -21,7 +21,7 @@ iPhone Safari acceptance; browser emulation is evidence, not a substitute.
 | M1A-09 | At least 20 deterministic acceptance inputs | **CONFIRMED — 32** | `tests/m1a_input_matrix.json` |
 | M1A-10 | Moving, shield, and grouped targets validate attack tradeoffs | **CONFIRMED** | Target lab and rule tests |
 | M1A-11 | Spec, budget, repairs, and results are recorded | **CONFIRMED** | Runtime JSONL and artifacts |
-| M1A-12 | Full tests, Web build, public browser console, and mobile layout pass | **TO VALIDATE (real iPhone)** | Local full suite passes; replacement public build and physical Safari acceptance are pending |
+| M1A-12 | Full tests, Web build, public browser console, and mobile layout pass | **TO VALIDATE (real iPhone)** | CI, public Chromium/WebKit automation, and replacement assets pass; physical Safari acceptance remains pending |
 
 ## Status vocabulary
 
