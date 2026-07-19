@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-forge.invalid/schemas/weapon-spec-v0.json",
+  "title": "Project Forge WeaponSpec",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "weapon_class",
+    "attack_pattern",
+    "element",
+    "damage",
+    "attack_speed",
+    "range",
+    "special_ability",
+    "status_effect",
+    "drawback",
+    "visual_material",
+    "power_score"
+  ],
+  "properties": {
+    "name": { "type": "string", "minLength": 1, "maxLength": 48 },
+    "weapon_class": { "enum": ["melee", "ranged"] },
+    "attack_pattern": {
+      "enum": [
+        "melee_slash",
+        "straight_projectile",
+        "boomerang",
+        "area_blast",
+        "piercing"
+      ]
+    },
+    "element": { "enum": ["normal", "fire", "ice", "electric"] },
+    "damage": { "type": "integer", "minimum": 1, "maximum": 100 },
+    "attack_speed": { "type": "number", "minimum": 0.2, "maximum": 3.0 },
+    "range": { "type": "number", "minimum": 40, "maximum": 900 },
+    "special_ability": {
+      "enum": ["none", "knockback_burst", "front_shield", "chain_arc"]
+    },
+    "status_effect": { "enum": ["none", "burn", "freeze", "shock", "knockback"] },
+    "drawback": {
+      "enum": ["none", "slow_recovery", "short_reach", "slow_projectile", "low_impact"]
+    },
+    "visual_material": {
+      "enum": ["ink", "forged_metal", "ember_metal", "frozen_metal", "charged_metal"]
+    },
+    "power_score": { "type": "integer", "minimum": 1, "maximum": 100 }
+  }
+}
+
