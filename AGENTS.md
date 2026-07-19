@@ -50,8 +50,8 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
 - A wrapper timeout must abort and must not automatically retry. Retry at most
   once only when the provider adapter explicitly proves the failure retry-safe.
 - Before paid public traffic, require a provider account spend cap. Sites D1 is
-  the application quota/idempotency boundary and must fail closed when bound but
-  unavailable.
+  the application quota/idempotency boundary. Any non-local provider with a
+  missing, partial, or unavailable D1 guard must fail closed before invocation.
 - Drawing input is numeric `drawing_summary` only; visual semantics are M1B2.
 - Preserve drawing/text across cancellation, timeout, retry and fallback.
 - Provider/model/credential remain `TBD` until the product owner answers the one

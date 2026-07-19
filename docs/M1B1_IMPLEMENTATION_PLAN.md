@@ -119,7 +119,8 @@ usage data and a verified pricing rule is configured. No guessed value is valid.
 - The client binds each HTTP callback to its initiating revision/request ID and
   rejects stale or mismatched responses before state mutation.
 - D1 returns 429 after 8 session requests/minute or 60 network requests/minute
-  across isolates and fails closed before provider invocation when unavailable.
+  across isolates. A real/custom provider with a missing, partial, or unavailable
+  D1 guard fails closed before provider invocation and cannot downgrade to memory.
   Paid public traffic additionally requires a provider account spend cap.
 - Configurable timeout sends `AbortSignal`. A wrapper timeout never retries;
   adapters may request at most one retry only for a transient failure they can

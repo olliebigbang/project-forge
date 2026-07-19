@@ -6,6 +6,10 @@ Prepared: 2026-07-19
 
 Scope: text plus bounded `drawing_summary`; no image understanding
 
+Backend: **CONFIRMED — reuse the active Project Forge Sites Worker with logical
+D1 binding `DB`.** The 2026-07-19 environment check returned revision 0 with no
+runtime variables, so no provider, model, or credential is currently configured.
+
 ## Recommendation
 
 **Recommended: OpenAI `gpt-5.6-luna` through the Responses API with Structured
@@ -63,6 +67,7 @@ Common non-secret values:
 ```text
 WEAPON_AI_PROVIDER=openai | google | anthropic
 WEAPON_AI_MODEL=<selected model ID>
+WEAPON_INTERPRETER_REQUIRE_DURABLE_GUARD=true
 ```
 
 Exactly one provider credential, stored as a Sites secret environment value:
@@ -81,7 +86,8 @@ the deployment service's secret control rather than paste it into chat or source
 
 1. Add only the selected server adapter behind `resolveAdapter()`; keep Godot on
    same-origin `/api/compile-weapon`.
-2. Configure provider/model and the provider key in Sites server environment.
+2. Configure provider/model, the durable-guard requirement, and the provider key
+   in Sites server environment.
 3. Deploy the checked-in Sites D1 `DB` migration. It atomically enforces 8
    requests/minute per session and 60 per network, owns cross-isolate request
    leases/replays, and fails closed before provider invocation if unavailable.

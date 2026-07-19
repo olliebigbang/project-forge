@@ -72,8 +72,9 @@ flowchart LR
 - **CONFIRMED** The worker requires `X-Forge-Session`. Sites D1 atomically limits
   a session to 8 requests/minute and a network to 60 requests/minute across
   isolates, returning 429 plus `Retry-After`; it fails closed before provider
-  invocation if the bound request guard is unavailable. A provider account spend
-  cap remains mandatory before paid public traffic.
+  invocation if the request guard is incomplete or unavailable. Any real provider
+  configuration requires a complete D1 binding and cannot silently downgrade to
+  memory. A provider account spend cap remains mandatory before paid public traffic.
 - **CONFIRMED** Every provider call receives an `AbortSignal`. A wrapper timeout
   aborts cooperative transports but is never automatically retried because the
   backend cannot prove that an upstream request was unbilled. One retry is allowed
