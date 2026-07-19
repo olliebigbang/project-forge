@@ -24,12 +24,20 @@ test("rewrites the site root to the Godot index", async () => {
   assert.equal(await response.text(), "asset");
 });
 
-test("adds WebAssembly isolation and cache headers", async () => {
+test("adds WebAssembly isolation and revalidates stable Godot runtime names", async () => {
   const calls = [];
   const response = await worker.fetch(new Request("https://forge.example/index.wasm"), environment(calls));
   assert.deepEqual(calls, ["/index.wasm"]);
   assert.equal(response.headers.get("cross-origin-opener-policy"), "same-origin");
   assert.equal(response.headers.get("cross-origin-embedder-policy"), "require-corp");
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
-  assert.match(response.headers.get("cache-control"), /max-age=3600/);
+  assert.equal(response.headers.get("cache-control"), "no-cache, must-revalidate");
+});
+
+test("does not cache the HTML entry point", async () => {
+  const response = await worker.fetch(
+    new Request("https://forge.example/index.html"),
+    environment([]),
+  );
+  assert.equal(response.headers.get("cache-control"), "no-store");
 });

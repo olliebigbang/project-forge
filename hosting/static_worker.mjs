@@ -21,7 +21,17 @@ export default {
     for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
       headers.set(name, value);
     }
-    headers.set("Cache-Control", url.pathname === "/index.html" ? "no-store" : "public, max-age=3600");
+    const isRuntimePayload =
+      url.pathname.startsWith("/index.") || url.pathname === "/wasm_chunk_loader.js";
+    if (url.pathname === "/index.html") {
+      headers.set("Cache-Control", "no-store");
+    } else if (isRuntimePayload) {
+      // Godot export filenames are stable across releases. Revalidate them so an
+      // in-place deployment cannot pair fresh HTML with a stale PCK/JS/WASM chunk.
+      headers.set("Cache-Control", "no-cache, must-revalidate");
+    } else {
+      headers.set("Cache-Control", "public, max-age=3600");
+    }
 
     return new Response(assetResponse.body, {
       status: assetResponse.status,
