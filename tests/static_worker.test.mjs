@@ -27,10 +27,11 @@ test("rewrites the site root to the Godot index", async () => {
 test("adds WebAssembly isolation and cache headers", async () => {
   const calls = [];
   const response = await worker.fetch(new Request("https://forge.example/index.wasm"), environment(calls));
-  assert.deepEqual(calls, ["/index.wasm"]);
+  assert.deepEqual(calls, ["/index.wasm.gz"]);
   assert.equal(response.headers.get("cross-origin-opener-policy"), "same-origin");
   assert.equal(response.headers.get("cross-origin-embedder-policy"), "require-corp");
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(response.headers.get("content-type"), "application/wasm");
+  assert.equal(response.headers.get("content-encoding"), "gzip");
   assert.match(response.headers.get("cache-control"), /max-age=3600/);
 });
-
