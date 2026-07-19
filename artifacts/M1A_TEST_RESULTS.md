@@ -2,7 +2,7 @@
 
 Run date: 2026-07-19 (Australia/Sydney)  
 Engine: Godot 4.7.1 stable, GL Compatibility renderer  
-Public deployment: Sites final production publish  
+Public deployment: Sites version 7, production publish  
 URL: https://project-forge-weapon-lab.hongningliu0130.chatgpt.site
 
 ## Summary
@@ -47,6 +47,11 @@ a frontal straight projectile is reduced from 50 to 10 while piercing remains 50
 
 ## Public browser evidence
 
+The final v7 deployment returned HTTP 200 for HTML, JS, PCK, both WASM chunks,
+and the chunk loader. Its public `index.pck` was 107,692 bytes with SHA-256
+`1A40F507D01BD9AAD65C4C58C7A7B025A4FC1F2D1186E878BD7F294685914002`, exactly
+matching the local final export; fresh Chromium reported zero errors and warnings.
+
 ### Melee hit after reach regression fix
 
 ![Public melee hit](../output/playwright/m1a-public-melee-fixed.png)
@@ -61,7 +66,15 @@ The test used Chromium CDP `touchStart` / `touchMove` / `touchEnd` for drawing,
 compile, held movement, attack, and re-forge. The captured projectile is the
 player's normalized stroke geometry.
 
-![Public mobile touch combat](../output/playwright/m1a-public-mobile.png)
+![Public mobile touch combat](../output/playwright/m1a-public-v7-mobile-final.png)
+
+### Re-forge combat isolation
+
+The final v7 regression launched a fire boomerang, opened re-forge after 50 ms,
+waited, and returned. Every target retained full health and the ready status was
+not overwritten by an old hit.
+
+![Public re-forge isolation](../output/playwright/m1a-public-v7-reforge-isolation.png)
 
 ### Public re-forge state
 

@@ -36,6 +36,9 @@ output/playwright/*
 !output/playwright/m1a-public-piercing-result.png
 !output/playwright/m1a-public-reforge.png
 !output/playwright/m1a-public-915x412.png
+!output/playwright/m1a-public-v7-boomerang-ready.png
+!output/playwright/m1a-public-v7-reforge-isolation.png
+!output/playwright/m1a-public-v7-mobile-final.png
 
 # OS/editor noise
 .DS_Store
