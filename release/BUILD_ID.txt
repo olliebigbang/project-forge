@@ -1,4 +1,4 @@
-Project Forge M1A iPhone Safari touch/layout fix
-Source commit: 8cdea56b248d88db76a4e529ad94ffa4a7fadb97
-index.pck SHA-256: 806B6E27A86E9B97F53A67D5C2A60ACB9A56A07B1D077A02E46F869815CCD9BB
+Project Forge M1A v9 Mobile Usability fix
+Source commit: 0dcc4a6939692dbad6128da5c7a0770b6211bccc
+index.pck SHA-256: 0BDD31A387B3373C90C88D8F4DB19F8F9369BA0B143900324810F7F9BF4191F9
 Status: TO VALIDATE on physical iPhone Safari
