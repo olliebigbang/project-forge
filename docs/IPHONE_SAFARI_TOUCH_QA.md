@@ -5,6 +5,7 @@ Prepared on: 2026-07-19
 QA branch: `codex/qa/iphone-safari-touch-layout`  
 Baseline runtime revision: `214aa14` (public v7)
 Local fix revision under test: `8cdea56` (`2c7c297` plus opaque portrait overlay)
+Published source revision: `b403d9e` (Sites v8 runtime)
 
 ## 1. Scope and independence
 
@@ -22,7 +23,9 @@ Local fix revision under test: `8cdea56` (`2c7c297` plus opaque portrait overlay
   pattern buttons, and all three forge actions visible.
 - **CONFIRMED** The new v8 public deployment and its runtime asset hashes are
   independently tested below.
-- **TO VALIDATE** PR/CI evidence and physical-iPhone results remain pending.
+- **CONFIRMED** Private GitHub repository, Draft PR #1, and both push/PR CI runs
+  exist and pass on the integration branch.
+- **TO VALIDATE** Physical-iPhone results remain pending.
 
 ## 2. Baseline blocker reproduction
 
@@ -85,7 +88,8 @@ The fix cannot pass QA unless all of the following are true:
 ## 4. Touch and orientation regression matrix
 
 The matrix contains 44 independently reportable checks. Local automated results
-refer to `8cdea56`; deployment rows intentionally remain pending.
+refer to `8cdea56`; public deployment rows refer to the byte-matched Sites v8
+runtime. Physical-iPhone-only rows intentionally remain pending.
 
 | ID | Area | Procedure | Required oracle | Baseline / current result |
 | --- | --- | --- | --- | --- |
@@ -317,9 +321,8 @@ No public P0 or P1 remains open in Chromium or the functional WebKit path.
 
 ## 10. Remaining gates
 
-- **TO VALIDATE:** no normal Git remote is configured, so the requested PR and CI
-  evidence remains unavailable even though the v8 preview is deployed. This is a
-  delivery-process gap, not a public runtime failure.
+- **CONFIRMED:** GitHub remote, Draft PR #1, and the final push/PR CI checks are
+  present and green. The PR remains deliberately unmerged.
 - **TO VALIDATE:** iOS keyboard open/close, Safari toolbar expansion/collapse,
   physical safe areas, finger drawing, live rotation recovery, and the original
   popup reproduction must be checked by the user on the real iPhone.
