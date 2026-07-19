@@ -9,6 +9,15 @@ import {
   runtimeAllowListErrors,
   schemaValidationErrors,
 } from "./weapon_contract.mjs";
+import {
+  beginDurableRequest,
+  completeDurableRequest,
+  consumeDurableRateLimits,
+  ensureDurableRequestGuard,
+  hasDurableRequestGuard,
+  releaseDurableRequest,
+  waitForDurableResult,
+} from "./durable_request_guard.mjs";
 
 export const REQUEST_LIMITS = Object.freeze({
   body_bytes: 8192,
@@ -132,14 +141,17 @@ function stableStringify(value) {
   return JSON.stringify(value);
 }
 
-function privacyFingerprint(value) {
-  const input = stableStringify(value);
-  let hash = 2166136261;
-  for (let index = 0; index < input.length; index += 1) {
-    hash ^= input.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
+async function privacyFingerprint(value) {
+  if (!globalThis.crypto?.subtle) {
+    throw new InterpreterError("request_guard_unavailable", "Cryptographic hashing is unavailable.", 503);
   }
-  return (hash >>> 0).toString(16).padStart(8, "0");
+  const bytes = new TextEncoder().encode(stableStringify(value));
+  const digest = new Uint8Array(await globalThis.crypto.subtle.digest("SHA-256", bytes));
+  // 128 bits is enough for short-lived namespace and payload fingerprints while
+  // avoiding storage of the caller IP, session ID, or original description.
+  return [...digest.slice(0, 16)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function pruneResponseCache(now = Date.now()) {
@@ -246,12 +258,31 @@ function normalizeSupportedList(value, serverAllowed) {
 }
 
 export class InterpreterError extends Error {
-  constructor(code, message, status = 502) {
+  constructor(code, message, status = 502, retrySafe = false) {
     super(message);
     this.name = "InterpreterError";
     this.code = code;
     this.status = status;
+    this.retrySafe = retrySafe;
   }
+}
+
+function abortableDelay(delayMs, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new InterpreterError("provider_timeout", "Provider request was aborted.", 504, true));
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timeout);
+      reject(new InterpreterError("provider_timeout", "Provider request was aborted.", 504, true));
+    };
+    const timeout = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, delayMs);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 export function validateInterpreterRequest(payload) {
@@ -355,17 +386,20 @@ export class DeterministicWeaponAdapter {
   constructor(options = {}) {
     this.provider = "deterministic_local";
     this.model = "m1b1-keyword-baseline";
+    this.supportsAbort = true;
     this.scenario = options.scenario ?? "success";
     this.delayMs = Number(options.delayMs ?? 20);
   }
 
   async interpret(request, context = {}) {
     const scenario = context.scenario ?? this.scenario;
-    if (scenario === "delayed_success") await new Promise((resolve) => setTimeout(resolve, Math.max(25, this.delayMs)));
-    if (scenario === "timeout") throw new InterpreterError("provider_timeout", "Provider timed out.", 504);
-    if (scenario === "network_error") throw new InterpreterError("network_unavailable", "Network unavailable.", 503);
-    if (scenario === "rate_limit") throw new InterpreterError("provider_rate_limited", "Provider rate limited.", 429);
-    if (scenario === "backend_unavailable") throw new InterpreterError("backend_unavailable", "Backend unavailable.", 503);
+    if (scenario === "delayed_success") {
+      await abortableDelay(Math.max(25, this.delayMs), context.signal);
+    }
+    if (scenario === "timeout") throw new InterpreterError("provider_timeout", "Provider timed out.", 504, true);
+    if (scenario === "network_error") throw new InterpreterError("network_unavailable", "Network unavailable.", 503, true);
+    if (scenario === "rate_limit") throw new InterpreterError("provider_rate_limited", "Provider rate limited.", 429, true);
+    if (scenario === "backend_unavailable") throw new InterpreterError("backend_unavailable", "Backend unavailable.", 503, true);
     if (scenario === "invalid_json") throw new InterpreterError("invalid_provider_response", "Provider returned invalid JSON.", 502);
     if (scenario === "missing_fields") return { intent: {}, confidence: 0, corrections: [] };
     if (scenario === "unsupported_ability") {
@@ -496,15 +530,36 @@ function safeFallbackResponse(request, reason, startedAt, details = {}) {
 }
 
 async function invokeWithTimeout(adapter, request, context, timeoutMs) {
+  const abortController = new AbortController();
   let timeout;
+  let timedOut = false;
+  const timeoutError = new InterpreterError(
+    "provider_timeout",
+    "Provider timed out.",
+    504,
+    // Cancellation stops cooperative transports, but cannot prove that an
+    // upstream provider did not already accept/bill the request. A wrapper
+    // timeout is therefore never automatically retried.
+    false,
+  );
   const timeoutPromise = new Promise((_, reject) => {
     timeout = setTimeout(
-      () => reject(new InterpreterError("provider_timeout", "Provider timed out.", 504)),
+      () => {
+        timedOut = true;
+        abortController.abort(timeoutError);
+        reject(timeoutError);
+      },
       timeoutMs,
     );
   });
   try {
-    return await Promise.race([adapter.interpret(request, context), timeoutPromise]);
+    return await Promise.race([
+      adapter.interpret(request, { ...context, signal: abortController.signal }),
+      timeoutPromise,
+    ]);
+  } catch (error) {
+    if (timedOut) throw timeoutError;
+    throw error;
   } finally {
     clearTimeout(timeout);
   }
@@ -544,7 +599,11 @@ export async function compileWeapon(requestInput, options = {}) {
       terminalError = error instanceof InterpreterError
         ? error
         : new InterpreterError("backend_unavailable", "Interpreter adapter failed.", 503);
-      if (!TRANSIENT_CODES.has(terminalError.code) || attempts >= maximumAttempts) break;
+      if (
+        !TRANSIENT_CODES.has(terminalError.code) ||
+        !terminalError.retrySafe ||
+        attempts >= maximumAttempts
+      ) break;
     }
   }
   const providerMs = Math.max(0, Date.now() - providerStartedAt);
@@ -680,48 +739,129 @@ export async function handleCompileWeapon(request, env = {}, options = {}) {
     const code = error instanceof InterpreterError ? error.code : "invalid_request";
     return jsonResponse({ error: code }, status);
   }
-  pruneResponseCache();
-  pruneRateBuckets();
   const networkAddress = String(request.headers.get("cf-connecting-ip") ?? "unattributed").slice(0, 96);
-  const networkNamespace = privacyFingerprint({ networkAddress });
-  const clientNamespace = privacyFingerprint({ networkNamespace, sessionId });
-  const sessionRate = consumeRateLimit(
-    `session:${clientNamespace}`,
-    INGRESS_LIMITS.session_requests_per_minute,
-  );
-  const networkRate = consumeRateLimit(
-    `network:${networkNamespace}`,
-    INGRESS_LIMITS.network_requests_per_minute,
-  );
-  if (!sessionRate.allowed || !networkRate.allowed) {
+  let networkNamespace;
+  let clientNamespace;
+  try {
+    networkNamespace = await privacyFingerprint({ networkAddress });
+    // Idempotency follows the random client session even if a phone changes IP
+    // between Wi-Fi and cellular. The network hash is used only for abuse quota.
+    clientNamespace = await privacyFingerprint({ sessionId });
+  } catch {
+    return jsonResponse({ error: "request_guard_unavailable" }, 503, { "retry-after": "1" });
+  }
+  const durableGuard = hasDurableRequestGuard(env);
+  let rateDecision;
+  try {
+    if (durableGuard) {
+      await ensureDurableRequestGuard(env.DB);
+      rateDecision = await consumeDurableRateLimits(
+        env.DB,
+        `session:${clientNamespace}`,
+        `network:${networkNamespace}`,
+        INGRESS_LIMITS.session_requests_per_minute,
+        INGRESS_LIMITS.network_requests_per_minute,
+      );
+    } else {
+      pruneRateBuckets();
+      const sessionRate = consumeRateLimit(
+        `session:${clientNamespace}`,
+        INGRESS_LIMITS.session_requests_per_minute,
+      );
+      const networkRate = consumeRateLimit(
+        `network:${networkNamespace}`,
+        INGRESS_LIMITS.network_requests_per_minute,
+      );
+      rateDecision = {
+        allowed: sessionRate.allowed && networkRate.allowed,
+        retryAfter: Math.max(sessionRate.retryAfter, networkRate.retryAfter),
+      };
+    }
+  } catch {
+    // Fail closed before a paid adapter can be invoked when the durable billing
+    // guard is unavailable.
+    return jsonResponse({ error: "request_guard_unavailable" }, 503, { "retry-after": "1" });
+  }
+  if (!rateDecision.allowed) {
     return jsonResponse(
       { error: "rate_limited" },
       429,
-      { "retry-after": String(Math.max(sessionRate.retryAfter, networkRate.retryAfter)) },
+      { "retry-after": String(rateDecision.retryAfter) },
     );
   }
 
   const testMode = String(env.WEAPON_INTERPRETER_TEST_MODE ?? "").toLowerCase() === "true";
   const scenario = testMode ? String(payload.test_scenario ?? "success") : "success";
-  const fingerprint = privacyFingerprint({ ...safeRequest, test_scenario: scenario });
-  const cacheKey = `${clientNamespace}:${safeRequest.request_id}`;
-  const cached = responseCache.get(cacheKey);
-  if (cached) {
-    if (cached.fingerprint !== fingerprint) return jsonResponse({ error: "request_id_conflict" }, 409);
-    const wasInflight = !cached.result;
-    try {
-      const result = cached.result ?? await cached.promise;
-      return jsonResponse(result, 200, {
-        "x-forge-idempotent-replay": "true",
-        ...(wasInflight ? { "x-forge-idempotent-inflight": "true" } : {}),
-      });
-    } catch {
-      responseCache.delete(cacheKey);
-      return jsonResponse({ error: "internal_error" }, 500);
-    }
+  let fingerprint;
+  try {
+    fingerprint = await privacyFingerprint({ ...safeRequest, test_scenario: scenario });
+  } catch {
+    return jsonResponse({ error: "request_guard_unavailable" }, 503, { "retry-after": "1" });
   }
-  if (responseCache.size >= IDEMPOTENCY_LIMIT) {
-    return jsonResponse({ error: "backend_busy" }, 503, { "retry-after": "1" });
+  const cacheKey = `${clientNamespace}:${safeRequest.request_id}`;
+  let durableOwnerToken = "";
+  let memoryEntry;
+  if (durableGuard) {
+    try {
+      const lease = await beginDurableRequest(
+        env.DB,
+        clientNamespace,
+        safeRequest.request_id,
+        fingerprint,
+      );
+      if (lease.state === "conflict") return jsonResponse({ error: "request_id_conflict" }, 409);
+      if (lease.state === "complete") {
+        return jsonResponse(lease.result, 200, {
+          "x-forge-idempotent-replay": "true",
+          "x-forge-idempotency-store": "durable",
+        });
+      }
+      if (lease.state === "inflight") {
+        const replay = await waitForDurableResult(
+          env.DB,
+          clientNamespace,
+          safeRequest.request_id,
+          fingerprint,
+          REQUEST_LIMITS.timeout_ms * REQUEST_LIMITS.maximum_attempts + 2000,
+        );
+        if (replay.state === "complete") {
+          return jsonResponse(replay.result, 200, {
+            "x-forge-idempotent-replay": "true",
+            "x-forge-idempotent-inflight": "true",
+            "x-forge-idempotency-store": "durable",
+          });
+        }
+        if (replay.state === "conflict") return jsonResponse({ error: "request_id_conflict" }, 409);
+        return jsonResponse({ error: "request_in_progress" }, 409, { "retry-after": "1" });
+      }
+      if (lease.state !== "owner") {
+        return jsonResponse({ error: "request_guard_unavailable" }, 503, { "retry-after": "1" });
+      }
+      durableOwnerToken = lease.ownerToken;
+    } catch {
+      return jsonResponse({ error: "request_guard_unavailable" }, 503, { "retry-after": "1" });
+    }
+  } else {
+    pruneResponseCache();
+    const cached = responseCache.get(cacheKey);
+    if (cached) {
+      if (cached.fingerprint !== fingerprint) return jsonResponse({ error: "request_id_conflict" }, 409);
+      const wasInflight = !cached.result;
+      try {
+        const result = cached.result ?? await cached.promise;
+        return jsonResponse(result, 200, {
+          "x-forge-idempotent-replay": "true",
+          ...(wasInflight ? { "x-forge-idempotent-inflight": "true" } : {}),
+          "x-forge-idempotency-store": "memory",
+        });
+      } catch {
+        responseCache.delete(cacheKey);
+        return jsonResponse({ error: "internal_error" }, 500);
+      }
+    }
+    if (responseCache.size >= IDEMPOTENCY_LIMIT) {
+      return jsonResponse({ error: "backend_busy" }, 503, { "retry-after": "1" });
+    }
   }
 
   const operation = (async () => {
@@ -751,16 +891,47 @@ export async function handleCompileWeapon(request, env = {}, options = {}) {
     console.info(`[WeaponInterpreter] ${JSON.stringify(minimalAudit(result, safeRequest.description.length))}`);
     return result;
   })();
-  const entry = { fingerprint, promise: operation, createdAt: Date.now() };
-  responseCache.set(cacheKey, entry);
+  if (!durableGuard) {
+    memoryEntry = { fingerprint, promise: operation, createdAt: Date.now() };
+    responseCache.set(cacheKey, memoryEntry);
+  }
   try {
     const result = await operation;
-    entry.result = result;
-    delete entry.promise;
-    entry.createdAt = Date.now();
-    return jsonResponse(result, 200);
+    let durableStored = true;
+    if (durableGuard) {
+      durableStored = await completeDurableRequest(
+        env.DB,
+        clientNamespace,
+        safeRequest.request_id,
+        fingerprint,
+        durableOwnerToken,
+        result,
+      );
+    } else {
+      memoryEntry.result = result;
+      delete memoryEntry.promise;
+      memoryEntry.createdAt = Date.now();
+    }
+    return jsonResponse(result, 200, {
+      "x-forge-idempotency-store": durableGuard ? "durable" : "memory",
+      ...(durableStored ? {} : { "x-forge-idempotency-warning": "completion_not_stored" }),
+    });
   } catch {
-    responseCache.delete(cacheKey);
+    if (durableGuard) {
+      try {
+        await releaseDurableRequest(
+          env.DB,
+          clientNamespace,
+          safeRequest.request_id,
+          fingerprint,
+          durableOwnerToken,
+        );
+      } catch {
+        // The short lease prevents a permanent lock if D1 is temporarily down.
+      }
+    } else {
+      responseCache.delete(cacheKey);
+    }
     return jsonResponse({ error: "internal_error" }, 500);
   }
 }

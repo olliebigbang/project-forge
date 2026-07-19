@@ -29,6 +29,17 @@ This log records current decisions without turning untested defaults into facts.
 | D-021 | **CONFIRMED** Description `×` clears text only. `RESET` clears drawing, Description, loaded-example state, and temporary feedback while preserving the selected attack mode | Removes the ambiguous v8 `CLEAR` behavior |
 | D-022 | **CONFIRMED** The product owner accepted M1A mobile on the public v9 build after a physical iPhone Safari pass covering rotation, Compact Landscape, drawing, native keyboard editing, `×`, RESET, all five compile/attack/reforge paths, BACK, and Safari toolbar changes | Physical-device acceptance reported by the product owner |
 | D-023 | **CONFIRMED** `v0.1.0-m1a` is the stable M1A release line; M1B must begin, if authorized, on a separate future branch and cannot modify the stable release during this closure | Release and branch-isolation instruction |
+| D-024 | **CONFIRMED** M1B1 starts from accepted `main` on `codex/feat/m1b1-real-text-interpreter`; `main`, the M1A deployment, and `v0.1.0-m1a` remain the rollback baseline until a separate M1B1 acceptance | M1B1 branch-isolation instruction |
+| D-025 | **CONFIRMED** Godot may call only same-origin `POST /api/compile-weapon`; the Sites server worker owns provider access and credentials exist only in server secret environment variables | Prevents browser/client secret disclosure and keeps the provider replaceable |
+| D-026 | **CONFIRMED** Normal-player forging hides the five manual attack buttons. They appear only in Developer/Test Mode or after `MODIFY INTERPRETATION`; every correction is recompiled, schema-checked, allow-listed, and re-budgeted | Keeps M1A test controls out of the player flow without losing a safe correction path |
+| D-027 | **CONFIRMED** A real model may select and explain allow-listed semantic labels, but executable numeric stats are assigned and repaired deterministically by project-owned profiles and `PowerBudget` | Creative interpretation cannot bypass deterministic balance |
+| D-028 | **CONFIRMED** M1B1 sends bounded `drawing_summary` metadata only and makes no visual-understanding claim; drawing/image semantics belong to M1B2 | Explicit phase boundary |
+| D-029 | **CONFIRMED** M1B1 permits one active idempotent request, at most one transient retry, user cancellation with late-response invalidation, and a schema/allow-list/power-valid fallback while preserving strokes and text | Reliability and state-preservation requirements |
+| D-030 | **CONFIRMED** M1B1 client session IDs and request IDs are random 128-bit values; server idempotency is caller-namespaced and concurrent identical requests share one in-flight operation | Prevents honest-client key collision, duplicate provider charges, and replay races |
+| D-031 | **CONFIRMED** Provider free-form names, summaries, correction text, metadata, and nested cost fields never cross the trust boundary. The server generates display text and repair codes from allow-listed labels; cost is `UNKNOWN` or bounded USD amount only | Red-team reproduced response/log disclosure through an untrusted adapter |
+| D-032 | **CONFIRMED** Sites production binds D1 as `DB` for atomic 8 requests/minute per session, 60 per network, and caller-namespaced request leases/results across worker isolates. A bound-but-unavailable guard fails closed before provider invocation; the process-local map is development fallback only. **TO VALIDATE:** first Sites migration/deployment and provider account spend cap | Anonymous paid endpoints need a durable cost boundary rather than isolate-local maps |
+| D-033 | **CONFIRMED** Network, session, and normalized-payload namespaces use truncated 128-bit SHA-256 fingerprints; raw IP, session ID, description, and drawing data are not stored in the request guard | Reduce collision and privacy risk while retaining short-lived quota/idempotency keys |
+| D-034 | **CONFIRMED** Every adapter receives an `AbortSignal`. An enforced wrapper timeout aborts the transport but is not retried because billing state is ambiguous; one retry is permitted only for an adapter-classified retry-safe transient failure | Prevent timed-out calls from overlapping or producing an automatic double charge |
 
 ## Assumptions
 
@@ -50,14 +61,15 @@ This log records current decisions without turning untested defaults into facts.
 | V-004 | **TO VALIDATE** Players change ideas rather than re-roll for higher damage | M1/M2 playtest; deterministic M0 values avoid false reward |
 | V-005 | **CONFIRMED (M1A prototype)** Five attack forms and four elements fit one stable compiler/budget | 32-case matrix and five browser combat runs; balance feel remains M2 |
 | V-006 | **TO VALIDATE** Native safe areas, touch latency, and performance | M3 Android/iOS device matrix |
-| V-007 | **TO VALIDATE** Moderation, malformed output, timeout, caching, latency, and cost behavior | Backend prototype before paid integration |
+| V-007 | **CONFIRMED (provider-neutral faults)** Malformed output, missing fields, timeout, offline, 429, 5xx, cancellation, stale response, and safe fallback behavior pass local Chromium/WebKit regression. **TO VALIDATE:** real-provider moderation, accuracy, median/P95 latency, and cost | Real 40+ case run after provider/model/key selection |
+| V-008 | **TO VALIDATE** `front_shield` is present in the product-intent example but not in the current executable ability allow-list; M1B1 must omit/repair it rather than silently invent gameplay | Separate module, combat behavior, and budget design before support |
 
 ## TBD
 
 | ID | Decision not yet made |
 | --- | --- |
-| T-001 | **TBD** AI/model provider and whether any paid integration is justified |
-| T-002 | **TBD** Backend stack, hosting, authentication, cache, and telemetry |
+| T-001 | **TBD** Real AI provider/model and provider-specific server credential; select once after reviewing the prepared options |
+| T-002 | **TBD** Production authentication, provider-side rate controls/spend cap, cache policy, observability destination, and telemetry retention. The same-origin Sites worker and D1 request guard are **CONFIRMED** |
 | T-003 | **TBD** Voice implementation and exact milestone after weapon validation |
 | T-004 | **TBD** Production art pipeline, smoothing threshold, grip inference, and card rendering |
 | T-005 | **TBD** Final production balance curves; M1A numeric costs are confirmed only as deterministic prototype values |
@@ -65,8 +77,10 @@ This log records current decisions without turning untested defaults into facts.
 
 ## Deferred without deletion
 
-The following remain confirmed product requirements but are outside M0: five
-attack forms, four elements, 20 AI input cases, a test monster plus boss, complete
-win/loss/restart loop, formal levels, voice/device builds, production moderation,
-and a secure backend. See `docs/GDD.md` and `docs/MVP_ACCEPTANCE.md` for milestone
-traceability.
+The five attack forms, four elements, target lab, and deterministic compiler are
+complete in M1A. M1B1 now contains the provider-neutral text interpretation and
+secure same-origin boundary; real-provider evidence remains gated by T-001.
+Formal levels, complete win/loss/restart, voice, image understanding, production
+moderation policy, accounts, community, monetization, and native-store delivery
+remain deferred without deletion. See `docs/GDD.md` and
+`docs/MVP_ACCEPTANCE.md` for milestone traceability.

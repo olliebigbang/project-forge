@@ -1,6 +1,7 @@
-# M0/M1A Acceptance Plan and Full-MVP Traceability
+# M0/M1A Acceptance Record and M1B1 Gate
 
-This file preserves the completed M0 gate and the completed M1A gate.
+This file preserves the completed M0 and M1A gates and points to the active M1B1
+acceptance contract in `docs/M1B1_ACCEPTANCE.md`.
 `docs/GDD.md` retains the broader product definition; later requirements remain
 visible without being silently pulled into the deterministic compiler milestone.
 **CONFIRMED:** the product owner completed the v9 physical iPhone Safari
@@ -35,8 +36,26 @@ CI, and the physical-device result together close this gate.
   portrait → landscape transitions plus Safari toolbar expansion/collapse on the
   same physical device.
 - **CONFIRMED** The product owner formally accepted the v9 M1A mobile gate.
-- **CONFIRMED** M1B is not started during release closure and must use a separate
-  future development branch.
+- **CONFIRMED** M1B1 began only after release closure, from accepted `main`, on
+  the isolated `codex/feat/m1b1-real-text-interpreter` branch. The stable M1A tag
+  and deployment remain unchanged.
+
+## M1B1 current gate
+
+The detailed, executable criteria are in `docs/M1B1_ACCEPTANCE.md`. Current
+status is intentionally split between the completed provider-neutral layer and
+the real-provider evidence that cannot exist before the product decision.
+
+| Area | Status | Evidence / remaining gate |
+| --- | --- | --- |
+| Same-origin `WeaponInterpreter` client/server contract | **CONFIRMED** | Godot calls only `/api/compile-weapon`; static worker and local server route it |
+| Schema, allow-list, semantic compatibility, and PowerBudget enforcement | **CONFIRMED (provider-neutral)** | Godot 458 assertions; Node interpreter 68 tests; 48-case main matrix; 60-case red-team corpus |
+| Loading, duplicate lock, safe retry, aborting timeout, cancel, stale rejection, D1 idempotency, and validated fallback | **CONFIRMED (simulated/local D1)** | Node D1 guard probes plus Chromium and WebKit end-to-end regression; Sites D1 still to validate |
+| Normal-player selector hidden; Developer/MODIFY correction remains validated | **CONFIRMED (browser automation)** | Five patterns compiled, corrected, confirmed, and attacked in Chromium and WebKit |
+| 844×390, 852×393, 915×412, keyboard-height recovery, and three rotation cycles | **CONFIRMED (emulated)** | No scrolling/cropping; real iPhone M1B1 still required |
+| AI provider, model, deployment key, and provider moderation | **TBD** | One product-owner decision required; key must be server-side only |
+| Real-provider 40+ case accuracy, latency, P95, cost, and fallback evidence | **TO VALIDATE** | Run only after provider configuration; cost stays `UNKNOWN` until measured |
+| Public M1B1 preview, CI/PR, and physical iPhone Safari acceptance | **TO VALIDATE** | Must use a new asset version; do not merge or clean the branch beforehand |
 
 ## Status vocabulary
 

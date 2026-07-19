@@ -41,6 +41,17 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
   Godot or expose a provider key to Web/client code.
 - Provider output is untrusted semantic data. Server and client both enforce the
   existing schema allow-lists and `PowerBudget` before combat.
+- Never reflect provider free-form names, summaries, corrections, metadata or
+  nested cost objects. Generate player-facing text from validated labels and keep
+  cost to `UNKNOWN` or the strict bounded currency structure.
+- Preserve random caller/request IDs, SHA-256 namespaces, D1 cross-isolate
+  idempotency/quota, and strict response-ID/revision checks; a late response
+  cannot commit to a newer request.
+- A wrapper timeout must abort and must not automatically retry. Retry at most
+  once only when the provider adapter explicitly proves the failure retry-safe.
+- Before paid public traffic, require a provider account spend cap. Sites D1 is
+  the application quota/idempotency boundary and must fail closed when bound but
+  unavailable.
 - Drawing input is numeric `drawing_summary` only; visual semantics are M1B2.
 - Preserve drawing/text across cancellation, timeout, retry and fallback.
 - Provider/model/credential remain `TBD` until the product owner answers the one

@@ -1,7 +1,7 @@
 # Project Forge — Game Design Document
 
 Version: 0.1 (organized from the supplied GDD)  
-Current delivery milestone: **M1A deterministic weapon compiler — CONFIRMED complete**
+Current delivery milestone: **M1B1 real text-to-weapon interpreter — provider-neutral implementation CONFIRMED; real-provider integration TO VALIDATE**
 Stable mobile acceptance: **CONFIRMED on physical iPhone Safari with v9**
 
 ## 1. Product identity
@@ -110,13 +110,19 @@ Voice is an input method, not a separate weapon system.
 
 ### 5.2 AI responsibilities and boundaries
 
-- **CONFIRMED** AI may interpret a weapon concept, select supported classes and
-  ability modules, allocate values inside a power budget, name and explain the
-  result, and detect unsafe content.
+- **CONFIRMED (M1B1)** AI interprets the concept and selects only supported
+  semantic labels. The project-owned compiler, validator, and `PowerBudget`—not
+  the model—deterministically assign or repair executable numeric values.
 - **CONFIRMED** AI must not generate or execute game code, create infinite damage,
   alter saves, call engine functions directly, bypass budgets, or return an
   unsupported capability.
 - **CONFIRMED (M0)** Use a deterministic local mock. No paid API or API key.
+- **CONFIRMED (M1B1 pre-provider)** The production-shaped client calls only the
+  same-origin project endpoint. A deterministic adapter remains active until the
+  product owner selects a real provider/model and configures a server-side key.
+- **CONFIRMED (M1B1)** Provider free-form display text, correction text, metadata,
+  and nested cost fields are untrusted and never reflected directly. The server
+  derives names, summaries, and repair messages from allow-listed semantic labels.
 
 ### 5.3 Canonical `WeaponSpec`
 
@@ -139,6 +145,9 @@ Voice is an input method, not a separate weapon system.
 
 - **CONFIRMED** Runtime data must pass schema validation and numeric clamping.
 - **CONFIRMED** The checked-in schema is `schema/weapon_spec.schema.json`.
+- **TO VALIDATE** `front_shield` in the product-intent example is not in the
+  current executable M1A allow-list. M1B1 repairs/omits it instead of inventing a
+  new module; adding a shield ability requires separate gameplay and budget work.
 
 ### 5.4 Supported modules
 
@@ -147,7 +156,9 @@ Voice is an input method, not a separate weapon system.
 - **CONFIRMED (full MVP/M1):** normal, fire, ice, and electricity.
 - **CONFIRMED (full MVP/M1):** burn, freeze, chain hit, knockback, and temporary
   shield.
-- **CONFIRMED (M0):** only melee slash and straight projectile are executable.
+- **CONFIRMED (M1A):** all five listed attack forms and all four elements are
+  executable. Temporary front shielding remains **TO VALIDATE** as a future
+  supported ability.
 - **CONFIRMED** The first version promises stable combinations of supported
   modules, not perfect realization of arbitrary descriptions.
 
@@ -191,8 +202,17 @@ Target data flow:
   default.
 - **CONFIRMED (M0)** `MockAIService` runs locally and implements the same data
   boundary without network access.
-- **TBD** Backend language, provider, hosting, cache, observability, moderation
-  vendor, and retention periods.
+- **CONFIRMED (M1B1)** Godot Web calls `POST /api/compile-weapon` on its own
+  origin. The Sites server worker owns request limits, safety checks, provider
+  invocation, schema/allow-list/budget enforcement, fallback, and privacy-safe
+  audit metadata. Secrets exist only as server environment variables.
+- **CONFIRMED (M1B1)** Random client/request IDs, SHA-256 privacy namespaces,
+  strict response-ID matching, and privacy-safe logs are programmatically
+  enforced. Sites D1 owns atomic per-session/network quotas and cross-isolate
+  idempotency. A provider account spend cap remains **TO VALIDATE** before paid
+  public traffic.
+- **TBD** Real AI provider/model, provider moderation, authentication policy,
+  production observability, cache policy, and retention periods.
 
 ## 9. Safety and content control
 
@@ -255,9 +275,14 @@ rolling for a higher damage value.
   input, explicit power budget, runtime and JSON Schema validation/repair, five
   attack forms, four elements, target lab, 32 input cases, public Web deployment,
   and physical iPhone Safari acceptance.
-- **M1B — real AI interpretation (not started):** AI inference may be considered
-  only as a separately scoped branch after release planning; no paid API or M1B
-  implementation is part of the M1A stable branch.
+- **M1B1 — real text-to-weapon interpreter (in progress):** the independent
+  branch has the same-origin backend contract, provider adapter boundary, safe
+  fallback, confirmation/correction UI, 48-case main matrix, 60-case red-team
+  corpus, and Chromium/WebKit mobile regression. **TBD:** real provider/model and
+  server key. Real semantic accuracy, latency, cost, public preview, and physical
+  iPhone acceptance remain **TO VALIDATE** after that decision.
+- **M1B2 — drawing semantic understanding (not started):** image/vision meaning
+  is explicitly outside M1B1; only bounded `drawing_summary` metadata is sent.
 - **M2 — vertical slice:** production combat character, three normal monsters, one
   boss, 3–4 stages, win/loss/retry, base audio, animation, feedback.
 - **M3 — voice and mobile test:** voice-to-text, Android internal test, iOS

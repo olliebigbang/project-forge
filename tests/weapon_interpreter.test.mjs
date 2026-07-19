@@ -163,6 +163,61 @@ test("transient failures retry once and then return a validated fallback", async
   }
 });
 
+test("wrapper timeout aborts a cooperative adapter and never risks a billed retry", async () => {
+  let calls = 0;
+  let active = 0;
+  let maximumActive = 0;
+  let aborted = 0;
+  const adapter = {
+    provider: "abortable_test",
+    model: "abortable_model",
+    supportsAbort: true,
+    async interpret(_request, context) {
+      calls += 1;
+      active += 1;
+      maximumActive = Math.max(maximumActive, active);
+      return new Promise((resolve, reject) => {
+        context.signal.addEventListener("abort", () => {
+          aborted += 1;
+          active -= 1;
+          reject(context.signal.reason);
+        }, { once: true });
+      });
+    },
+  };
+  const result = await compileWeapon(requestFor(matrix[0], "abortable-timeout"), {
+    adapter,
+    timeoutMs: 50,
+  });
+  assert.equal(calls, 1);
+  assert.equal(aborted, 1);
+  assert.equal(maximumActive, 1);
+  assert.equal(result.provider_metadata.attempts, 1);
+  assert.equal(result.fallback_reason, "provider_timeout");
+  assert.equal(result.runtime_valid, true);
+});
+
+test("unabortable timeout never retries and therefore cannot double-charge", async () => {
+  let calls = 0;
+  const adapter = {
+    provider: "unabortable_test",
+    model: "unabortable_model",
+    supportsAbort: false,
+    async interpret() {
+      calls += 1;
+      return new Promise(() => {});
+    },
+  };
+  const result = await compileWeapon(requestFor(matrix[0], "unabortable-timeout"), {
+    adapter,
+    timeoutMs: 50,
+  });
+  assert.equal(calls, 1);
+  assert.equal(result.provider_metadata.attempts, 1);
+  assert.equal(result.fallback_reason, "provider_timeout");
+  assert.equal(result.runtime_valid, true);
+});
+
 test("HTTP boundary rejects unsafe transport shape and same-origin violations", async () => {
   const endpoint = "https://forge.example/api/compile-weapon";
   assert.equal((await handleCompileWeapon(new Request(endpoint))).status, 405);

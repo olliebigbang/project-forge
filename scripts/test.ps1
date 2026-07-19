@@ -62,5 +62,9 @@ if ($LASTEXITCODE -ne 0) {
 if ($LASTEXITCODE -ne 0) {
     throw "Weapon interpreter tests failed with exit code $LASTEXITCODE"
 }
+& node --test (Join-Path $repoRoot "tests\durable_request_guard.test.mjs")
+if ($LASTEXITCODE -ne 0) {
+    throw "Durable request guard tests failed with exit code $LASTEXITCODE"
+}
 
 Write-Host "`nAll Project Forge M1A + M1B1 checks passed." -ForegroundColor Green

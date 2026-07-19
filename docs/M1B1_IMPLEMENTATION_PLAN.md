@@ -1,6 +1,6 @@
 # M1B1 Real Text-to-Weapon AI Interpreter — implementation plan
 
-Status: **CONFIRMED — authorized, implementation in progress**
+Status: **CONFIRMED — provider-neutral implementation complete; real-provider decision pending**
 
 Stable baseline: `v0.1.0-m1a` / `b09bd8f`
 
@@ -32,14 +32,16 @@ does not claim visual understanding; image semantics remain M1B2.
 5. **CONFIRMED** Change the normal forge flow to draw → describe → interpret →
    review → confirm. Hide the five M1A buttons unless Developer/Test Mode or
    MODIFY INTERPRETATION is active.
-6. **CONFIRMED** Add request locking, cancellation, timeout, at most one safe
-   retry, validated fallback, and state preservation.
+6. **CONFIRMED** Add request locking, cancellation, aborting timeout, at most one
+   explicitly safe retry, validated fallback, and state preservation. Sites D1
+   owns cross-isolate quotas and request leases/results; local maps are dev-only.
 7. **CONFIRMED** Run at least 40 annotated cases plus M1A, mobile, WebKit, build,
    schema, budget, worker, and public-resource regression.
-8. **TO VALIDATE** After the provider-independent implementation passes, obtain
+8. **TBD** The provider-independent implementation has passed. Obtain
    one product-owner decision covering provider, model, credential, and final
    production environment variables. Real latency and cost remain `UNKNOWN`
-   until that adapter runs.
+   until that adapter runs. Prepared options are in
+   `docs/M1B1_PROVIDER_DECISION.md`.
 9. **TO VALIDATE** Create a PR and public preview only after real-provider tests
    pass. Do not merge or clean M1B1 worktrees before physical iPhone acceptance.
 
@@ -50,6 +52,7 @@ Godot forge UI
   -> WeaponInterpreter client contract
   -> same-origin POST /api/compile-weapon
   -> request limits + safety classification
+  -> Sites D1 quota + idempotency lease/result
   -> provider adapter (deterministic local until provider is selected)
   -> structured semantic intent only
   -> server WeaponSpec repair + allow-list + PowerBudget
@@ -99,6 +102,8 @@ usage data and a verified pricing rule is configured. No guessed value is valid.
   unsupported-module attempts.
 - Apply explicit allow-lists and schema/budget validation after every adapter.
 - Strip unexpected provider fields and metadata.
+- Generate names, summaries and correction codes from allow-listed server data;
+  never reflect provider free text. Cost is `UNKNOWN` or bounded USD amount only.
 - Log request ID, input length, provider identifier, latency, fallback category,
   repair count and cost only; never log keys or unnecessary personal data.
 - Keep generation private to the requesting session; M1B1 has no sharing.
@@ -108,8 +113,17 @@ usage data and a verified pricing rule is configured. No guessed value is valid.
 ## Reliability policy
 
 - One in-flight request per forge screen.
-- Configurable timeout; at most one retry for transient network, timeout, 429 or
-  5xx failures.
+- Random 128-bit client/request IDs plus 128-bit SHA-256 namespaces feed a Sites
+  D1 ledger. Atomic leases share one in-flight operation and replay the result
+  across worker isolates; local deterministic runs use a process map.
+- The client binds each HTTP callback to its initiating revision/request ID and
+  rejects stale or mismatched responses before state mutation.
+- D1 returns 429 after 8 session requests/minute or 60 network requests/minute
+  across isolates and fails closed before provider invocation when unavailable.
+  Paid public traffic additionally requires a provider account spend cap.
+- Configurable timeout sends `AbortSignal`. A wrapper timeout never retries;
+  adapters may request at most one retry only for a transient failure they can
+  prove safe to repeat.
 - Cancel restores an editable forge without discarding text or strokes.
 - Every terminal failure returns or constructs a schema-valid, allow-listed,
   budget-valid base weapon and explains that fallback in the review screen.
