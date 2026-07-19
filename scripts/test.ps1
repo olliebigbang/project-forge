@@ -33,11 +33,11 @@ function Invoke-GodotCheck {
 $script:Godot = Resolve-ForgeGodot
 Write-Host "Using $script:Godot"
 
-Invoke-GodotCheck "Deterministic unit tests" @(
-    "--headless", "--path", $repoRoot, "--script", "res://tests/run_tests.gd"
-)
 Invoke-GodotCheck "Project import and script parse" @(
     "--headless", "--editor", "--path", $repoRoot, "--import"
+)
+Invoke-GodotCheck "Deterministic unit tests" @(
+    "--headless", "--path", $repoRoot, "--script", "res://tests/run_tests.gd"
 )
 Invoke-GodotCheck "Main-scene runtime smoke" @(
     "--headless", "--path", $repoRoot, "--quit-after", "120"
