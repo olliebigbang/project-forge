@@ -9,6 +9,7 @@ const MUTED := Color("#9bb0cf")
 const CYAN := Color("#65d9ff")
 const ORANGE := Color("#ffb65c")
 var service := MockAIService.new()
+var interpreter: WeaponInterpreter
 var world: Node2D
 var player: ForgePlayer
 var targets: Array[TrainingDummy] = []
@@ -29,6 +30,16 @@ var forge_action_row: HBoxContainer
 var reset_button: Button
 var load_idea_button: Button
 var generate_button: Button
+var cancel_button: Button
+var review_panel: PanelContainer
+var review_layout: VBoxContainer
+var review_summary: Label
+var review_details: Label
+var review_action_row: HBoxContainer
+var confirm_button: Button
+var modify_button: Button
+var try_again_button: Button
+var feedback_button: Button
 var orientation_prompt: RotationPrompt
 var forge_status: Label
 var stats_label: Label
@@ -40,6 +51,12 @@ var attack_button: Button
 var current_spec: WeaponSpec
 var current_strokes: Array[PackedVector2Array] = []
 var loaded_idea_pattern := ""
+var pending_result: Dictionary = {}
+var pending_spec: WeaponSpec
+var developer_mode := false
+var modify_mode := false
+var review_mode := false
+var request_strokes: Array[PackedVector2Array] = []
 var web_mobile_bridge := WebMobileBridge.new()
 var _web_sync_elapsed := 0.0
 var _last_stable_landscape_css_size := Vector2.ZERO
@@ -48,17 +65,26 @@ var _status_revision := 0
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	developer_mode = _detect_developer_mode()
+	interpreter = WeaponInterpreter.new()
+	interpreter.name = "WeaponInterpreter"
+	interpreter.interpretation_started.connect(_on_interpretation_started)
+	interpreter.interpretation_completed.connect(_on_interpretation_completed)
+	interpreter.interpretation_cancelled.connect(_on_interpretation_cancelled)
+	add_child(interpreter)
 	_build_world()
 	_build_hud()
 	_build_forge_overlay()
 	_build_orientation_prompt()
 	web_mobile_bridge.description_event.connect(_on_web_description_event)
 	web_mobile_bridge.viewport_changed.connect(_on_web_viewport_changed)
+	web_mobile_bridge.qa_command.connect(_on_qa_command)
 	web_mobile_bridge.initialize()
 	set_process(web_mobile_bridge.is_available())
 	resized.connect(_on_viewport_resized)
 	_on_viewport_resized()
 	queue_redraw()
+	call_deferred("_update_qa_bridge")
 
 
 func _process(delta: float) -> void:
@@ -68,6 +94,7 @@ func _process(delta: float) -> void:
 	if _web_sync_elapsed >= 0.12:
 		_web_sync_elapsed = 0.0
 		_sync_web_description_overlay()
+		_update_qa_bridge()
 
 
 func _draw() -> void:
@@ -77,7 +104,7 @@ func _draw() -> void:
 	draw_line(Vector2(0, horizon), Vector2(size.x, horizon), Color("#355174"), 3.0)
 	for x in range(0, int(size.x) + 1, 96):
 		draw_line(Vector2(x, horizon), Vector2(x - 55, size.y), Color("#1e3552"), 2.0)
-	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.5 - 190, horizon - 20), "M1A DETERMINISTIC COMBAT LAB", HORIZONTAL_ALIGNMENT_CENTER, 380, 17, Color("#44698f"))
+	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.5 - 190, horizon - 20), "M1B1 VALIDATED COMBAT LAB", HORIZONTAL_ALIGNMENT_CENTER, 380, 17, Color("#44698f"))
 
 
 func _build_world() -> void:
@@ -121,7 +148,7 @@ func _build_hud() -> void:
 	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]: top_margin.add_theme_constant_override(side, 12)
 	top_panel.add_child(top_margin)
 	stats_label = Label.new()
-	stats_label.text = "NO WEAPON FORGED\nDraw an idea to start the M1A compiler."
+	stats_label.text = "NO WEAPON FORGED\nDraw and describe an idea for the M1B1 interpreter."
 	stats_label.add_theme_color_override("font_color", TEXT)
 	stats_label.add_theme_font_size_override("font_size", 15)
 	stats_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -234,7 +261,7 @@ func _build_forge_overlay() -> void:
 	forge_title_row.mouse_filter = Control.MOUSE_FILTER_PASS
 	forge_layout.add_child(forge_title_row)
 	forge_title = Label.new()
-	forge_title.text = "PROJECT FORGE  /  M1A WEAPON COMPILER"
+	forge_title.text = "PROJECT FORGE  /  M1B1 TEXT INTERPRETER"
 	forge_title.add_theme_color_override("font_color", TEXT)
 	forge_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	forge_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -244,6 +271,62 @@ func _build_forge_overlay() -> void:
 	back_button.name = "BackButton"
 	back_button.pressed.connect(_close_reforge)
 	forge_title_row.add_child(back_button)
+
+	review_panel = PanelContainer.new()
+	review_panel.name = "InterpretationReview"
+	review_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	review_panel.mouse_filter = Control.MOUSE_FILTER_PASS
+	review_panel.add_theme_stylebox_override("panel", _panel_style(Color("#0d1c30"), Color("#b392ff"), 2))
+	forge_layout.add_child(review_panel)
+	var review_margin := MarginContainer.new()
+	review_margin.mouse_filter = Control.MOUSE_FILTER_PASS
+	_set_margin(review_margin, 12, 12, 10, 10)
+	review_panel.add_child(review_margin)
+	review_layout = VBoxContainer.new()
+	review_layout.mouse_filter = Control.MOUSE_FILTER_PASS
+	review_layout.add_theme_constant_override("separation", 6)
+	review_margin.add_child(review_layout)
+	review_summary = Label.new()
+	review_summary.name = "InterpretationSummary"
+	review_summary.add_theme_color_override("font_color", Color("#b9eaff"))
+	review_summary.add_theme_font_size_override("font_size", 18)
+	review_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	review_summary.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	review_layout.add_child(review_summary)
+	review_details = Label.new()
+	review_details.name = "InterpretationDetails"
+	review_details.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	review_details.add_theme_color_override("font_color", TEXT)
+	review_details.add_theme_font_size_override("font_size", 17)
+	review_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	review_details.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	review_layout.add_child(review_details)
+	review_action_row = HBoxContainer.new()
+	review_action_row.name = "InterpretationActions"
+	review_action_row.mouse_filter = Control.MOUSE_FILTER_PASS
+	review_action_row.add_theme_constant_override("separation", 8)
+	review_layout.add_child(review_action_row)
+	confirm_button = _button("CONFIRM", Color("#78eea6"), 17)
+	confirm_button.name = "ConfirmInterpretationButton"
+	confirm_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	confirm_button.pressed.connect(_confirm_interpretation)
+	review_action_row.add_child(confirm_button)
+	modify_button = _button("MODIFY INTERPRETATION", CYAN, 16)
+	modify_button.name = "ModifyInterpretationButton"
+	modify_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	modify_button.pressed.connect(_modify_interpretation)
+	review_action_row.add_child(modify_button)
+	try_again_button = _button("TRY AGAIN", ORANGE, 17)
+	try_again_button.name = "TryAgainButton"
+	try_again_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	try_again_button.pressed.connect(_try_again)
+	review_action_row.add_child(try_again_button)
+	feedback_button = _button("NOT SUITABLE", Color("#ff8f8f"), 15)
+	feedback_button.name = "InterpretationFeedbackButton"
+	feedback_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	feedback_button.pressed.connect(_flag_result)
+	review_action_row.add_child(feedback_button)
+	review_panel.hide()
 
 	drawing_canvas = DrawingCanvas.new()
 	drawing_canvas.name = "DrawingCanvas"
@@ -283,6 +366,7 @@ func _build_forge_overlay() -> void:
 	pattern_selector.name = "AttackPatternSelector"
 	pattern_selector.pattern_selected.connect(_on_pattern_selected)
 	forge_layout.add_child(pattern_selector)
+	pattern_selector.visible = developer_mode
 
 	forge_action_row = HBoxContainer.new()
 	forge_action_row.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -296,19 +380,25 @@ func _build_forge_overlay() -> void:
 	load_idea_button.name = "LoadIdeaButton"
 	load_idea_button.pressed.connect(_load_selected_idea)
 	forge_action_row.add_child(load_idea_button)
+	load_idea_button.visible = developer_mode
 	forge_status = Label.new()
 	forge_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	forge_status.text = "Offline mock — no API key."
+	forge_status.text = "Describe your idea. AI output is validated before combat."
 	forge_status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	forge_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	forge_status.add_theme_color_override("font_color", MUTED)
 	forge_status.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	forge_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	forge_action_row.add_child(forge_status)
-	generate_button = _button("COMPILE WEAPON", ORANGE, 20)
+	generate_button = _button("FORGE", ORANGE, 20)
 	generate_button.name = "GenerateWeaponButton"
 	generate_button.pressed.connect(_generate_weapon)
 	forge_action_row.add_child(generate_button)
+	cancel_button = _button("CANCEL", Color("#ff8f8f"), 18)
+	cancel_button.name = "CancelInterpretationButton"
+	cancel_button.pressed.connect(_cancel_interpretation)
+	cancel_button.hide()
+	forge_action_row.add_child(cancel_button)
 	_apply_forge_layout()
 
 
@@ -353,7 +443,7 @@ func _apply_compact_forge_layout(css_size: Vector2, browser_metrics: Dictionary)
 	_set_margin(forge_margin, int(metrics.inner_margin), int(metrics.inner_margin), int(metrics.inner_margin), int(metrics.inner_margin))
 	forge_layout.add_theme_constant_override("separation", int(metrics.separation))
 	forge_title_row.custom_minimum_size.y = float(metrics.title_height)
-	forge_title.text = "PROJECT FORGE / M1A"
+	forge_title.text = "PROJECT FORGE / M1B1"
 	forge_title.add_theme_font_size_override("font_size", int(metrics.title_font))
 	back_button.custom_minimum_size = Vector2(float(metrics.back_width), float(metrics.touch_height))
 	back_button.add_theme_font_size_override("font_size", int(metrics.body_font))
@@ -367,12 +457,20 @@ func _apply_compact_forge_layout(css_size: Vector2, browser_metrics: Dictionary)
 	clear_description_button.custom_minimum_size = Vector2(float(metrics.touch_height), float(metrics.touch_height))
 	clear_description_button.add_theme_font_size_override("font_size", int(metrics.input_font) + 5)
 	pattern_selector.set_compact(true, float(metrics.touch_height), int(metrics.body_font))
+	review_action_row.custom_minimum_size.y = float(metrics.touch_height)
+	review_action_row.add_theme_constant_override("separation", maxi(2, int(metrics.separation * 2.0)))
+	review_summary.add_theme_font_size_override("font_size", int(metrics.body_font))
+	review_details.add_theme_font_size_override("font_size", int(metrics.status_font) + 2)
+	for button in [confirm_button, modify_button, try_again_button, feedback_button]:
+		button.custom_minimum_size.y = float(metrics.touch_height)
+		button.add_theme_font_size_override("font_size", int(metrics.status_font) + 1)
 	forge_action_row.custom_minimum_size.y = float(metrics.touch_height)
 	forge_action_row.add_theme_constant_override("separation", maxi(2, int(metrics.separation * 2.0)))
 	reset_button.custom_minimum_size = Vector2(float(metrics.reset_width), float(metrics.touch_height))
 	load_idea_button.custom_minimum_size = Vector2(float(metrics.load_width), float(metrics.touch_height))
 	generate_button.custom_minimum_size = Vector2(float(metrics.compile_width), float(metrics.touch_height))
-	for button in [reset_button, load_idea_button, generate_button]:
+	cancel_button.custom_minimum_size = Vector2(float(metrics.reset_width), float(metrics.touch_height))
+	for button in [reset_button, load_idea_button, generate_button, cancel_button]:
 		button.add_theme_font_size_override("font_size", int(metrics.body_font))
 	forge_status.add_theme_font_size_override("font_size", int(metrics.status_font))
 
@@ -385,7 +483,7 @@ func _apply_regular_forge_layout() -> void:
 	_set_margin(forge_margin, 14, 14, 8, 8)
 	forge_layout.add_theme_constant_override("separation", 6)
 	forge_title_row.custom_minimum_size.y = 64.0
-	forge_title.text = "PROJECT FORGE  /  M1A WEAPON COMPILER"
+	forge_title.text = "PROJECT FORGE  /  M1B1 TEXT INTERPRETER"
 	forge_title.add_theme_font_size_override("font_size", 22)
 	back_button.custom_minimum_size = Vector2(96, 64)
 	back_button.add_theme_font_size_override("font_size", 15)
@@ -399,12 +497,20 @@ func _apply_regular_forge_layout() -> void:
 	clear_description_button.custom_minimum_size = Vector2(64, 64)
 	clear_description_button.add_theme_font_size_override("font_size", 24)
 	pattern_selector.set_compact(false, 72.0, 18)
+	review_action_row.custom_minimum_size.y = 64.0
+	review_action_row.add_theme_constant_override("separation", 8)
+	review_summary.add_theme_font_size_override("font_size", 18)
+	review_details.add_theme_font_size_override("font_size", 17)
+	for button in [confirm_button, modify_button, try_again_button, feedback_button]:
+		button.custom_minimum_size.y = 64.0
+		button.add_theme_font_size_override("font_size", 15)
 	forge_action_row.custom_minimum_size.y = 64.0
 	forge_action_row.add_theme_constant_override("separation", 8)
 	reset_button.custom_minimum_size = Vector2(112, 64)
 	load_idea_button.custom_minimum_size = Vector2(146, 64)
 	generate_button.custom_minimum_size = Vector2(210, 64)
-	for button in [reset_button, load_idea_button, generate_button]:
+	cancel_button.custom_minimum_size = Vector2(112, 64)
+	for button in [reset_button, load_idea_button, generate_button, cancel_button]:
 		button.add_theme_font_size_override("font_size", 17)
 	forge_status.add_theme_font_size_override("font_size", 14)
 
@@ -467,9 +573,14 @@ func _reset_forge() -> void:
 	drawing_canvas.clear_drawing()
 	_set_description("")
 	loaded_idea_pattern = ""
+	pending_result = {}
+	pending_spec = null
+	request_strokes.clear()
+	feedback_button.disabled = false
 	description_input.release_focus()
 	if web_mobile_bridge.is_available():
 		web_mobile_bridge.blur()
+	_show_forge_form(false)
 	_show_forge_toast("Canvas and description cleared", Color("#78eea6"), 1.8)
 
 
@@ -489,7 +600,12 @@ func _show_forge_toast(message: String, color: Color = MUTED, duration: float = 
 func _sync_web_description_overlay() -> void:
 	if not web_mobile_bridge.is_available() or description_input == null:
 		return
-	var visible := forge_overlay.visible and (orientation_prompt == null or not orientation_prompt.visible)
+	var visible := (
+		forge_overlay.visible
+		and description_row.visible
+		and not interpreter.in_flight
+		and (orientation_prompt == null or not orientation_prompt.visible)
+	)
 	var input_rect := description_input.get_global_rect()
 	if clear_description_button != null:
 		input_rect = input_rect.merge(clear_description_button.get_global_rect())
@@ -511,12 +627,204 @@ func _generate_weapon() -> void:
 	if drawing_canvas.is_empty():
 		_show_forge_toast("Draw at least one stroke first.", Color("#ff8f8f"), 2.0)
 		return
-	current_strokes = drawing_canvas.get_normalized_strokes()
-	current_spec = service.generate(
+	if modify_mode:
+		_apply_manual_correction()
+		return
+	request_strokes = drawing_canvas.get_normalized_strokes()
+	var request_id := interpreter.start_interpretation(
+		description_input.text,
+		drawing_canvas.drawing_summary(),
+		_detect_locale(description_input.text),
+	)
+	if request_id.is_empty():
+		_show_forge_toast("A weapon request is already running.", Color("#ffca78"), 1.8)
+
+
+func _on_interpretation_started(_request_id: String) -> void:
+	review_mode = false
+	review_panel.hide()
+	_set_forge_interactable(false)
+	generate_button.hide()
+	cancel_button.show()
+	forge_status.text = "AI is interpreting your weapon…"
+	forge_status.add_theme_color_override("font_color", Color("#b9eaff"))
+	_sync_web_description_overlay()
+	_update_qa_bridge()
+
+
+func _on_interpretation_completed(result: Dictionary) -> void:
+	pending_result = result.duplicate(true)
+	var raw_spec: Variant = pending_result.get("weapon_spec")
+	if not raw_spec is Dictionary:
+		pending_result = {}
+		_show_forge_toast("Interpreter response was invalid.", Color("#ff8f8f"), 2.0)
+		_show_forge_form(false)
+		return
+	pending_spec = WeaponSpec.from_dict(raw_spec)
+	pending_spec.corrections.clear()
+	for correction: Variant in pending_result.get("corrections", []):
+		pending_spec.corrections.append(str(correction))
+	pending_spec.budget_breakdown = PowerBudget.calculate(pending_spec.to_dict())
+	if developer_mode:
+		_apply_developer_pattern_override()
+	_show_interpretation_review()
+
+
+func _on_interpretation_cancelled(_request_id: String) -> void:
+	_show_forge_form(false)
+	_show_forge_toast("Interpretation cancelled — drawing and text preserved.", Color("#ffca78"), 1.8)
+	_update_qa_bridge()
+
+
+func _cancel_interpretation() -> void:
+	if not interpreter.cancel():
+		_show_forge_form(false)
+
+
+func _show_interpretation_review() -> void:
+	if pending_spec == null:
+		return
+	review_mode = true
+	modify_mode = false
+	drawing_canvas.hide()
+	description_row.hide()
+	pattern_selector.hide()
+	forge_action_row.hide()
+	review_panel.show()
+	var fallback_reason := str(pending_result.get("fallback_reason", ""))
+	var summary := str(pending_result.get("interpretation_summary", "Weapon interpretation ready."))
+	if not fallback_reason.is_empty():
+		summary = "SAFE FALLBACK (%s)\n%s" % [fallback_reason.replace("_", " ").to_upper(), summary]
+	review_summary.text = summary
+	var metadata: Dictionary = pending_result.get("provider_metadata", {})
+	var cost: Variant = pending_result.get("estimated_cost", "UNKNOWN")
+	var cost_text := str(cost) if not cost is Dictionary else "%s %.6f" % [str(cost.get("currency", "USD")), float(cost.get("amount", 0.0))]
+	review_details.text = (
+		"%s    POWER %d/100\n"
+		+ "ATTACK  %s    ELEMENT  %s\n"
+		+ "DAMAGE  %d    SPEED  %.2f    RANGE  %.0f\n"
+		+ "ABILITY  %s    STATUS  %s\n"
+		+ "WEAKNESS  %s\n"
+		+ "CONFIDENCE  %d%%    REPAIRS  %d\n"
+		+ "PROVIDER  %s / %s    %d ms    COST %s"
+	) % [
+		pending_spec.display_name,
+		pending_spec.power_score,
+		pending_spec.attack_label().to_upper(),
+		pending_spec.element.to_upper(),
+		pending_spec.damage,
+		pending_spec.attack_speed,
+		pending_spec.attack_range,
+		pending_spec.special_ability.replace("_", " ").to_upper(),
+		pending_spec.status_effect.replace("_", " ").to_upper(),
+		pending_spec.weakness_label().to_upper(),
+		roundi(clampf(float(pending_result.get("confidence", 0.0)), 0.0, 1.0) * 100.0),
+		pending_spec.corrections.size(),
+		str(metadata.get("provider", "unknown")),
+		str(metadata.get("model", "unknown")),
+		int(pending_result.get("latency_ms", 0)),
+		cost_text,
+	]
+	back_button.disabled = false
+	_apply_forge_layout()
+	_sync_web_description_overlay()
+	_update_qa_bridge()
+
+
+func _show_forge_form(correction: bool) -> void:
+	review_mode = false
+	modify_mode = correction
+	review_panel.hide()
+	drawing_canvas.show()
+	description_row.show()
+	forge_action_row.show()
+	pattern_selector.visible = developer_mode or correction
+	load_idea_button.visible = developer_mode and not correction
+	generate_button.text = "REVIEW CORRECTION" if correction else "FORGE"
+	generate_button.show()
+	cancel_button.hide()
+	_set_forge_interactable(true)
+	_apply_forge_layout()
+	_sync_web_description_overlay()
+	_update_qa_bridge()
+
+
+func _set_forge_interactable(enabled: bool) -> void:
+	description_input.editable = enabled
+	clear_description_button.disabled = not enabled
+	reset_button.disabled = not enabled
+	load_idea_button.disabled = not enabled
+	generate_button.disabled = not enabled
+	back_button.disabled = not enabled
+	drawing_canvas.mouse_filter = Control.MOUSE_FILTER_STOP if enabled else Control.MOUSE_FILTER_IGNORE
+	for button: Button in pattern_selector.buttons():
+		button.disabled = not enabled
+
+
+func _modify_interpretation() -> void:
+	if pending_spec == null:
+		return
+	var current_index := AttackPatternSelector.PATTERNS.find(pending_spec.attack_pattern)
+	pattern_selector.select_pattern(maxi(current_index, 0), false)
+	_show_forge_form(true)
+	_show_forge_toast("Choose one attack pattern, then review the corrected result.", Color("#b9eaff"), 0.0)
+
+
+func _apply_manual_correction() -> void:
+	var corrected := service.compile(
 		description_input.text,
 		drawing_canvas.drawing_summary(),
 		pattern_selector.selected_pattern(),
+		true,
 	)
+	pending_spec = corrected
+	pending_result.weapon_spec = corrected.to_dict()
+	pending_result.interpretation_summary = "Player-corrected interpretation; schema and PowerBudget were re-applied."
+	pending_result.confidence = 1.0
+	pending_result.corrections = corrected.corrections.duplicate()
+	pending_result.corrections.append("manual correction: attack_pattern set to %s" % corrected.attack_pattern)
+	pending_result.fallback_reason = ""
+	pending_result.provider_metadata = {"provider": "player_correction", "model": "deterministic_validator", "attempts": 0}
+	pending_result.latency_ms = int(service.last_record.get("elapsed_ms", 0))
+	pending_result.estimated_cost = "UNKNOWN"
+	pending_result.runtime_valid = corrected.is_valid()
+	_show_interpretation_review()
+
+
+func _apply_developer_pattern_override() -> void:
+	var corrected := service.compile(
+		description_input.text,
+		drawing_canvas.drawing_summary(),
+		pattern_selector.selected_pattern(),
+		true,
+	)
+	pending_spec = corrected
+	pending_result.weapon_spec = corrected.to_dict()
+	var corrections: Array = pending_result.get("corrections", [])
+	corrections.append("developer mode: attack_pattern forced to %s" % corrected.attack_pattern)
+	pending_result.corrections = corrections
+
+
+func _try_again() -> void:
+	_show_forge_form(false)
+	_generate_weapon()
+
+
+func _flag_result() -> void:
+	review_summary.text = "RESULT FLAGGED FOR THIS SESSION ONLY\nNo drawing or description was published or stored."
+	feedback_button.disabled = true
+	_update_qa_bridge()
+
+
+func _confirm_interpretation() -> void:
+	if pending_spec == null:
+		return
+	current_spec = pending_spec
+	current_strokes = request_strokes.duplicate(true)
+	_commit_weapon()
+
+
+func _commit_weapon() -> void:
 	player.equip(current_spec, current_strokes)
 	player.set_combat_enabled(true)
 	description_input.release_focus()
@@ -532,17 +840,20 @@ func _generate_weapon() -> void:
 		"POWER BUDGET  %d / 100\nDamage %.1f + Speed %.1f + Range %.1f + Pattern %.1f\nElement %.1f + Ability %.1f + Status %.1f + Module %.1f\nTradeoff %.1f   •   Repairs %d"
 		% [current_spec.power_score, parts.get("damage", 0), parts.get("attack_speed", 0), parts.get("range", 0),
 		parts.get("attack_pattern", 0), parts.get("element", 0), parts.get("special_ability", 0), parts.get("status_effect", 0),
-		float(parts.get("projectile_speed", 0)) + float(parts.get("area_radius", 0)) + float(parts.get("piercing", 0)),
+		float(parts.get("projectile_speed", 0)) + float(parts.get("return_speed", 0)) + float(parts.get("area_radius", 0)) + float(parts.get("piercing", 0)),
 		parts.get("drawback_credit", 0), current_spec.corrections.size()]
 	)
 	forge_status.add_theme_color_override("font_color", MUTED)
-	forge_status.text = "Valid • %d repair(s) • %d ms • JSONL logged" % [current_spec.corrections.size(), service.last_metadata.get("elapsed_ms", 0)]
+	forge_status.text = "Valid • %d repair(s) • %d ms • safe audit" % [current_spec.corrections.size(), int(pending_result.get("latency_ms", 0))]
 	combat_status.text = "%s ready. Use A/D or touch, then SPACE/ATTACK." % current_spec.attack_label()
 	reforge_button.disabled = false
 	attack_button.disabled = true
 	forge_overlay.hide()
 	_sync_web_description_overlay()
+	review_mode = false
+	modify_mode = false
 	_arm_attack_button()
+	_update_qa_bridge()
 
 
 func _arm_attack_button() -> void:
@@ -554,6 +865,12 @@ func _arm_attack_button() -> void:
 
 
 func _close_reforge() -> void:
+	if interpreter.in_flight:
+		_cancel_interpretation()
+		return
+	if review_mode and current_spec == null:
+		_show_forge_form(false)
+		return
 	if current_spec == null:
 		forge_status.text = "Forge one weapon before returning to combat."
 		forge_status.add_theme_color_override("font_color", Color("#ffca78"))
@@ -562,6 +879,8 @@ func _close_reforge() -> void:
 	if web_mobile_bridge.is_available():
 		web_mobile_bridge.blur()
 	forge_overlay.hide()
+	review_mode = false
+	modify_mode = false
 	_sync_web_description_overlay()
 	player.set_combat_enabled(true)
 	combat_status.text = "%s ready. Use A/D or touch, then SPACE/ATTACK." % current_spec.attack_label()
@@ -575,12 +894,17 @@ func _open_reforge() -> void:
 	drawing_canvas.clear_drawing()
 	_set_description("")
 	loaded_idea_pattern = ""
+	pending_result = {}
+	pending_spec = null
+	request_strokes.clear()
+	feedback_button.disabled = false
 	description_input.release_focus()
 	if web_mobile_bridge.is_available():
 		web_mobile_bridge.blur()
 	var current_index := AttackPatternSelector.PATTERNS.find(current_spec.attack_pattern) if current_spec else 0
 	pattern_selector.select_pattern(maxi(current_index, 0), false)
-	forge_status.text = "Draw again; a valid replacement is committed only after compile."
+	_show_forge_form(false)
+	forge_status.text = "Draw and describe a replacement; the current weapon remains until CONFIRM."
 	forge_status.add_theme_color_override("font_color", MUTED)
 	forge_overlay.show()
 	_apply_forge_layout()
@@ -588,6 +912,8 @@ func _open_reforge() -> void:
 
 
 func _load_selected_idea() -> void:
+	if not developer_mode:
+		return
 	_set_description(pattern_selector.selected_idea())
 	loaded_idea_pattern = pattern_selector.selected_pattern()
 	_show_forge_toast("%s idea loaded — edit or compile" % pattern_selector.selected_pattern().replace("_", " ").to_upper(), MUTED)
@@ -723,6 +1049,103 @@ func _update_orientation_prompt() -> void:
 		player.set_combat_enabled(true)
 		attack_button.disabled = false
 	call_deferred("_sync_web_description_overlay")
+	call_deferred("_update_qa_bridge")
+
+
+func _detect_developer_mode() -> bool:
+	if not OS.has_feature("web"):
+		return OS.get_cmdline_user_args().has("--forge-developer-mode")
+	return bool(JavaScriptBridge.eval(
+		"new URLSearchParams(window.location.search).get('dev') === '1'",
+		true,
+	))
+
+
+func _detect_locale(text: String) -> String:
+	for index in text.length():
+		var codepoint := text.unicode_at(index)
+		if codepoint >= 0x3400 and codepoint <= 0x9FFF:
+			return "zh-CN"
+	return "en"
+
+
+func _on_qa_command(command: String, payload: Dictionary) -> void:
+	match command:
+		"scenario":
+			interpreter.set_test_scenario(str(payload.get("name", "success")))
+		"developer_mode":
+			developer_mode = bool(payload.get("enabled", false))
+			if not review_mode and not interpreter.in_flight:
+				pattern_selector.visible = developer_mode or modify_mode
+				load_idea_button.visible = developer_mode and not modify_mode
+				_apply_forge_layout()
+	_update_qa_bridge()
+
+
+func _update_qa_bridge() -> void:
+	if not web_mobile_bridge.is_available() or forge_overlay == null:
+		return
+	var phase := "forge"
+	if orientation_prompt and orientation_prompt.visible:
+		phase = "portrait"
+	elif not forge_overlay.visible:
+		phase = "combat"
+	elif interpreter.in_flight:
+		phase = "loading"
+	elif review_mode:
+		phase = "review"
+	elif modify_mode:
+		phase = "modify"
+	var state := {
+		"screen": "combat" if not forge_overlay.visible else "forge",
+		"phase": phase,
+		"request_count": interpreter.request_count,
+		"attempts": interpreter.attempts,
+		"in_flight": interpreter.in_flight,
+		"request_id": interpreter.active_request_id,
+		"description": description_input.text,
+		"drawing_count": drawing_canvas.strokes.size(),
+		"selector_visible": pattern_selector.visible,
+		"developer_mode": developer_mode,
+		"modify_mode": modify_mode,
+		"review_mode": review_mode,
+		"result": pending_result,
+		"spec": pending_spec.to_dict() if pending_spec else {},
+		"runtime_valid": bool(pending_result.get("runtime_valid", false)),
+		"power_score": pending_spec.power_score if pending_spec else 0,
+		"fallback_reason": str(pending_result.get("fallback_reason", "")),
+		"message": review_summary.text if review_mode else forge_status.text,
+	}
+	var pattern_rects: Array[Dictionary] = []
+	for button: Button in pattern_selector.buttons():
+		pattern_rects.append(_rect_dictionary(button))
+	var controls := {
+		"canvas": _rect_dictionary(drawing_canvas),
+		"forge": _rect_dictionary(generate_button),
+		"reset": _rect_dictionary(reset_button),
+		"cancel": _rect_dictionary(cancel_button),
+		"confirm": _rect_dictionary(confirm_button),
+		"modify": _rect_dictionary(modify_button),
+		"try_again": _rect_dictionary(try_again_button),
+		"feedback": _rect_dictionary(feedback_button),
+		"attack": _rect_dictionary(attack_button),
+		"reforge": _rect_dictionary(reforge_button),
+		"back": _rect_dictionary(back_button),
+		"pattern_buttons": pattern_rects,
+	}
+	web_mobile_bridge.update_qa_state(state, controls, size)
+
+
+func _rect_dictionary(control: Control) -> Dictionary:
+	if control == null:
+		return {"x": 0.0, "y": 0.0, "width": 0.0, "height": 0.0}
+	var rect := control.get_global_rect()
+	return {
+		"x": rect.position.x,
+		"y": rect.position.y,
+		"width": rect.size.x if control.is_visible_in_tree() else 0.0,
+		"height": rect.size.y if control.is_visible_in_tree() else 0.0,
+	}
 
 
 func _button(label_text: String, accent: Color, font_size: int) -> Button:

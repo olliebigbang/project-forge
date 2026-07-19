@@ -41,3 +41,28 @@ test("does not cache the HTML entry point", async () => {
   );
   assert.equal(response.headers.get("cache-control"), "no-store");
 });
+
+test("routes same-origin weapon compilation through the server boundary", async () => {
+  const payload = {
+    description: "a returning ice umbrella",
+    drawing_summary: { stroke_count: 2, point_count: 18, aspect_ratio: 1.8, coverage: 0.3 },
+    locale: "en",
+    request_id: "worker-route-1",
+    supported_attack_patterns: ["melee_slash", "straight_projectile", "boomerang", "area_blast", "piercing"],
+    supported_elements: ["normal", "fire", "ice", "electric"],
+    supported_abilities: ["none", "knockback_burst", "chain_arc", "return_strike", "splash_wave", "shield_break"],
+    maximum_power_score: 100,
+  };
+  const response = await worker.fetch(new Request("https://forge.example/api/compile-weapon", {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: "https://forge.example" },
+    body: JSON.stringify(payload),
+  }), environment([]));
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cross-origin-opener-policy"), "same-origin");
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  const body = await response.json();
+  assert.equal(body.weapon_spec.attack_pattern, "boomerang");
+  assert.equal(body.weapon_spec.element, "ice");
+  assert.equal(body.runtime_valid, true);
+});

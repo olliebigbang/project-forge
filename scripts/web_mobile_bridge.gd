@@ -3,9 +3,11 @@ extends RefCounted
 
 signal description_event(kind: String, value: String)
 signal viewport_changed
+signal qa_command(command: String, payload: Dictionary)
 
 var _description_callback: Variant
 var _viewport_callback: Variant
+var _qa_callback: Variant
 var _initialized := false
 
 
@@ -14,9 +16,11 @@ func initialize() -> void:
 		return
 	_description_callback = JavaScriptBridge.create_callback(_on_description_event)
 	_viewport_callback = JavaScriptBridge.create_callback(_on_viewport_event)
+	_qa_callback = JavaScriptBridge.create_callback(_on_qa_event)
 	var browser_window: JavaScriptObject = JavaScriptBridge.get_interface("window")
 	browser_window.__forgeGodotDescriptionCallback = _description_callback
 	browser_window.__forgeGodotViewportCallback = _viewport_callback
+	browser_window.__forgeGodotQaCallback = _qa_callback
 	JavaScriptBridge.eval(_install_script(), true)
 	_initialized = true
 
@@ -82,6 +86,21 @@ func update_layout(input_rect: Rect2, logical_size: Vector2, visible: bool) -> v
 	)
 
 
+func update_qa_state(state: Dictionary, controls: Dictionary, logical_size: Vector2) -> void:
+	if not is_available():
+		return
+	var payload := {
+		"state": state,
+		"controls": controls,
+		"logicalWidth": logical_size.x,
+		"logicalHeight": logical_size.y,
+	}
+	JavaScriptBridge.eval(
+		"window.__forgeM1B1Test && window.__forgeM1B1Test._update(%s);" % JSON.stringify(payload),
+		true,
+	)
+
+
 func _on_description_event(arguments: Array) -> void:
 	if arguments.is_empty():
 		return
@@ -92,6 +111,18 @@ func _on_description_event(arguments: Array) -> void:
 
 func _on_viewport_event(_arguments: Array) -> void:
 	viewport_changed.emit()
+
+
+func _on_qa_event(arguments: Array) -> void:
+	if arguments.is_empty():
+		return
+	var command := str(arguments[0])
+	var payload: Dictionary = {}
+	if arguments.size() > 1:
+		var parsed: Variant = JSON.parse_string(str(arguments[1]))
+		if parsed is Dictionary:
+			payload = parsed
+	qa_command.emit(command, payload)
 
 
 func _install_script() -> String:
@@ -228,6 +259,45 @@ func _install_script() -> String:
     blur: () => input.blur(),
     clear: () => { input.value = ''; window.__forgeGodotDescriptionCallback?.('clear', ''); }
   };
+
+  const qaEnabled = new URLSearchParams(window.location.search).get('qa') === 'm1b1';
+  if (qaEnabled) {
+    let latestState = {};
+    let latestControls = {};
+    const cssRect = (rect, logicalWidth, logicalHeight) => {
+      if (!rect) return null;
+      const canvas = document.getElementById('canvas') || document.querySelector('canvas');
+      if (!canvas) return null;
+      const box = canvas.getBoundingClientRect();
+      const scaleX = box.width / Math.max(logicalWidth, 1);
+      const scaleY = box.height / Math.max(logicalHeight, 1);
+      return {
+        x: box.left + rect.x * scaleX,
+        y: box.top + rect.y * scaleY,
+        width: rect.width * scaleX,
+        height: rect.height * scaleY
+      };
+    };
+    window.__forgeM1B1Test = {
+      state: () => structuredClone(latestState),
+      controls: () => structuredClone(latestControls),
+      setScenario: (name, options = {}) => window.__forgeGodotQaCallback?.(
+        'scenario', JSON.stringify({ name: String(name), options })
+      ),
+      setDeveloperMode: (enabled) => window.__forgeGodotQaCallback?.(
+        'developer_mode', JSON.stringify({ enabled: Boolean(enabled) })
+      ),
+      _update: (payload) => {
+        latestState = payload.state || {};
+        latestControls = {};
+        for (const [name, value] of Object.entries(payload.controls || {})) {
+          latestControls[name] = Array.isArray(value)
+            ? value.map((rect) => cssRect(rect, payload.logicalWidth, payload.logicalHeight))
+            : cssRect(value, payload.logicalWidth, payload.logicalHeight);
+        }
+      }
+    };
+  }
 
   let frame = 0;
   const notifyViewport = () => {

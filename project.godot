@@ -1,10 +1,10 @@
-; Project Forge M1A deterministic weapon compiler
+; Project Forge M1B1 real text-to-weapon interpreter
 ; Edit through the Godot editor when changing project-wide settings.
 config_version=5
 
 [application]
 
-config/name="Project Forge — M1A Weapon Compiler"
+config/name="Project Forge — M1B1 Text Interpreter"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 boot_splash/bg_color=Color(0.035, 0.055, 0.09, 1)

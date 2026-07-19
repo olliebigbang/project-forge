@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { createReadStream, statSync } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
+import { handleCompileWeapon } from "../hosting/weapon_interpreter.mjs";
 
 const argumentsList = process.argv.slice(2);
 const option = (name, fallback) => {
@@ -20,8 +21,49 @@ const mime = {
   ".ico": "image/x-icon",
 };
 
-const server = createServer((request, response) => {
+async function serveApi(request, response) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > 16384) {
+      response.writeHead(413, { "content-type": "application/json" }).end('{"error":"request_too_large"}');
+      return;
+    }
+    chunks.push(chunk);
+  }
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(request.headers)) {
+    if (Array.isArray(value)) value.forEach((entry) => headers.append(name, entry));
+    else if (value !== undefined) headers.set(name, value);
+  }
+  const url = `http://${request.headers.host ?? `localhost:${port}`}${request.url}`;
+  const workerRequest = new Request(url, {
+    method: request.method,
+    headers,
+    body: request.method === "GET" || request.method === "HEAD" ? undefined : Buffer.concat(chunks),
+  });
+  const workerResponse = await handleCompileWeapon(workerRequest, {
+    WEAPON_AI_PROVIDER: "deterministic",
+    WEAPON_INTERPRETER_TEST_MODE: "true",
+  });
+  const outgoing = {};
+  workerResponse.headers.forEach((value, name) => { outgoing[name] = value; });
+  response.writeHead(workerResponse.status, outgoing);
+  response.end(Buffer.from(await workerResponse.arrayBuffer()));
+}
+
+const server = createServer(async (request, response) => {
   const pathname = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
+  if (pathname === "/api/compile-weapon") {
+    try {
+      await serveApi(request, response);
+    } catch (error) {
+      console.error("Weapon interpreter preview route failed:", error?.message ?? error);
+      response.writeHead(500, { "content-type": "application/json" }).end('{"error":"internal_error"}');
+    }
+    return;
+  }
   const relative = pathname === "/" ? "index.html" : normalize(pathname).replace(/^[/\\]+/, "");
   const filePath = resolve(join(root, relative));
   if (!filePath.startsWith(root)) {
@@ -46,4 +88,3 @@ server.listen(port, "0.0.0.0", () => {
   console.log(`Project Forge Web preview: http://localhost:${port}`);
   console.log(`Serving ${root}`);
 });
-

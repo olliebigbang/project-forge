@@ -9,7 +9,12 @@ const BLOCKED_KEYWORDS: PackedStringArray = [
 var last_record: Dictionary = {}
 
 
-func compile(description: String, drawing_summary: Dictionary = {}, forced_attack_pattern: String = "") -> WeaponSpec:
+func compile(
+	description: String,
+	drawing_summary: Dictionary = {},
+	forced_attack_pattern: String = "",
+	privacy_mode: bool = false,
+) -> WeaponSpec:
 	var started := Time.get_ticks_msec()
 	var normalized := description.strip_edges().to_lower().left(512)
 	var forced_pattern := forced_attack_pattern if forced_attack_pattern in WeaponSpec.ATTACK_PATTERNS else ""
@@ -24,11 +29,9 @@ func compile(description: String, drawing_summary: Dictionary = {}, forced_attac
 	spec.budget_breakdown = balanced.after.duplicate(true)
 	last_record = {
 		"timestamp_unix": int(Time.get_unix_time_from_system()),
-		"mode": "deterministic_mock_m1a",
-		"input": normalized.left(160),
+		"mode": "deterministic_private_m1b1" if privacy_mode else "deterministic_mock_m1a",
 		"forced_attack_pattern": forced_pattern,
 		"drawing_summary": drawing_summary,
-		"raw_spec": raw,
 		"weapon_spec": spec.to_dict(),
 		"budget_before": balanced.before,
 		"budget_after": balanced.after,
@@ -37,6 +40,13 @@ func compile(description: String, drawing_summary: Dictionary = {}, forced_attac
 		"runtime_valid": _is_runtime_valid(spec, balanced),
 		"elapsed_ms": maxi(Time.get_ticks_msec() - started, 0),
 	}
+	if privacy_mode:
+		last_record.input_length = normalized.length()
+	else:
+		# M1A's deterministic test harness retains its explicit fixture input and raw
+		# profile. M1B1 uses privacy_mode and never persists free-form player text.
+		last_record.input = normalized.left(160)
+		last_record.raw_spec = raw
 	_log_record(last_record)
 	print("[WeaponCompiler] ", JSON.stringify(last_record))
 	return spec

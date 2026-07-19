@@ -28,6 +28,9 @@ Get-ChildItem -LiteralPath $webBuild -File |
     Where-Object { $_.Name -ne ".gitkeep" -and $_.Extension -ne ".import" } |
     Copy-Item -Destination $distClient -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "hosting\static_worker.mjs") -Destination (Join-Path $distServer "index.js") -Force
+Copy-Item -LiteralPath (Join-Path $repoRoot "hosting\weapon_contract.mjs") -Destination (Join-Path $distServer "weapon_contract.mjs") -Force
+Copy-Item -LiteralPath (Join-Path $repoRoot "hosting\weapon_schema.mjs") -Destination (Join-Path $distServer "weapon_schema.mjs") -Force
+Copy-Item -LiteralPath (Join-Path $repoRoot "hosting\weapon_interpreter.mjs") -Destination (Join-Path $distServer "weapon_interpreter.mjs") -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "hosting\wasm_chunk_loader.js") -Destination (Join-Path $distClient "wasm_chunk_loader.js") -Force
 
 # Sites has a 25 MB single-file limit. Split the Godot WASM into two byte-exact
@@ -78,6 +81,9 @@ if (-not (Test-Path -LiteralPath $hostingFile)) {
 
 $required = @(
     "dist\server\index.js",
+    "dist\server\weapon_contract.mjs",
+    "dist\server\weapon_schema.mjs",
+    "dist\server\weapon_interpreter.mjs",
     "dist\client\index.html",
     "dist\client\index.js",
     "dist\client\index.wasm.part0",

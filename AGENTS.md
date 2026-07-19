@@ -14,7 +14,7 @@ assets, balance data, or development direction from Cat Battle or another projec
 - Uncertainty must be marked exactly `CONFIRMED`, `ASSUMPTION`, `TO VALIDATE`, or
   `TBD`; do not silently resolve product questions.
 
-## Current stable scope: M1A complete
+## Stable baseline and current development scope
 
 - Godot 4.7.1, 2D landscape, Web-first.
 - Drawing and one text line feed a deterministic local `WeaponCompiler`.
@@ -24,14 +24,28 @@ assets, balance data, or development direction from Cat Battle or another projec
 - Strong capabilities must have a visible drawback or deterministic stat cost.
 - Test against stationary, moving, shield, and grouped targets.
 - Physical iPhone Safari acceptance for v9 is complete and recorded.
-- Do not continue M1B or other new-feature development on the M1A stable branch.
-  Any authorized next milestone must start from the stable tag on a separate
-  branch with its own acceptance plan.
+- **CONFIRMED** M1B1 real text interpretation is authorized only on
+  `codex/feat/m1b1-real-text-interpreter`, based on `v0.1.0-m1a`.
+- Never develop M1B1 on `main` or move/delete the stable tag.
 - The M1A forge uses five persistent attack-pattern test buttons. Never restore
   an `OptionButton`, `PopupMenu`, or full-screen modal selector for this flow.
 
 Do not add paid AI, secrets, production levels or art, voice, accounts, cloud
 saves, sharing, monetization, multiplayer, or store submission in M1A.
+
+## Current scope: M1B1
+
+- Normal players enter free text; five attack-pattern buttons are hidden until
+  Developer/Test Mode or MODIFY INTERPRETATION.
+- Godot calls only the same-origin project backend. Never call a provider from
+  Godot or expose a provider key to Web/client code.
+- Provider output is untrusted semantic data. Server and client both enforce the
+  existing schema allow-lists and `PowerBudget` before combat.
+- Drawing input is numeric `drawing_summary` only; visual semantics are M1B2.
+- Preserve drawing/text across cancellation, timeout, retry and fallback.
+- Provider/model/credential remain `TBD` until the product owner answers the one
+  consolidated provider decision after vendor-neutral implementation.
+- No M1B2, voice, production art, accounts, sharing, monetization or multiplayer.
 
 ## Engineering rules
 
@@ -56,6 +70,7 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
 
 - Stable branch after release closure: `main`.
 - Stable release tag: `v0.1.0-m1a`.
+- Current integration branch: `codex/feat/m1b1-real-text-interpreter`.
 - Compact Landscape uses CSS `visualViewport` dimensions; do not size mobile
   touch controls from the 1280×720 logical viewport alone.
 - Web Description input is a bounded native HTML overlay synchronized with

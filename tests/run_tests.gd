@@ -114,6 +114,21 @@ func _test_power_budget() -> void:
 	var semantic_balance := PowerBudget.balance(contradictory)
 	_expect(float(semantic_balance.values.range) <= 180.0, "short_reach cannot claim credit while retaining long range")
 	_expect(semantic_balance.corrections.size() > 0, "semantic drawback correction is recorded")
+	var fake_projectile_drawback := WeaponSpec.fallback().to_dict()
+	fake_projectile_drawback.merge({"attack_pattern":"melee_slash", "drawback":"slow_projectile", "damage":48}, true)
+	var fake_drawback_balance := PowerBudget.balance(fake_projectile_drawback)
+	_expect(fake_drawback_balance.values.drawback != "slow_projectile", "melee cannot receive unearned slow_projectile credit")
+	_expect(_notes_contain(fake_drawback_balance.corrections, "has no projectile"), "invalid drawback replacement is audited")
+	var slow_return := WeaponCompiler.new().compile("a returning boomerang", {}, "boomerang").to_dict()
+	var fast_return := slow_return.duplicate(true)
+	fast_return.return_speed = 1000.0
+	_expect(float(PowerBudget.calculate(fast_return).total) > float(PowerBudget.calculate(slow_return).total), "boomerang return_speed has an explicit budget cost")
+	var incompatible := WeaponSpec.fallback().to_dict()
+	incompatible.merge({"attack_pattern":"melee_slash", "element":"normal", "special_ability":"return_strike", "status_effect":"freeze", "visual_material":"ember_metal"}, true)
+	var compatibility_balance := PowerBudget.balance(incompatible)
+	_expect(compatibility_balance.values.special_ability == "none", "pattern-incompatible ability is removed")
+	_expect(compatibility_balance.values.status_effect == "none", "element-incompatible status is removed")
+	_expect(compatibility_balance.values.visual_material == "forged_metal", "element-incompatible material is normalized")
 
 
 func _test_schema_runtime_parity() -> void:
