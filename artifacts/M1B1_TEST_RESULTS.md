@@ -1,5 +1,129 @@
 # M1B1 Mobile Regression Test Results
 
+## Public v11 deployed-preview regression
+
+- **Executed:** 2026-07-20 (Australia/Sydney)
+- **Public URL:** `https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/`
+- **Client bundle snapshot matched at verification:**
+  `9bed23c4757e5d5784dc0acc1b85c9e20d15fc1c`
+- **Engines:** Chromium and version-matched Playwright WebKit 2327
+- **Mode:** deterministic route-intercepted `simulated`
+- **Real Worker / Anthropic calls:** **ZERO**
+- **Disposition:** **PASS - PUBLIC AUTOMATED MOBILE GATE**
+
+The runner installed its `**/api/compile-weapon` interception before the first
+navigation. `M1B1_QA_ALLOW_LIVE_PROVIDER` and any browser executable override
+were explicitly absent. Each engine made exactly four same-origin compile
+requests, all four were fulfilled by the deterministic browser fixture before
+they could reach the Sites Worker. No credential was read and no Anthropic
+provider request or provider cost was possible in this run.
+
+### Exact public regression commands
+
+Chromium:
+
+```powershell
+Remove-Item Env:M1B1_QA_ALLOW_LIVE_PROVIDER -ErrorAction SilentlyContinue
+Remove-Item Env:M1B1_QA_BROWSER_EXECUTABLE -ErrorAction SilentlyContinue
+$env:M1B1_QA_SCREENSHOT_DIR = 'C:\Users\Eddie L\Documents\project-forge-m1b1-anthropic-mobile\output\playwright\m1b1-public-v11\screenshots'
+$env:PLAYWRIGHT_MODULE_PATH = 'C:\Users\Eddie L\Documents\Codex\2026-06-27\new-chat\node_modules\playwright'
+node .\tests\browser\run_m1b1_anthropic_mobile_regression.mjs `
+  chromium `
+  'https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/' `
+  '.\output\playwright\m1b1-public-v11\chromium-final.json' `
+  simulated
+```
+
+WebKit:
+
+```powershell
+Remove-Item Env:M1B1_QA_ALLOW_LIVE_PROVIDER -ErrorAction SilentlyContinue
+Remove-Item Env:M1B1_QA_BROWSER_EXECUTABLE -ErrorAction SilentlyContinue
+$env:M1B1_QA_SCREENSHOT_DIR = 'C:\Users\Eddie L\Documents\project-forge-m1b1-anthropic-mobile\output\playwright\m1b1-public-v11\screenshots'
+$env:PLAYWRIGHT_MODULE_PATH = 'C:\Users\Eddie L\Documents\project forge\.tools\playwright-alpha-1783623505000\node_modules\playwright'
+node .\tests\browser\run_m1b1_anthropic_mobile_regression.mjs `
+  webkit `
+  'https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/' `
+  '.\output\playwright\m1b1-public-v11\webkit-final.json' `
+  simulated
+```
+
+| Engine | Result | Intercepted compile requests | App errors/warnings | Known non-app messages |
+|---|---|---:|---:|---|
+| Chromium | **PASS** | 4 | 0 | 4 exact GPU `ReadPixels` performance warnings |
+| WebKit | **PASS** | 4 | 0 | 17 Windows WebGL renderer messages; 1 Cloudflare `styleMedia` deprecation warning |
+
+The WebKit `styleMedia` message was isolated independently: it is present on a
+normal public load, disappears when only `/cdn-cgi/**` injected script is
+blocked, and the project HTML/JS contains no `styleMedia` token. It is therefore
+retained as hosting-injection evidence, not suppressed as an application
+warning. Any other warning or error still fails the runner.
+
+### Public layout geometry
+
+Both engines produced the same in-bounds geometry with no document scroll,
+clipping, or normal-player attack selector:
+
+| CSS viewport | Canvas height | Canvas share | Description height | Result |
+|---|---:|---:|---:|---|
+| 844 x 390 | 237.25 px | 60.8% | 46.03 px | PASS |
+| 852 x 393 | 239.08 px | 60.8% | 46.39 px | PASS |
+| 915 x 412 | 258.07 px | 62.6% | 46.34 px | PASS |
+| 844 x 343 | 195.32 px | 56.9% | 44.30 px | PASS toolbar-stress viewport |
+
+`CONFIRMED` on the public deployment in both engines: normal-player selectors
+are hidden and non-clickable; Description edit/clear state synchronizes;
+drawing is accepted; portrait gating and landscape recovery work during an
+active request; tab background/resume simulation preserves creative input;
+CANCEL returns to idle; a six-second late response cannot commit after cancel;
+timeout records one attempt without automatic retry; TRY AGAIN creates a new
+request ID; confirmation survives rotation; MODIFY exposes only the five valid
+patterns and survives twenty switches; corrected boomerang enters combat and
+attacks; the explicit retry-safe fixture records two attempts only.
+
+### Public asset identity
+
+All listed resources returned HTTP 200 with the expected content type and
+`Cache-Control: public, max-age=0, must-revalidate`. Their hashes exactly matched
+the `9bed23c` delivery snapshot's `dist/client` files. Client hashes do not prove
+the separately deployed Worker revision, and this route-intercepted run made no
+Worker request:
+
+| Public resource | Bytes | SHA-256 |
+|---|---:|---|
+| `index.js` | 279,815 | `68586D6DAAFC93C6E697B3FB258976874AA7459B8931165EBB1DC3C9614CC42C` |
+| `index.pck` | 127,628 | `5462FE85920D9E1ACD07E5705C525FE76868A5319ACE2CC2B8D5F4636BB5122D` |
+| `wasm_chunk_loader.js` | 986 | `91156D01569FCAC8471115F4EE2BF50B6E1D60AD2C15ECB10F891C6A35A1A2DF` |
+| `index.wasm.part0` | 20,971,520 | `C275B33C7A910B2CC899BDB23DAF5F6636F120850EDC6EDCBAC341403DF7EB5B` |
+| `index.wasm.part1` | 18,541,571 | `18646FB4D2C6B6FD2D6E90173B1E2904B501D2F1D33CC94710FCE6D3D1DB9CC4` |
+| reconstructed `index.wasm` | 39,513,091 | `35116F68540AC41ACF7D71EA457ADDED91B5E960A9CCA3E2ACC72918EAF01277` |
+
+The root HTML is dynamically transformed by Cloudflare and contains an injected
+`/cdn-cgi/challenge-platform/scripts/jsd/main.js`, so its response hash is not a
+stable build identifier. Its HTTP status, M1B1 title, and core asset references
+were verified instead. The public PCK differs from the accepted v9 M1A PCK and
+the runtime exposes the M1B1 flow, so this is not a query-only cache bust of the
+old deployment.
+
+### Public evidence
+
+- Machine-readable results:
+  `output/playwright/m1b1-public-v11/chromium-final.json` and
+  `output/playwright/m1b1-public-v11/webkit-final.json`
+- Screenshot directory:
+  `output/playwright/m1b1-public-v11/screenshots/`
+- Chromium evidence includes all four forge sizes, portrait during loading,
+  confirmation after rotation, boomerang selected in MODIFY, and boomerang
+  combat attack.
+- WebKit's first frame renders correctly, but Windows Playwright WebKit can
+  capture a black WebGL surface after resizing the same page. Four additional
+  fresh-context screenshots (`webkit-fresh-forge-*.png`) prove all requested
+  forge sizes without relying on those black post-resize captures. The fresh
+  capture harness aborted the compile route and observed **0** compile requests.
+
+This automated public gate does not claim a paid-provider smoke or physical
+iPhone Safari acceptance. Those remain separate owner/integrator gates.
+
 ## Anthropic integration mobile QA addendum
 
 - **Prepared:** 2026-07-20 (Australia/Sydney)
@@ -28,7 +152,7 @@ provider quality, latency, billing, or physical Safari behavior.
 
 | ID | Area | Automated oracle | Latest disposition |
 |---|---|---|---|
-| AN-M-01 | Normal UI | Five attack-pattern controls have no visible/clickable rectangles before MODIFY or Developer/Test Mode | PASS simulated Chromium/WebKit; public TO VALIDATE |
+| AN-M-01 | Normal UI | Five attack-pattern controls have no visible/clickable rectangles before MODIFY or Developer/Test Mode | PASS public Chromium/WebKit |
 | AN-M-02 | Layout | 844×390 keeps canvas/input/clear/RESET/FORGE in bounds, canvas >= 40% and about 150 CSS px, no document scroll | PASS simulated Chromium/WebKit |
 | AN-M-03 | Layout | 852×393 meets the same geometry and touch-target rules | PASS simulated Chromium/WebKit |
 | AN-M-04 | Layout | 915×412 meets the same geometry and touch-target rules | PASS simulated Chromium/WebKit |
@@ -56,7 +180,7 @@ provider quality, latency, billing, or physical Safari behavior.
 | AN-B-01 | Chromium console | Any application error/warning fails; exact GPU `ReadPixels`/context-lifecycle signatures are retained separately | PASS; 0 application messages |
 | AN-B-02 | WebKit console | Same functional flow and console policy, with exact Windows WebGL signatures separated | PASS; 0 application messages, 17 known renderer messages |
 | AN-L-01 | Live provider smoke | One paid request must report provider/model, one attempt, bounded USD cost, expected boomerang/electric semantics, then attack | NOT RUN by QA; requires integrator authorization and live guarded deployment |
-| AN-L-02 | Public identity | Public HTML/PCK/JS/WASM hashes must match the tested deployment, not query-only cache busting | TO VALIDATE after deployment |
+| AN-L-02 | Public identity | Public HTML/PCK/JS/WASM hashes must match the tested deployment, not query-only cache busting | PASS public v11; stable core hashes recorded above |
 | AN-L-03 | Physical Safari | Real keyboard, finger drawing, safe areas, toolbar, active-request rotation/background, confirmation rotation | TO VALIDATE on product-owner iPhone |
 
 ### Pre-integration execution result
@@ -143,7 +267,8 @@ Tested local asset identity:
   D1 fail-closed behavior, and conservative charging are owned by the adapter and
   budget-guard test suites. This mobile QA injected their safe response contracts
   but did not independently call Anthropic or spend through the USD 5 cap.
-- **P1 gate:** deploy new asset hashes and repeat public Chromium/WebKit smoke.
+- **Closed public P1 gate:** public v11 core hashes match the deployment bundle;
+  route-intercepted Chromium and WebKit mobile regression passes.
 - **Physical device gate:** real iPhone Safari remains authoritative for keyboard,
   finger drawing, toolbar/safe area, background suspension, and active-request or
   confirmation orientation transitions.

@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 const require = createRequire(import.meta.url);
 const [
@@ -186,7 +186,18 @@ try {
   const consoleMessages = [];
   const apiObservations = [];
   const simulatedPlans = [];
+  const screenshots = [];
   let simulatedProviderCalls = 0;
+  const screenshotRoot = process.env.M1B1_QA_SCREENSHOT_DIR
+    ? resolve(process.env.M1B1_QA_SCREENSHOT_DIR)
+    : "";
+  if (screenshotRoot) await mkdir(screenshotRoot, { recursive: true });
+  const capture = async (label) => {
+    if (!screenshotRoot) return;
+    const path = join(screenshotRoot, `${browserName}-${label}.png`);
+    await page.screenshot({ path });
+    screenshots.push(path);
+  };
 
   page.on("console", (message) => {
     consoleMessages.push({ type: message.type(), text: message.text() });
@@ -431,6 +442,7 @@ try {
       inputHeight: inputBox.height,
       visualHeight: metrics.visualHeight,
     });
+    await capture(`forge-${viewport.width}x${viewport.height}`);
   }
 
   await page.setViewportSize({ width: 844, height: 390 });
@@ -478,7 +490,10 @@ try {
   } else {
     const preservedDescription = "a delayed electric boomerang for mobile cancellation";
     await prepareInput(preservedDescription);
-    simulatedPlans.push({ pattern: "boomerang", attempts: 1, delayMs: 1600 });
+    // Public startup, orientation, and screenshot capture can consume more than
+    // the former 1.6 s delay. Keep the intercepted response pending long enough
+    // to prove CANCEL and the later stale response as distinct transitions.
+    simulatedPlans.push({ pattern: "boomerang", attempts: 1, delayMs: 6000 });
     const beforeCancel = await state();
     await tapControl("forge");
     const loading = await waitFor((value) => value.phase === "loading", "cancellable loading");
@@ -498,6 +513,7 @@ try {
     const portraitLoading = await waitFor((value) => value.screen === "portrait", "portrait during loading");
     assert(portraitLoading.in_flight, "Rotation cancelled the active request unexpectedly");
     assert(!(await input.isVisible()), "Description overlay leaked above portrait gate");
+    await capture("portrait-during-loading");
     await page.setViewportSize({ width: 844, height: 390 });
     await waitFor((value) => value.screen === "forge" && value.phase === "loading", "loading after rotation");
     await tapControl("cancel");
@@ -508,7 +524,7 @@ try {
     assert(cancelled.request_count === beforeCancel.request_count + 1, "CANCEL duplicated the request");
     assertCreativeInput(cancelled, preservedDescription, "CANCEL");
     assert(!cancelled.in_flight, "CANCEL left request in flight");
-    await sleep(1700);
+    await sleep(6200);
     const afterLate = await state();
     assert(afterLate.screen === "forge" && afterLate.phase === "idle", "Late response changed the screen");
     assert(afterLate.late_response_ignored >= 1, "Late response was not invalidated");
@@ -562,6 +578,7 @@ try {
       "confirmation after rotation",
     );
     assertCreativeInput(restoredConfirmation, timeoutDescription, "confirmation rotation");
+    await capture("confirmation-after-rotation");
 
     // A physical orientation animation does not permit a same-frame tap. Give
     // WebKit one short visual-settle window after the bridge reports the restored
@@ -599,6 +616,7 @@ try {
       "final boomerang correction",
     );
     assertCreativeInput(modified, timeoutDescription, "MODIFY");
+    await capture("modify-boomerang-selected");
     await tapControl("confirm");
     let combat = await waitFor((value) => value.screen === "combat", "corrected combat");
     assert(!combat.selector_visible, "Selector leaked into combat");
@@ -606,6 +624,7 @@ try {
     await tapControl("attack");
     combat = await waitFor((value) => value.attack_count > beforeAttack, "corrected attack");
     assert(combat.last_attack_pattern === "boomerang", "Corrected weapon executed wrong module");
+    await capture("combat-boomerang-attack");
     await tapControl("reforge");
     await waitForForge();
 
@@ -643,9 +662,12 @@ try {
     entry.text.includes("glBlitFramebuffer") ||
     entry.text.includes("glClear") ||
     entry.text.includes("WEBGL_polygon_mode");
+  const knownHostingMessage = (entry) =>
+    entry.text ===
+    "window.styleMedia is a deprecated draft version of window.matchMedia API, and it will be removed in the future.";
   const seriousConsole = consoleMessages.filter((entry) => {
     if (entry.type !== "error" && entry.type !== "warning") return false;
-    return !knownRendererMessage(entry);
+    return !knownRendererMessage(entry) && !knownHostingMessage(entry);
   });
   assert(seriousConsole.length === 0, `Application console errors/warnings: ${JSON.stringify(seriousConsole)}`);
 
@@ -663,6 +685,8 @@ try {
     backgroundResume: mode === "simulated" ? "PASS - tab simulation only" : "NOT RUN",
     physicalIPhoneSafari: "TO VALIDATE",
     applicationConsoleErrors: 0,
+    screenshots,
+    knownHostingMessages: consoleMessages.filter(knownHostingMessage).map((entry) => entry.text),
     knownRendererMessages: consoleMessages.filter(knownRendererMessage).map((entry) => entry.text),
   };
   const serialized = `${JSON.stringify(result, null, 2)}\n`;
