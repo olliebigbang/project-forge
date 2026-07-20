@@ -97,6 +97,8 @@ test("native Messages request pins Haiku 4.5 and Anthropic Structured Outputs", 
   assert.equal(body.thinking, undefined);
   assert.equal(body.container, undefined);
   assert.equal(calls[0].init.body.includes(TEST_KEY), false);
+  assert.match(body.system, /passes through shields or multiple targets is piercing/u);
+  assert.match(body.system, /size, weight, or impact alone does not imply area_blast/u);
   assert.equal(body.messages.length, 1);
   assert.equal(body.messages[0].role, "user");
   assert.deepEqual(result.intent, {
