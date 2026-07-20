@@ -1,7 +1,7 @@
 class_name WebMobileBridge
 extends RefCounted
 
-signal description_event(kind: String, value: String)
+signal description_event(kind: String, value: String, revision: int, composing: bool)
 signal viewport_changed
 signal qa_command(command: String, payload: Dictionary)
 
@@ -58,6 +58,22 @@ func value() -> String:
 	))
 
 
+func description_snapshot() -> Dictionary:
+	if not is_available():
+		return {"value": "", "revision": -1, "composing": false, "connected": false}
+	var encoded: Variant = JavaScriptBridge.eval(
+		"window.__forgeMobileInput ? JSON.stringify(window.__forgeMobileInput.snapshot()) : '{}'",
+		true,
+	)
+	var parsed: Variant = JSON.parse_string(str(encoded))
+	return parsed if parsed is Dictionary else {"value": "", "revision": -1, "composing": false, "connected": false}
+
+
+func commit_for_request() -> void:
+	if is_available():
+		JavaScriptBridge.eval("window.__forgeMobileInput && window.__forgeMobileInput.commitForRequest();", true)
+
+
 func focus() -> void:
 	if is_available():
 		JavaScriptBridge.eval("window.__forgeMobileInput && window.__forgeMobileInput.focus();", true)
@@ -106,7 +122,9 @@ func _on_description_event(arguments: Array) -> void:
 		return
 	var kind := str(arguments[0])
 	var input_value := str(arguments[1]) if arguments.size() > 1 else ""
-	description_event.emit(kind, input_value)
+	var revision := int(arguments[2]) if arguments.size() > 2 else -1
+	var composing := bool(arguments[3]) if arguments.size() > 3 else false
+	description_event.emit(kind, input_value, revision, composing)
 
 
 func _on_viewport_event(_arguments: Array) -> void:
@@ -134,6 +152,13 @@ func _install_script() -> String:
   let root = document.getElementById(ROOT_ID);
   let input = document.getElementById(INPUT_ID);
   let clear = document.getElementById(CLEAR_ID);
+  let revision = Number(input?.dataset?.forgeRevision || 0);
+  let composing = false;
+  const emitDescription = (kind, bump = false) => {
+    if (bump) revision += 1;
+    if (input) input.dataset.forgeRevision = String(revision);
+    window.__forgeGodotDescriptionCallback?.(kind, input?.value || '', revision, composing);
+  };
 
   if (!root) {
     root = document.createElement('div');
@@ -176,20 +201,33 @@ func _install_script() -> String:
 
     input.addEventListener('focus', () => {
       input.style.borderColor = '#65d9ff';
-      window.__forgeGodotDescriptionCallback?.('focus', input.value);
+      emitDescription('focus');
     });
     input.addEventListener('blur', () => {
       input.style.borderColor = '#5578a4';
-      window.__forgeGodotDescriptionCallback?.('blur', input.value);
+      if (composing) {
+        composing = false;
+        emitDescription('compositionend', true);
+      }
+      emitDescription('blur');
     });
     input.addEventListener('input', () => {
-      window.__forgeGodotDescriptionCallback?.('input', input.value);
+      emitDescription('input', true);
+    });
+    input.addEventListener('change', () => emitDescription('change', true));
+    input.addEventListener('compositionstart', () => {
+      composing = true;
+      emitDescription('compositionstart');
+    });
+    input.addEventListener('compositionend', () => {
+      composing = false;
+      emitDescription('compositionend', true);
     });
     clear.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
       input.value = '';
-      window.__forgeGodotDescriptionCallback?.('clear', '');
+      emitDescription('clear', true);
       input.focus({ preventScroll: true });
     });
     const pressClear = () => {
@@ -253,11 +291,34 @@ func _install_script() -> String:
   window.__forgeMobileInput = {
     metrics,
     updateLayout,
-    setValue: (value) => { input.value = String(value ?? ''); },
+    setValue: (value) => {
+      const next = String(value ?? '');
+      if (input.value !== next) {
+        input.value = next;
+        emitDescription('programmatic', true);
+      }
+    },
     value: () => input.value,
+    snapshot: () => ({
+      value: input.value,
+      revision,
+      composing,
+      connected: input.isConnected,
+      focused: document.activeElement === input
+    }),
     focus: () => input.focus({ preventScroll: true }),
     blur: () => input.blur(),
-    clear: () => { input.value = ''; window.__forgeGodotDescriptionCallback?.('clear', ''); }
+    clear: () => { input.value = ''; emitDescription('clear', true); },
+    commitForRequest: () => {
+      input.blur();
+      requestAnimationFrame(() => {
+        if (composing) {
+          composing = false;
+          emitDescription('compositionend', true);
+        }
+        emitDescription('commit');
+      });
+    }
   };
 
   const qaEnabled = new URLSearchParams(window.location.search).get('qa') === 'm1b1';

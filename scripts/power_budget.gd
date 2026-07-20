@@ -17,6 +17,10 @@ const DRAWBACK_CREDIT := {
 	"slow_projectile": 9.0, "low_impact": 9.0, "self_stagger": 14.0,
 	"narrow_arc": 8.0, "cooldown_lock": 16.0,
 }
+const DELIVERY_COST := {"held": 0.0, "projectile": 3.0, "thrown": 5.0}
+const TRAJECTORY_COST := {"direct": 0.0, "arc": 4.0, "returning": 5.0}
+const IMPACT_COST := {"contact": 0.0, "delayed_or_contact": 3.0, "piercing": 4.0}
+const AREA_EFFECT_COST := {"none": 0.0, "explosion": 6.0}
 
 
 static func balance(raw: Dictionary) -> Dictionary:
@@ -56,13 +60,17 @@ static func calculate(values: Dictionary) -> Dictionary:
 		"element": float(ELEMENT_COST.get(values.get("element", "normal"), 0.0)),
 		"special_ability": float(SPECIAL_COST.get(values.get("special_ability", "none"), 0.0)),
 		"status_effect": float(STATUS_COST.get(values.get("status_effect", "none"), 0.0)),
+		"delivery": float(DELIVERY_COST.get(values.get("delivery", "held"), 0.0)),
+		"trajectory": float(TRAJECTORY_COST.get(values.get("trajectory", "direct"), 0.0)),
+		"impact": float(IMPACT_COST.get(values.get("impact", "contact"), 0.0)),
+		"area_effect": float(AREA_EFFECT_COST.get(values.get("area_effect", "none"), 0.0)),
 		"projectile_speed": 0.0,
 		"return_speed": 0.0,
 		"area_radius": 0.0,
 		"piercing": 0.0,
 		"drawback_credit": -float(DRAWBACK_CREDIT.get(values.get("drawback", "none"), 0.0)),
 	}
-	if values.get("attack_pattern") in ["straight_projectile", "boomerang", "piercing"]:
+	if values.get("delivery", "held") != "held":
 		parts.projectile_speed = float(values.get("projectile_speed", 560.0)) / 200.0
 	if values.get("attack_pattern") == "boomerang":
 		parts.return_speed = float(values.get("return_speed", 680.0)) / 250.0
@@ -82,6 +90,8 @@ static func _has_strong_capability(values: Dictionary) -> bool:
 		or values.element != "normal" or values.special_ability != "none"
 		or values.damage > 45 or values.attack_speed > 1.6 or values.range > 700.0
 		or values.area_radius > 130.0 or values.pierce_count > 2
+		or values.delivery == "thrown" or values.trajectory != "direct"
+		or values.impact != "contact" or values.area_effect != "none"
 	)
 
 
@@ -123,7 +133,7 @@ static func _enforce_semantic_compatibility(values: Dictionary, notes: Array[Str
 		notes.append("compatibility: visual_material normalized to %s for %s" % [expected_material, values.element])
 		values.visual_material = expected_material
 
-	if values.drawback == "slow_projectile" and pattern not in ["straight_projectile", "boomerang", "piercing"]:
+	if values.drawback == "slow_projectile" and values.delivery == "held":
 		values.drawback = _matching_drawback(values)
 		notes.append("compatibility: slow_projectile replaced because %s has no projectile" % pattern)
 
@@ -186,7 +196,7 @@ static func _reduce_to_budget(values: Dictionary, notes: Array[String], initial:
 		values.range = maxf(40.0, floorf(values.range - (float(current.total) - MAX_POWER) * 45.0))
 		notes.append("budget: range reduced %.0f -> %.0f" % [old_range, values.range])
 		current = calculate(values)
-	if float(current.total) > MAX_POWER and values.attack_pattern in ["straight_projectile", "boomerang", "piercing"] and values.projectile_speed > 180.0:
+	if float(current.total) > MAX_POWER and values.delivery != "held" and values.projectile_speed > 180.0:
 		var old_projectile_speed: float = values.projectile_speed
 		values.projectile_speed = maxf(180.0, floorf(values.projectile_speed - (float(current.total) - MAX_POWER) * 200.0))
 		notes.append("budget: projectile_speed reduced %.0f -> %.0f" % [old_projectile_speed, values.projectile_speed])

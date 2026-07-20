@@ -52,6 +52,11 @@ test("server contract stays in parity with the checked-in WeaponSpec JSON Schema
   assert.deepEqual([...schema.required].sort(), [...SPEC_FIELDS].sort());
   assert.deepEqual(Object.keys(schema.properties).sort(), [...SPEC_FIELDS].sort());
   assert.deepEqual(schema.properties.weapon_class.enum, ALLOW_LISTS.weapon_class);
+  assert.deepEqual(schema.properties.weapon_form.enum, ALLOW_LISTS.weapon_form);
+  assert.deepEqual(schema.properties.delivery.enum, ALLOW_LISTS.delivery);
+  assert.deepEqual(schema.properties.trajectory.enum, ALLOW_LISTS.trajectory);
+  assert.deepEqual(schema.properties.impact.enum, ALLOW_LISTS.impact);
+  assert.deepEqual(schema.properties.area_effect.enum, ALLOW_LISTS.area_effect);
   assert.deepEqual(schema.properties.attack_pattern.enum, ALLOW_LISTS.attack_pattern);
   assert.deepEqual(schema.properties.element.enum, ALLOW_LISTS.element);
   assert.deepEqual(schema.properties.special_ability.enum, ALLOW_LISTS.special_ability);
@@ -60,7 +65,7 @@ test("server contract stays in parity with the checked-in WeaponSpec JSON Schema
   assert.deepEqual(schema.properties.visual_material.enum, ALLOW_LISTS.visual_material);
 });
 
-test("48-case M1B1 matrix always returns a schema-valid, allow-listed, budget-valid spec", async (context) => {
+test("48-case M1B1 matrix separates explicit errors from schema-valid executable results", async (context) => {
   assert.ok(matrix.length >= 40, `expected at least 40 cases, got ${matrix.length}`);
   let eligible = 0;
   let patternCorrect = 0;
@@ -74,6 +79,17 @@ test("48-case M1B1 matrix always returns a schema-valid, allow-listed, budget-va
         scenario,
         timeoutMs: 60,
       });
+      if (entry.expected_fallback_reason) {
+        assert.equal(result.success, false, entry.id);
+        assert.equal(result.weapon_spec, null, entry.id);
+        assert.equal(result.fallback_reason, entry.expected_fallback_reason, entry.id);
+        assert.equal(result.confidence, 0, entry.id);
+        assert.equal(result.runtime_valid, false, entry.id);
+        rows.push({ id: entry.id, error: result.fallback_reason });
+        return;
+      }
+      assert.equal(result.success, true, entry.id);
+      assert.equal(result.provider_invoked, true, entry.id);
       const errors = schemaValidationErrors(result.weapon_spec);
       const power = calculatePower(result.weapon_spec);
       assert.deepEqual(errors, [], `${entry.id} schema errors: ${errors.join(", ")}`);
@@ -87,9 +103,6 @@ test("48-case M1B1 matrix always returns a schema-valid, allow-listed, budget-va
       assert.equal(result.estimated_cost, "UNKNOWN");
       assert.equal(Object.hasOwn(result.weapon_spec, "code"), false);
       assert.equal(Object.hasOwn(result.weapon_spec, "script"), false);
-      if (entry.expected_fallback_reason) {
-        assert.equal(result.fallback_reason, entry.expected_fallback_reason, entry.id);
-      }
       if (entry.expected_ability) assert.equal(result.weapon_spec.special_ability, entry.expected_ability);
       if (entry.accuracy_eligible) {
         eligible += 1;
@@ -122,6 +135,64 @@ test("safety rules are deterministic and do not rely on model obedience", () => 
   assert.equal(classifyInput("infinite damage sword"), "unsafe_power_request");
 });
 
+test("grenade, bow, sword, boomerang and spear retain form and delivery semantics", async (context) => {
+  const cases = [
+    ["grenade", "a thrown grenade that explodes after landing", {
+      weapon_form: "grenade", delivery: "thrown", trajectory: "arc",
+      impact: "delayed_or_contact", area_effect: "explosion",
+      attack_pattern: "area_blast", weapon_class: "ranged",
+    }],
+    ["bow", "a wooden bow firing arrows", {
+      weapon_form: "bow", delivery: "projectile", trajectory: "direct",
+      impact: "contact", area_effect: "none",
+      attack_pattern: "straight_projectile", weapon_class: "ranged",
+    }],
+    ["sword", "a plain steel sword for close combat", {
+      weapon_form: "sword", delivery: "held", trajectory: "direct",
+      impact: "contact", area_effect: "none",
+      attack_pattern: "melee_slash", weapon_class: "melee",
+    }],
+    ["boomerang", "a boomerang that returns to my hand", {
+      weapon_form: "boomerang", delivery: "thrown", trajectory: "returning",
+      impact: "contact", area_effect: "none",
+      attack_pattern: "boomerang", weapon_class: "ranged",
+    }],
+    ["spear", "a spear that pierces a shield", {
+      weapon_form: "spear", delivery: "projectile", trajectory: "direct",
+      impact: "piercing", area_effect: "none",
+      attack_pattern: "piercing", weapon_class: "ranged",
+    }],
+  ];
+  for (const [name, description, expected] of cases) {
+    await context.test(name, async () => {
+      const request = requestFor(matrix[0], `semantic-${name}`);
+      request.description = description;
+      const result = await compileWeapon(request, { adapter: new DeterministicWeaponAdapter() });
+      assert.equal(result.success, true);
+      assert.equal(result.provider_invoked, true);
+      for (const [field, value] of Object.entries(expected)) {
+        assert.equal(result.weapon_spec[field], value, `${name}.${field}`);
+      }
+      assert.notEqual(result.weapon_spec.name, "Practice Sketchblade");
+      assert.equal(isSafeWeaponSpec(result.weapon_spec), true);
+    });
+  }
+});
+
+test("thrown arc explosion pays explicit deterministic PowerBudget costs", async () => {
+  const request = requestFor(matrix[0], "grenade-budget");
+  request.description = "a thrown grenade that explodes on contact";
+  const result = await compileWeapon(request);
+  assert.equal(result.success, true);
+  assert.ok(result.power_budget.delivery > 0);
+  assert.ok(result.power_budget.trajectory > 0);
+  assert.ok(result.power_budget.impact > 0);
+  assert.ok(result.power_budget.area_effect > 0);
+  assert.ok(result.power_budget.area_radius > 0);
+  assert.ok(result.power_budget.projectile_speed > 0);
+  assert.notEqual(result.weapon_spec.drawback, "none");
+});
+
 test("manual or provider numeric output cannot bypass deterministic PowerBudget", async () => {
   const result = await compileWeapon(requestFor(matrix[0], "numeric"), {
     adapter: new DeterministicWeaponAdapter({ scenario: "unsupported_ability" }),
@@ -129,9 +200,9 @@ test("manual or provider numeric output cannot bypass deterministic PowerBudget"
   });
   assert.equal(result.fallback_reason, "provider_output_repaired");
   assert.ok(result.corrections.some((item) => item.includes("provider numeric field 'damage' ignored")));
-  assert.ok(ALLOW_LISTS.attack_pattern.includes(result.weapon_spec.attack_pattern));
-  assert.ok(ALLOW_LISTS.special_ability.includes(result.weapon_spec.special_ability));
-  assert.ok(calculatePower(result.weapon_spec).total <= MAX_POWER);
+  assert.equal(result.success, false);
+  assert.equal(result.weapon_spec, null);
+  assert.equal(result.runtime_valid, false);
 });
 
 test("a lower requested maximum is enforced while the global cap remains 100", async () => {
@@ -150,7 +221,7 @@ test("TRY AGAIN cannot reroll deterministic combat values", async () => {
   assert.equal(second.interpretation_summary, first.interpretation_summary);
 });
 
-test("transient failures retry once and then return a validated fallback", async () => {
+test("transient failures retry once and then return a non-equipable explicit error", async () => {
   for (const scenario of ["timeout", "network_error", "rate_limit", "backend_unavailable"]) {
     const result = await compileWeapon(requestFor(matrix[0], scenario), {
       adapter: new DeterministicWeaponAdapter(),
@@ -158,7 +229,9 @@ test("transient failures retry once and then return a validated fallback", async
       timeoutMs: 50,
     });
     assert.equal(result.provider_metadata.attempts, 2, scenario);
-    assert.equal(result.runtime_valid, true, scenario);
+    assert.equal(result.success, false, scenario);
+    assert.equal(result.weapon_spec, null, scenario);
+    assert.equal(result.runtime_valid, false, scenario);
     assert.notEqual(result.fallback_reason, "", scenario);
   }
 });
@@ -194,7 +267,9 @@ test("wrapper timeout aborts a cooperative adapter and never risks a billed retr
   assert.equal(maximumActive, 1);
   assert.equal(result.provider_metadata.attempts, 1);
   assert.equal(result.fallback_reason, "provider_timeout");
-  assert.equal(result.runtime_valid, true);
+  assert.equal(result.success, false);
+  assert.equal(result.weapon_spec, null);
+  assert.equal(result.runtime_valid, false);
 });
 
 test("unabortable timeout never retries and therefore cannot double-charge", async () => {
@@ -215,7 +290,9 @@ test("unabortable timeout never retries and therefore cannot double-charge", asy
   assert.equal(calls, 1);
   assert.equal(result.provider_metadata.attempts, 1);
   assert.equal(result.fallback_reason, "provider_timeout");
-  assert.equal(result.runtime_valid, true);
+  assert.equal(result.success, false);
+  assert.equal(result.weapon_spec, null);
+  assert.equal(result.runtime_valid, false);
 });
 
 test("HTTP boundary rejects unsafe transport shape and same-origin violations", async () => {

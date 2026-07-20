@@ -4,7 +4,7 @@ import {
   balanceWeaponSpec,
   baseProfile,
   calculatePower,
-  fallbackWeaponSpec,
+  canonicalWeaponSemantics,
   isSafeWeaponSpec,
   runtimeAllowListErrors,
   schemaValidationErrors,
@@ -121,17 +121,25 @@ const PATTERN_KEYWORDS = Object.freeze({
     "回旋", "飞回", "回来", "弹回来", "回力", "返回",
   ],
   area_blast: [
-    "area", "blast", "explosion", "explodes", "nova", "shockwave", "swarm", "crowd", "around me",
+    "area", "blast", "explosion", "explodes", "grenade", "throwing bomb", "hand bomb", "nova", "shockwave", "swarm", "crowd", "around me",
     "范围", "爆炸", "群攻", "一群", "周围", "冲击波", "雨云", "泡泡",
   ],
   piercing: [
-    "piercing", "pierce", "pierces", "drill", "passes through", "pass through", "through shields", "needle",
+    "piercing", "pierce", "pierces", "spear", "javelin", "lance", "drill", "passes through", "pass through", "through shields", "needle",
     "穿透", "贯穿", "破盾", "钻头", "穿过", "长矛",
   ],
   straight_projectile: [
     "projectile", "shoot", "shoots", "launcher", "arrow", "bow", "cannon", "gun", "wand", "ranged", "thrown straight",
     "投射", "发射", "射出", "弓", "箭", "远程", "炮", "鱼竿",
   ],
+});
+
+const WEAPON_FORM_KEYWORDS = Object.freeze({
+  grenade: ["grenade", "throwing bomb", "hand bomb"],
+  boomerang: ["boomerang", "bomerang", "returning crescent"],
+  bow: ["bow", "longbow", "shortbow"],
+  spear: ["spear", "javelin", "lance"],
+  sword: ["sword", "blade", "katana", "sabre", "saber"],
 });
 
 const ELEMENT_KEYWORDS = Object.freeze({
@@ -346,6 +354,13 @@ function detectPattern(text, supportedPatterns) {
   return supportedPatterns.includes("melee_slash") ? "melee_slash" : supportedPatterns[0];
 }
 
+function detectWeaponForm(text) {
+  for (const form of ["grenade", "boomerang", "bow", "spear", "sword"]) {
+    if (containsAny(text, WEAPON_FORM_KEYWORDS[form])) return form;
+  }
+  return "generic";
+}
+
 function detectElement(text, supportedElements, corrections) {
   const matches = Object.entries(ELEMENT_KEYWORDS)
     .filter(([element, words]) => supportedElements.includes(element) && containsAny(text, words))
@@ -370,8 +385,15 @@ function elementMaterial(element) {
   }[element] ?? "forged_metal";
 }
 
-function generatedName(pattern, element, drawing) {
+function generatedName(pattern, element, drawing, form = "generic") {
   const elementName = { normal: "Ink", fire: "Ember", ice: "Frost", electric: "Volt" }[element] ?? "Ink";
+  const formName = {
+    grenade: "Arc Grenade",
+    bow: "Longbow",
+    sword: "Sketchsword",
+    boomerang: "Returning Crescent",
+    spear: "Shieldsplitter Spear",
+  }[form];
   const patternName = {
     melee_slash: drawing.aspect_ratio > 1.7 ? "Longline Sketchblade" : "Sketchblade",
     straight_projectile: drawing.point_count >= 12 ? "Detailshot Darter" : "Linebolt Darter",
@@ -379,11 +401,15 @@ function generatedName(pattern, element, drawing) {
     area_blast: "Crowdbreaker Nova",
     piercing: "Shieldsplitter Lance",
   }[pattern] ?? "Sketchblade";
-  return `${elementName} ${patternName}`;
+  return `${elementName} ${formName ?? patternName}`;
 }
 
-function semanticSummary(pattern, element, status, ability) {
-  const pieces = [`a ${element} ${pattern.replaceAll("_", " ")}`];
+function semanticSummary(pattern, element, status, ability, semantics = {}) {
+  const form = String(semantics.weapon_form ?? "generic").replaceAll("_", " ");
+  const delivery = String(semantics.delivery ?? "held").replaceAll("_", " ");
+  const pieces = [`a ${element} ${form === "generic" ? pattern.replaceAll("_", " ") : form}`, `${delivery} delivery`];
+  if (semantics.trajectory && semantics.trajectory !== "direct") pieces.push(`${String(semantics.trajectory).replaceAll("_", " ")} trajectory`);
+  if (semantics.area_effect && semantics.area_effect !== "none") pieces.push(`${String(semantics.area_effect).replaceAll("_", " ")} on impact`);
   if (status !== "none") pieces.push(`${status} status`);
   if (ability !== "none") pieces.push(`${ability.replaceAll("_", " ")} ability`);
   return `Interpreted as ${pieces.join(" with ")}.`;
@@ -428,6 +454,8 @@ export class DeterministicWeaponAdapter {
     const text = request.description.toLowerCase();
     const corrections = [];
     const attackPattern = detectPattern(text, request.supported_attack_patterns);
+    const weaponForm = detectWeaponForm(text);
+    const semantics = canonicalWeaponSemantics(weaponForm, attackPattern);
     const element = detectElement(text, request.supported_elements, corrections);
     const profile = baseProfile(attackPattern);
     const status = elementStatus(element, profile.status_effect);
@@ -438,14 +466,14 @@ export class DeterministicWeaponAdapter {
     if (containsAny(text, ["shield me", "front shield", "挡住", "护盾"])) ability = "front_shield";
     return {
       intent: {
-        name: generatedName(attackPattern, element, request.drawing_summary),
-        attack_pattern: attackPattern,
+        name: generatedName(semantics.attack_pattern, element, request.drawing_summary, weaponForm),
+        ...semantics,
         element,
         special_ability: ability,
         status_effect: status,
         drawback: profile.drawback,
       },
-      interpretation_summary: semanticSummary(attackPattern, element, status, ability),
+      interpretation_summary: semanticSummary(semantics.attack_pattern, element, status, ability, semantics),
       confidence: text.length < 5 ? 0.35 : 0.88,
       corrections,
       provider_metadata: { provider: this.provider, model: this.model },
@@ -467,6 +495,30 @@ function semanticIntentToRaw(intent, request) {
       : request.supported_attack_patterns[0];
     fallbackReason ||= "provider_output_repaired";
   }
+  const explicitForm = detectWeaponForm(request.description.toLowerCase());
+  let form = String(semantic.weapon_form ?? "generic").trim().toLowerCase();
+  if (!ALLOW_LISTS.weapon_form.includes(form)) {
+    if (form) corrections.push("interpretation: unsupported weapon_form repaired");
+    form = "generic";
+    fallbackReason ||= "provider_output_repaired";
+  }
+  if (explicitForm !== "generic" && form !== explicitForm) {
+    corrections.push(`interpretation: explicit ${explicitForm} form restored`);
+    form = explicitForm;
+  }
+  let semantics = canonicalWeaponSemantics(form, pattern);
+  if (!request.supported_attack_patterns.includes(semantics.attack_pattern)) {
+    corrections.push("interpretation: form-specific pattern unavailable; generic pattern retained");
+    form = "generic";
+    semantics = canonicalWeaponSemantics(form, pattern);
+  }
+  for (const field of ["attack_pattern", "delivery", "trajectory", "impact", "area_effect"]) {
+    const supplied = String(semantic[field] ?? "").trim().toLowerCase();
+    if (supplied && supplied !== semantics[field]) {
+      corrections.push(`interpretation: ${field} normalized for ${form}`);
+    }
+  }
+  pattern = semantics.attack_pattern;
   let element = String(semantic.element ?? "").trim().toLowerCase();
   if (!request.supported_elements.includes(element)) {
     if (element) corrections.push("interpretation: unsupported element repaired");
@@ -474,9 +526,10 @@ function semanticIntentToRaw(intent, request) {
     fallbackReason ||= "provider_output_repaired";
   }
   const raw = baseProfile(pattern);
+  Object.assign(raw, semantics);
   // Provider free text is never reflected into executable/display output. Names,
   // summaries, corrections and audit labels are generated from allow-listed data.
-  raw.name = generatedName(pattern, element, request.drawing_summary);
+  raw.name = generatedName(pattern, element, request.drawing_summary, form);
   raw.element = element;
   raw.visual_material = elementMaterial(element);
   raw.status_effect = elementStatus(element, raw.status_effect);
@@ -498,7 +551,7 @@ function semanticIntentToRaw(intent, request) {
     if (Object.hasOwn(semantic, field)) corrections.push(`interpretation: provider numeric field '${field}' ignored`);
   }
   for (const field of Object.keys(semantic)) {
-    if (!["name", "attack_pattern", "element", "special_ability", "status_effect", "drawback", ...numericFields].includes(field)) {
+    if (!["name", "weapon_form", "delivery", "trajectory", "impact", "area_effect", "attack_pattern", "element", "special_ability", "status_effect", "drawback", ...numericFields].includes(field)) {
       corrections.push("interpretation: unknown semantic field ignored");
     }
   }
@@ -506,33 +559,36 @@ function semanticIntentToRaw(intent, request) {
 }
 
 function safeFallbackResponse(request, reason, startedAt, details = {}) {
-  const balanced = balanceWeaponSpec(fallbackWeaponSpec(), request.maximum_power_score);
   const corrections = safeCorrections([
     `fallback: ${reason}`,
     ...(details.corrections ?? []),
-    ...balanced.corrections,
   ]);
   const latencyMs = Math.max(0, Date.now() - startedAt);
+  const provider = safeIdentifier(details.provider, "none", 48);
+  const attempts = boundedNumber(details.attempts, 0, 0, REQUEST_LIMITS.maximum_attempts, true);
+  const providerInvoked = Boolean(details.providerInvoked ?? (attempts > 0 && provider !== "none"));
   return {
+    success: false,
+    provider_invoked: providerInvoked,
     request_id: request.request_id,
-    weapon_spec: balanced.values,
-    interpretation_summary: "A safe practice weapon was substituted because the request could not be interpreted safely.",
+    weapon_spec: null,
+    interpretation_summary: "Weapon interpretation failed. Your drawing and description were preserved for editing or retry.",
     confidence: 0,
     corrections,
     fallback_reason: reason,
     provider_metadata: {
-      provider: safeIdentifier(details.provider, "none", 48),
+      provider,
       model: safeIdentifier(details.model, "none", 80),
-      attempts: boundedNumber(details.attempts, 0, 0, REQUEST_LIMITS.maximum_attempts, true),
+      attempts,
     },
-    latency: { total_ms: latencyMs, provider_ms: details.providerMs ?? 0, attempts: details.attempts ?? 0 },
+    latency: { total_ms: latencyMs, provider_ms: details.providerMs ?? 0, attempts },
     latency_ms: latencyMs,
     estimated_cost: sanitizeEstimatedCost(details.estimatedCost),
-    power_budget: balanced.after,
-    schema_valid: schemaValidationErrors(balanced.values).length === 0,
-    allow_list_valid: runtimeAllowListErrors(balanced.values).length === 0,
-    power_valid: balanced.within_budget,
-    runtime_valid: isSafeWeaponSpec(balanced.values, request.maximum_power_score),
+    power_budget: {},
+    schema_valid: false,
+    allow_list_valid: false,
+    power_valid: false,
+    runtime_valid: false,
   };
 }
 
@@ -631,6 +687,7 @@ export async function compileWeapon(requestInput, options = {}) {
       attempts,
       providerMs,
       estimatedCost,
+      providerInvoked: attempts > 0,
     });
   }
 
@@ -648,13 +705,28 @@ export async function compileWeapon(requestInput, options = {}) {
       model: adapter.model ?? "unknown",
       attempts,
       providerMs,
+      providerInvoked: true,
       corrections: [...corrections, ...schemaErrors.map((item) => `schema: ${item}`)],
+      estimatedCost: adapterResult.estimated_cost,
     });
   }
 
   const latencyMs = Math.max(0, Date.now() - startedAt);
   const fallbackReason = normalized.fallbackReason;
+  if (fallbackReason) {
+    return safeFallbackResponse(request, fallbackReason, startedAt, {
+      provider: adapter.provider ?? "unknown",
+      model: adapter.model ?? "unknown",
+      attempts,
+      providerMs,
+      providerInvoked: true,
+      corrections,
+      estimatedCost: adapterResult.estimated_cost,
+    });
+  }
   return {
+    success: true,
+    provider_invoked: true,
     request_id: request.request_id,
     weapon_spec: balanced.values,
     interpretation_summary: semanticSummary(
@@ -662,6 +734,7 @@ export async function compileWeapon(requestInput, options = {}) {
       balanced.values.element,
       balanced.values.status_effect,
       balanced.values.special_ability,
+      balanced.values,
     ),
     confidence: boundedNumber(adapterResult.confidence, 0, 0, 1),
     corrections,

@@ -1,17 +1,23 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-forge.invalid/schemas/weapon-spec-v1.json",
-  "title": "Project Forge M1A WeaponSpec",
+  "$id": "https://project-forge.invalid/schemas/weapon-spec-v2.json",
+  "title": "Project Forge M1B1 WeaponSpec",
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "name", "weapon_class", "attack_pattern", "element", "damage", "attack_speed",
+    "name", "weapon_class", "weapon_form", "delivery", "trajectory", "impact",
+    "area_effect", "attack_pattern", "element", "damage", "attack_speed",
     "range", "special_ability", "status_effect", "drawback", "visual_material",
     "power_score", "projectile_speed", "area_radius", "pierce_count", "return_speed"
   ],
   "properties": {
     "name": { "type": "string", "minLength": 1, "maxLength": 48 },
     "weapon_class": { "enum": ["melee", "ranged"] },
+    "weapon_form": { "enum": ["generic", "sword", "bow", "grenade", "boomerang", "spear"] },
+    "delivery": { "enum": ["held", "projectile", "thrown"] },
+    "trajectory": { "enum": ["direct", "arc", "returning"] },
+    "impact": { "enum": ["contact", "delayed_or_contact", "piercing"] },
+    "area_effect": { "enum": ["none", "explosion"] },
     "attack_pattern": { "enum": ["melee_slash", "straight_projectile", "boomerang", "area_blast", "piercing"] },
     "element": { "enum": ["normal", "fire", "ice", "electric"] },
     "damage": { "type": "integer", "minimum": 1, "maximum": 100 },

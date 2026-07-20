@@ -4,6 +4,11 @@ export const MAX_POWER = 100;
 
 export const ALLOW_LISTS = Object.freeze({
   weapon_class: Object.freeze(["melee", "ranged"]),
+  weapon_form: Object.freeze(["generic", "sword", "bow", "grenade", "boomerang", "spear"]),
+  delivery: Object.freeze(["held", "projectile", "thrown"]),
+  trajectory: Object.freeze(["direct", "arc", "returning"]),
+  impact: Object.freeze(["contact", "delayed_or_contact", "piercing"]),
+  area_effect: Object.freeze(["none", "explosion"]),
   attack_pattern: Object.freeze([
     "melee_slash",
     "straight_projectile",
@@ -43,6 +48,11 @@ export const ALLOW_LISTS = Object.freeze({
 export const SPEC_FIELDS = Object.freeze([
   "name",
   "weapon_class",
+  "weapon_form",
+  "delivery",
+  "trajectory",
+  "impact",
+  "area_effect",
   "attack_pattern",
   "element",
   "damage",
@@ -62,6 +72,11 @@ export const SPEC_FIELDS = Object.freeze([
 const DEFAULT_SPEC = Object.freeze({
   name: "Practice Sketchblade",
   weapon_class: "melee",
+  weapon_form: "generic",
+  delivery: "held",
+  trajectory: "direct",
+  impact: "contact",
+  area_effect: "none",
   attack_pattern: "melee_slash",
   element: "normal",
   damage: 24,
@@ -105,6 +120,30 @@ const DRAWBACK_CREDIT = Object.freeze({
   narrow_arc: 8,
   cooldown_lock: 16,
 });
+const DELIVERY_COST = Object.freeze({ held: 0, projectile: 3, thrown: 5 });
+const TRAJECTORY_COST = Object.freeze({ direct: 0, arc: 4, returning: 5 });
+const IMPACT_COST = Object.freeze({ contact: 0, delayed_or_contact: 3, piercing: 4 });
+const AREA_EFFECT_COST = Object.freeze({ none: 0, explosion: 6 });
+
+export function canonicalWeaponSemantics(form = "generic", pattern = "melee_slash") {
+  const safeForm = ALLOW_LISTS.weapon_form.includes(form) ? form : "generic";
+  const safePattern = ALLOW_LISTS.attack_pattern.includes(pattern) ? pattern : "melee_slash";
+  const byForm = {
+    sword: { attack_pattern: "melee_slash", delivery: "held", trajectory: "direct", impact: "contact", area_effect: "none" },
+    bow: { attack_pattern: "straight_projectile", delivery: "projectile", trajectory: "direct", impact: "contact", area_effect: "none" },
+    grenade: { attack_pattern: "area_blast", delivery: "thrown", trajectory: "arc", impact: "delayed_or_contact", area_effect: "explosion" },
+    boomerang: { attack_pattern: "boomerang", delivery: "thrown", trajectory: "returning", impact: "contact", area_effect: "none" },
+    spear: { attack_pattern: "piercing", delivery: "projectile", trajectory: "direct", impact: "piercing", area_effect: "none" },
+  };
+  const byPattern = {
+    melee_slash: { attack_pattern: "melee_slash", delivery: "held", trajectory: "direct", impact: "contact", area_effect: "none" },
+    straight_projectile: { attack_pattern: "straight_projectile", delivery: "projectile", trajectory: "direct", impact: "contact", area_effect: "none" },
+    boomerang: { attack_pattern: "boomerang", delivery: "thrown", trajectory: "returning", impact: "contact", area_effect: "none" },
+    area_blast: { attack_pattern: "area_blast", delivery: "held", trajectory: "direct", impact: "contact", area_effect: "explosion" },
+    piercing: { attack_pattern: "piercing", delivery: "projectile", trajectory: "direct", impact: "piercing", area_effect: "none" },
+  };
+  return { weapon_form: safeForm, ...(byForm[safeForm] ?? byPattern[safePattern]) };
+}
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -174,9 +213,24 @@ export function repairWeaponSpec(data = {}) {
     values.attack_pattern,
     corrections,
   );
-  const expectedClass = ["melee_slash", "area_blast"].includes(values.attack_pattern)
-    ? "melee"
-    : "ranged";
+  values.weapon_form = repairEnum(
+    "weapon_form",
+    input.weapon_form,
+    ALLOW_LISTS.weapon_form,
+    values.weapon_form,
+    corrections,
+  );
+  const semantics = canonicalWeaponSemantics(values.weapon_form, values.attack_pattern);
+  for (const field of ["attack_pattern", "delivery", "trajectory", "impact", "area_effect"]) {
+    const allowed = ALLOW_LISTS[field];
+    const repaired = repairEnum(field, input[field], allowed, semantics[field], corrections);
+    values[field] = repaired;
+    if (repaired !== semantics[field]) {
+      corrections.push(`${field}: normalized to ${semantics[field]} for ${values.weapon_form}/${semantics.attack_pattern}`);
+      values[field] = semantics[field];
+    }
+  }
+  const expectedClass = values.delivery === "held" ? "melee" : "ranged";
   values.weapon_class = repairEnum(
     "weapon_class",
     input.weapon_class,
@@ -285,13 +339,17 @@ export function calculatePower(values) {
     element: Number(ELEMENT_COST[values.element] ?? 0),
     special_ability: Number(SPECIAL_COST[values.special_ability] ?? 0),
     status_effect: Number(STATUS_COST[values.status_effect] ?? 0),
+    delivery: Number(DELIVERY_COST[values.delivery] ?? 0),
+    trajectory: Number(TRAJECTORY_COST[values.trajectory] ?? 0),
+    impact: Number(IMPACT_COST[values.impact] ?? 0),
+    area_effect: Number(AREA_EFFECT_COST[values.area_effect] ?? 0),
     projectile_speed: 0,
     return_speed: 0,
     area_radius: 0,
     piercing: 0,
     drawback_credit: -Number(DRAWBACK_CREDIT[values.drawback] ?? 0),
   };
-  if (["straight_projectile", "boomerang", "piercing"].includes(values.attack_pattern)) {
+  if (values.delivery !== "held") {
     parts.projectile_speed = Number(values.projectile_speed ?? 560) / 200;
   }
   if (values.attack_pattern === "boomerang") {
@@ -317,7 +375,11 @@ function hasStrongCapability(values) {
     values.attack_speed > 1.6 ||
     values.range > 700 ||
     values.area_radius > 130 ||
-    values.pierce_count > 2
+    values.pierce_count > 2 ||
+    values.delivery === "thrown" ||
+    values.trajectory !== "direct" ||
+    values.impact !== "contact" ||
+    values.area_effect !== "none"
   );
 }
 
@@ -364,7 +426,7 @@ function enforceSemanticCompatibility(values, corrections) {
     values.visual_material = expectedMaterial;
   }
 
-  if (values.drawback === "slow_projectile" && !["straight_projectile", "boomerang", "piercing"].includes(pattern)) {
+  if (values.drawback === "slow_projectile" && values.delivery === "held") {
     values.drawback = matchingDrawback(values);
     corrections.push(`compatibility: slow_projectile replaced because ${pattern} has no projectile`);
   }
@@ -443,7 +505,7 @@ function reduceToBudget(values, corrections, cap) {
   }
   if (
     current.total > cap &&
-    ["straight_projectile", "boomerang", "piercing"].includes(values.attack_pattern) &&
+    values.delivery !== "held" &&
     values.projectile_speed > 180
   ) {
     const before = values.projectile_speed;
@@ -559,6 +621,11 @@ export function baseProfile(pattern = "melee_slash") {
   const common = {
     name: "Normal Sketchblade",
     weapon_class: "melee",
+    weapon_form: "generic",
+    delivery: "held",
+    trajectory: "direct",
+    impact: "contact",
+    area_effect: "none",
     attack_pattern: selected,
     element: "normal",
     damage: 36,
@@ -577,6 +644,7 @@ export function baseProfile(pattern = "melee_slash") {
   const variants = {
     straight_projectile: {
       weapon_class: "ranged",
+      delivery: "projectile",
       damage: 26,
       attack_speed: 1.3,
       range: 675,
@@ -587,6 +655,9 @@ export function baseProfile(pattern = "melee_slash") {
     },
     boomerang: {
       weapon_class: "ranged",
+      weapon_form: "boomerang",
+      delivery: "thrown",
+      trajectory: "returning",
       damage: 30,
       attack_speed: 0.95,
       range: 620,
@@ -598,6 +669,7 @@ export function baseProfile(pattern = "melee_slash") {
     },
     area_blast: {
       weapon_class: "melee",
+      area_effect: "explosion",
       damage: 34,
       attack_speed: 0.7,
       range: 220,
@@ -608,6 +680,8 @@ export function baseProfile(pattern = "melee_slash") {
     },
     piercing: {
       weapon_class: "ranged",
+      delivery: "projectile",
+      impact: "piercing",
       damage: 29,
       attack_speed: 1.05,
       range: 700,

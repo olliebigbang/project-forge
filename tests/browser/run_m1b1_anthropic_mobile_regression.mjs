@@ -47,6 +47,11 @@ const profiles = {
   melee_slash: {
     name: "Ink Longline Sketchblade",
     weapon_class: "melee",
+    weapon_form: "generic",
+    delivery: "held",
+    trajectory: "direct",
+    impact: "contact",
+    area_effect: "none",
     attack_pattern: "melee_slash",
     element: "normal",
     damage: 36,
@@ -65,6 +70,11 @@ const profiles = {
   straight_projectile: {
     name: "Ink Detailshot Darter",
     weapon_class: "ranged",
+    weapon_form: "generic",
+    delivery: "projectile",
+    trajectory: "direct",
+    impact: "contact",
+    area_effect: "none",
     attack_pattern: "straight_projectile",
     element: "normal",
     damage: 26,
@@ -74,7 +84,7 @@ const profiles = {
     status_effect: "none",
     drawback: "low_impact",
     visual_material: "forged_metal",
-    power_score: 46,
+    power_score: 49,
     projectile_speed: 620.0,
     area_radius: 120.0,
     pierce_count: 1,
@@ -83,6 +93,11 @@ const profiles = {
   boomerang: {
     name: "Volt Returning Crescent",
     weapon_class: "ranged",
+    weapon_form: "boomerang",
+    delivery: "thrown",
+    trajectory: "returning",
+    impact: "contact",
+    area_effect: "none",
     attack_pattern: "boomerang",
     element: "electric",
     damage: 30,
@@ -92,7 +107,7 @@ const profiles = {
     status_effect: "shock",
     drawback: "self_stagger",
     visual_material: "charged_metal",
-    power_score: 74,
+    power_score: 87,
     projectile_speed: 520.0,
     area_radius: 120.0,
     pierce_count: 1,
@@ -101,6 +116,11 @@ const profiles = {
   area_blast: {
     name: "Volt Crowdbreaker Nova",
     weapon_class: "melee",
+    weapon_form: "generic",
+    delivery: "held",
+    trajectory: "direct",
+    impact: "contact",
+    area_effect: "explosion",
     attack_pattern: "area_blast",
     element: "electric",
     damage: 34,
@@ -110,7 +130,7 @@ const profiles = {
     status_effect: "shock",
     drawback: "cooldown_lock",
     visual_material: "charged_metal",
-    power_score: 70,
+    power_score: 76,
     projectile_speed: 560.0,
     area_radius: 165.0,
     pierce_count: 1,
@@ -119,6 +139,11 @@ const profiles = {
   piercing: {
     name: "Ink Shieldsplitter Lance",
     weapon_class: "ranged",
+    weapon_form: "generic",
+    delivery: "projectile",
+    trajectory: "direct",
+    impact: "piercing",
+    area_effect: "none",
     attack_pattern: "piercing",
     element: "normal",
     damage: 29,
@@ -128,7 +153,7 @@ const profiles = {
     status_effect: "none",
     drawback: "narrow_arc",
     visual_material: "forged_metal",
-    power_score: 77,
+    power_score: 84,
     projectile_speed: 720.0,
     area_radius: 120.0,
     pierce_count: 3,
@@ -139,7 +164,33 @@ const profiles = {
 function makeResponse(requestId, plan) {
   const pattern = PATTERNS.includes(plan.pattern) ? plan.pattern : "melee_slash";
   const weaponSpec = structuredClone(profiles[pattern]);
+  if (plan.fallbackReason) {
+    return {
+      success: false,
+      provider_invoked: (plan.attempts ?? 0) > 0,
+      request_id: requestId,
+      weapon_spec: null,
+      interpretation_summary: "Weapon interpretation failed. Your input was preserved.",
+      confidence: 0,
+      corrections: [`fallback: ${plan.fallbackReason}`],
+      fallback_reason: plan.fallbackReason,
+      provider_metadata: {
+        provider: plan.attempts ? EXPECTED_PROVIDER : "none",
+        model: plan.attempts ? EXPECTED_MODEL : "none",
+        attempts: plan.attempts ?? 0,
+      },
+      latency_ms: plan.latencyMs ?? plan.delayMs ?? 0,
+      estimated_cost: "UNKNOWN",
+      power_budget: {},
+      schema_valid: false,
+      allow_list_valid: false,
+      power_valid: false,
+      runtime_valid: false,
+    };
+  }
   return {
+    success: true,
+    provider_invoked: true,
     request_id: requestId,
     weapon_spec: weaponSpec,
     interpretation_summary:
@@ -213,6 +264,9 @@ try {
       hasAuthorization: Boolean(headers.authorization || headers["x-api-key"]),
       hasAnthropicVersion: Boolean(headers["anthropic-version"]),
       requestIdShape: /^m1b1-[0-9a-f]{32}$/.test(String(body.request_id || "")),
+      requestId: String(body.request_id || ""),
+      description: String(body.description ?? ""),
+      drawingSummary: body.drawing_summary,
       hasNumericDrawingSummary:
         body.drawing_summary &&
         Number.isFinite(body.drawing_summary.stroke_count) &&
@@ -437,7 +491,7 @@ try {
     assert(current.drawing_count > 0, `${label}: drawing lost`);
   };
   const terminal = (value) =>
-    value.screen === "confirmation" && ["result", "fallback"].includes(value.phase);
+    value.screen === "confirmation" && ["result", "error"].includes(value.phase);
 
   const viewportMeta = await page.locator('meta[name="viewport"]').getAttribute("content");
   assert(viewportMeta?.includes("viewport-fit=cover"), `viewport-fit=cover missing: ${viewportMeta}`);
@@ -560,9 +614,20 @@ try {
     // to prove CANCEL and the later stale response as distinct transitions.
     simulatedPlans.push({ pattern: "boomerang", attempts: 1, delayMs: 6000 });
     const beforeCancel = await state();
+    // Reproduce the v15 Safari failure: mutate the DOM value without an input
+    // event. The versioned Godot draft must win over this stale empty overlay.
+    await input.evaluate((element) => { element.value = ""; });
     await tapControl("forge");
     const loading = await waitFor((value) => value.phase === "loading", "cancellable loading");
     assert(loading.in_flight, "Loading state is not in flight");
+    assert(loading.request_snapshot?.description === preservedDescription, "Frozen snapshot lost the acknowledged Description");
+    assert(loading.request_snapshot?.request_id === loading.request_id, "Frozen snapshot request ID mismatch");
+    assert(apiObservations.at(-1)?.description === preservedDescription, "Posted request used the stale empty DOM value");
+    assert(apiObservations.at(-1)?.requestId === loading.request_id, "Posted request ID differs from the displayed snapshot");
+    assert(
+      JSON.stringify(apiObservations.at(-1)?.drawingSummary) === JSON.stringify(loading.request_snapshot?.drawing_summary),
+      "Posted drawing summary differs from the displayed snapshot",
+    );
     const loadingControls = await controls();
     assertInside(loadingControls.cancel, page.viewportSize(), "cancel");
 
@@ -597,7 +662,13 @@ try {
 
     await tapControl("reset");
     const timeoutDescription = "an ice lance preserved through provider timeout";
-    await input.fill(timeoutDescription);
+    // Simulate marked iOS text that has not emitted a normal input event yet.
+    // FORGE must blur/commit composition and post the final DOM value.
+    await input.evaluate((element, value) => {
+      element.focus();
+      element.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true, data: value }));
+      element.value = value;
+    }, timeoutDescription);
     await drawStroke();
     simulatedPlans.push({
       pattern: "melee_slash",
@@ -610,14 +681,20 @@ try {
     });
     const timeoutBefore = await state();
     await tapControl("forge");
-    const timeoutResult = await waitFor(terminal, "timeout fallback");
-    assert(timeoutResult.phase === "fallback", "Timeout did not enter a safe fallback");
+    const timeoutResult = await waitFor(terminal, "timeout error");
+    assert(timeoutResult.phase === "error", "Timeout did not enter an explicit error state");
     assert(timeoutResult.request_count === timeoutBefore.request_count + 1, "Timeout duplicated logical request");
     assert(timeoutResult.request_attempts === 1, "Wrapper timeout automatically retried");
     assert(timeoutResult.result.provider_metadata?.attempts === 1, "Timeout billed more than one attempt");
     assert(timeoutResult.fallback_reason === "provider_timeout", "Timeout fallback reason mismatch");
-    assertCreativeInput(timeoutResult, timeoutDescription, "timeout fallback");
-    assertSafe(timeoutResult, "timeout fallback");
+    assertCreativeInput(timeoutResult, timeoutDescription, "timeout error");
+    assert(apiObservations.at(-1)?.description === timeoutDescription, "IME composition was not committed into the request");
+    assert(timeoutResult.request_snapshot?.description === timeoutDescription, "IME text missing from displayed snapshot");
+    assert(timeoutResult.result.weapon_spec === null, "Timeout exposed an equipable fallback weapon");
+    assert(timeoutResult.result.runtime_valid === false, "Timeout error was marked runtime-valid");
+    const timeoutControls = await controls();
+    assert(!timeoutControls.confirm?.width, "Timeout error retained a CONFIRM touch target");
+    assert(timeoutControls.modify?.width > 0 && timeoutControls.try_again?.width > 0, "Error recovery actions are missing");
 
     simulatedPlans.push({ pattern: "boomerang", attempts: 1, delayMs: 420 });
     const retryBefore = await state();

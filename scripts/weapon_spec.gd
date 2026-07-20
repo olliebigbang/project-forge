@@ -2,6 +2,11 @@ class_name WeaponSpec
 extends RefCounted
 
 const WEAPON_CLASSES: PackedStringArray = ["melee", "ranged"]
+const WEAPON_FORMS: PackedStringArray = ["generic", "sword", "bow", "grenade", "boomerang", "spear"]
+const DELIVERIES: PackedStringArray = ["held", "projectile", "thrown"]
+const TRAJECTORIES: PackedStringArray = ["direct", "arc", "returning"]
+const IMPACTS: PackedStringArray = ["contact", "delayed_or_contact", "piercing"]
+const AREA_EFFECTS: PackedStringArray = ["none", "explosion"]
 const ATTACK_PATTERNS: PackedStringArray = [
 	"melee_slash", "straight_projectile", "boomerang", "area_blast", "piercing"
 ]
@@ -20,6 +25,11 @@ const MATERIALS: PackedStringArray = [
 
 var display_name := "Practice Sketchblade"
 var weapon_class := "melee"
+var weapon_form := "generic"
+var delivery := "held"
+var trajectory := "direct"
+var impact := "contact"
+var area_effect := "none"
 var attack_pattern := "melee_slash"
 var element := "normal"
 var damage := 24
@@ -44,6 +54,11 @@ static func from_dict(data: Dictionary) -> WeaponSpec:
 	var spec := WeaponSpec.new()
 	spec.display_name = values.name
 	spec.weapon_class = values.weapon_class
+	spec.weapon_form = values.weapon_form
+	spec.delivery = values.delivery
+	spec.trajectory = values.trajectory
+	spec.impact = values.impact
+	spec.area_effect = values.area_effect
 	spec.attack_pattern = values.attack_pattern
 	spec.element = values.element
 	spec.damage = values.damage
@@ -70,7 +85,22 @@ static func repair_dict(data: Dictionary) -> Dictionary:
 		if key not in defaults: notes.append("%s: unknown field discarded" % str(key))
 	output.name = _repair_name(data.get("name"), defaults.name, notes)
 	output.attack_pattern = _repair_enum("attack_pattern", data.get("attack_pattern"), ATTACK_PATTERNS, defaults.attack_pattern, notes)
-	var expected_class := "melee" if output.attack_pattern in ["melee_slash", "area_blast"] else "ranged"
+	output.weapon_form = _repair_enum("weapon_form", data.get("weapon_form"), WEAPON_FORMS, defaults.weapon_form, notes)
+	var semantics := canonical_semantics(output.weapon_form, output.attack_pattern)
+	for field: String in ["attack_pattern", "delivery", "trajectory", "impact", "area_effect"]:
+		var allowed: PackedStringArray = {
+			"attack_pattern": ATTACK_PATTERNS,
+			"delivery": DELIVERIES,
+			"trajectory": TRAJECTORIES,
+			"impact": IMPACTS,
+			"area_effect": AREA_EFFECTS,
+		}[field]
+		var repaired := _repair_enum(field, data.get(field), allowed, str(semantics[field]), notes)
+		output[field] = repaired
+		if repaired != semantics[field]:
+			notes.append("%s: normalized to %s for %s/%s" % [field, semantics[field], output.weapon_form, semantics.attack_pattern])
+			output[field] = semantics[field]
+	var expected_class := "melee" if output.delivery == "held" else "ranged"
 	output.weapon_class = _repair_enum("weapon_class", data.get("weapon_class"), WEAPON_CLASSES, expected_class, notes)
 	if output.weapon_class != expected_class:
 		notes.append("weapon_class: normalized to %s for %s" % [expected_class, output.attack_pattern])
@@ -99,6 +129,11 @@ func to_dict() -> Dictionary:
 	return {
 		"name": display_name,
 		"weapon_class": weapon_class,
+		"weapon_form": weapon_form,
+		"delivery": delivery,
+		"trajectory": trajectory,
+		"impact": impact,
+		"area_effect": area_effect,
 		"attack_pattern": attack_pattern,
 		"element": element,
 		"damage": damage,
@@ -120,6 +155,11 @@ func validation_errors() -> Array[String]:
 	var errors: Array[String] = []
 	if display_name.is_empty() or display_name.length() > 48: errors.append("name")
 	if weapon_class not in WEAPON_CLASSES: errors.append("weapon_class")
+	if weapon_form not in WEAPON_FORMS: errors.append("weapon_form")
+	if delivery not in DELIVERIES: errors.append("delivery")
+	if trajectory not in TRAJECTORIES: errors.append("trajectory")
+	if impact not in IMPACTS: errors.append("impact")
+	if area_effect not in AREA_EFFECTS: errors.append("area_effect")
 	if attack_pattern not in ATTACK_PATTERNS: errors.append("attack_pattern")
 	if element not in ELEMENTS: errors.append("element")
 	if damage < 1 or damage > 100: errors.append("damage")
@@ -164,7 +204,31 @@ func has_strong_capability() -> bool:
 		or special_ability != "none"
 		or damage > 45 or attack_speed > 1.6 or attack_range > 700.0
 		or area_radius > 130.0 or pierce_count > 2
+		or delivery == "thrown" or trajectory != "direct"
+		or impact != "contact" or area_effect != "none"
 	)
+
+
+static func canonical_semantics(form: String = "generic", pattern: String = "melee_slash") -> Dictionary:
+	var safe_form := form if form in WEAPON_FORMS else "generic"
+	var safe_pattern := pattern if pattern in ATTACK_PATTERNS else "melee_slash"
+	var by_form := {
+		"sword": {"attack_pattern": "melee_slash", "delivery": "held", "trajectory": "direct", "impact": "contact", "area_effect": "none"},
+		"bow": {"attack_pattern": "straight_projectile", "delivery": "projectile", "trajectory": "direct", "impact": "contact", "area_effect": "none"},
+		"grenade": {"attack_pattern": "area_blast", "delivery": "thrown", "trajectory": "arc", "impact": "delayed_or_contact", "area_effect": "explosion"},
+		"boomerang": {"attack_pattern": "boomerang", "delivery": "thrown", "trajectory": "returning", "impact": "contact", "area_effect": "none"},
+		"spear": {"attack_pattern": "piercing", "delivery": "projectile", "trajectory": "direct", "impact": "piercing", "area_effect": "none"},
+	}
+	var by_pattern := {
+		"melee_slash": {"attack_pattern": "melee_slash", "delivery": "held", "trajectory": "direct", "impact": "contact", "area_effect": "none"},
+		"straight_projectile": {"attack_pattern": "straight_projectile", "delivery": "projectile", "trajectory": "direct", "impact": "contact", "area_effect": "none"},
+		"boomerang": {"attack_pattern": "boomerang", "delivery": "thrown", "trajectory": "returning", "impact": "contact", "area_effect": "none"},
+		"area_blast": {"attack_pattern": "area_blast", "delivery": "held", "trajectory": "direct", "impact": "contact", "area_effect": "explosion"},
+		"piercing": {"attack_pattern": "piercing", "delivery": "projectile", "trajectory": "direct", "impact": "piercing", "area_effect": "none"},
+	}
+	var result: Dictionary = (by_form.get(safe_form, by_pattern[safe_pattern]) as Dictionary).duplicate(true)
+	result.weapon_form = safe_form
+	return result
 
 
 static func _repair_name(value: Variant, fallback_value: String, notes: Array[String]) -> String:

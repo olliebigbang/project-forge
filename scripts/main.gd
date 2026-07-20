@@ -53,11 +53,18 @@ var current_strokes: Array[PackedVector2Array] = []
 var loaded_idea_pattern := ""
 var pending_result: Dictionary = {}
 var pending_spec: WeaponSpec
+var last_request_snapshot: Dictionary = {}
 var developer_mode := false
 var modify_mode := false
 var review_mode := false
+var interpretation_error_mode := false
 var request_strokes: Array[PackedVector2Array] = []
 var web_mobile_bridge := WebMobileBridge.new()
+var _description_draft := ""
+var _last_web_description_revision := -1
+var _web_description_composing := false
+var _snapshot_in_progress := false
+var _request_drawing_summary: Dictionary = {}
 var _web_sync_elapsed := 0.0
 var _last_stable_landscape_css_size := Vector2.ZERO
 var _status_revision := 0
@@ -543,13 +550,18 @@ func _on_description_gui_input(event: InputEvent) -> void:
 
 
 func _on_native_description_changed(value: String) -> void:
+	_description_draft = value.left(512)
 	if web_mobile_bridge.is_available() and web_mobile_bridge.value() != value:
 		web_mobile_bridge.set_value(value)
 
 
-func _on_web_description_event(kind: String, value: String) -> void:
+func _on_web_description_event(kind: String, value: String, revision: int, composing: bool) -> void:
+	_web_description_composing = composing
+	if revision >= _last_web_description_revision:
+		_last_web_description_revision = revision
+		_description_draft = value.left(512)
 	if description_input.text != value:
-		description_input.text = value
+		description_input.text = _description_draft
 	match kind:
 		"clear": _show_forge_toast("Description cleared", CYAN)
 		"blur":
@@ -559,14 +571,40 @@ func _on_web_description_event(kind: String, value: String) -> void:
 
 
 func _set_description(value: String) -> void:
-	description_input.text = value
+	_description_draft = value.left(512)
+	description_input.text = _description_draft
 	if web_mobile_bridge.is_available():
-		web_mobile_bridge.set_value(value)
+		web_mobile_bridge.set_value(_description_draft)
 
 
-func _pull_web_description() -> void:
-	if web_mobile_bridge.is_available():
-		description_input.text = web_mobile_bridge.value()
+func _freeze_description_for_request() -> Dictionary:
+	if not web_mobile_bridge.is_available():
+		_description_draft = description_input.text.left(512)
+		return {"ok": true, "value": _description_draft, "revision": _last_web_description_revision}
+	web_mobile_bridge.commit_for_request()
+	await get_tree().process_frame
+	var deadline := Time.get_ticks_msec() + 350
+	var snapshot := web_mobile_bridge.description_snapshot()
+	while bool(snapshot.get("composing", false)) and Time.get_ticks_msec() < deadline:
+		await get_tree().process_frame
+		snapshot = web_mobile_bridge.description_snapshot()
+	if bool(snapshot.get("composing", false)):
+		return {"ok": false, "reason": "description_composition_incomplete"}
+	var revision := int(snapshot.get("revision", -1))
+	var dom_value := str(snapshot.get("value", "")).left(512)
+	if revision > _last_web_description_revision:
+		_last_web_description_revision = revision
+		_description_draft = dom_value
+	elif dom_value != _description_draft:
+		# Ignore an unversioned stale DOM mutation; explicit deletion always emits
+		# input/clear and advances the revision.
+		web_mobile_bridge.set_value(_description_draft)
+	description_input.text = _description_draft
+	return {
+		"ok": bool(snapshot.get("connected", false)),
+		"value": _description_draft,
+		"revision": _last_web_description_revision,
+	}
 
 
 func _clear_description() -> void:
@@ -584,6 +622,8 @@ func _reset_forge() -> void:
 	pending_result = {}
 	pending_spec = null
 	request_strokes.clear()
+	last_request_snapshot = {}
+	interpretation_error_mode = false
 	feedback_button.disabled = false
 	description_input.release_focus()
 	if web_mobile_bridge.is_available():
@@ -631,24 +671,46 @@ func _refresh_web_viewport() -> void:
 
 
 func _generate_weapon() -> void:
-	_pull_web_description()
+	if _snapshot_in_progress:
+		_show_forge_toast("Input snapshot is already being prepared.", Color("#ffca78"), 1.4)
+		return
+	_snapshot_in_progress = true
+	var description_snapshot: Dictionary = await _freeze_description_for_request()
+	if not bool(description_snapshot.get("ok", false)):
+		_snapshot_in_progress = false
+		_show_forge_toast("Description could not be committed. Please tap FORGE again.", Color("#ff8f8f"), 2.2)
+		return
 	if drawing_canvas.is_empty():
+		_snapshot_in_progress = false
 		_show_forge_toast("Draw at least one stroke first.", Color("#ff8f8f"), 2.0)
 		return
 	if modify_mode:
+		_snapshot_in_progress = false
 		_apply_manual_correction()
 		return
 	request_strokes = drawing_canvas.get_normalized_strokes()
+	_request_drawing_summary = drawing_canvas.drawing_summary().duplicate(true)
 	var request_id := interpreter.start_interpretation(
-		description_input.text,
-		drawing_canvas.drawing_summary(),
-		_detect_locale(description_input.text),
+		str(description_snapshot.get("value", "")),
+		_request_drawing_summary,
+		_detect_locale(str(description_snapshot.get("value", ""))),
 	)
+	_snapshot_in_progress = false
 	if request_id.is_empty():
 		_show_forge_toast("A weapon request is already running.", Color("#ffca78"), 1.8)
 
 
-func _on_interpretation_started(_request_id: String) -> void:
+func _on_interpretation_started(request_id: String) -> void:
+	var outgoing := interpreter.active_payload_snapshot()
+	var outgoing_drawing: Dictionary = outgoing.get("drawing_summary", _request_drawing_summary)
+	last_request_snapshot = {
+		"request_id": request_id,
+		"description": str(outgoing.get("description", _description_draft)),
+		"description_revision": _last_web_description_revision,
+		"drawing_summary": outgoing_drawing.duplicate(true),
+		"stroke_count": request_strokes.size(),
+	}
+	interpretation_error_mode = false
 	review_mode = false
 	_review_ui_ready = false
 	_loading_ui_ready = false
@@ -657,7 +719,7 @@ func _on_interpretation_started(_request_id: String) -> void:
 	generate_button.text = "FORGING…"
 	generate_button.show()
 	cancel_button.show()
-	forge_status.text = "AI is interpreting your weapon…"
+	forge_status.text = _request_snapshot_line("AI REQUEST")
 	forge_status.add_theme_color_override("font_color", Color("#b9eaff"))
 	_apply_forge_layout()
 	_sync_web_description_overlay()
@@ -667,6 +729,10 @@ func _on_interpretation_started(_request_id: String) -> void:
 func _on_interpretation_completed(result: Dictionary) -> void:
 	_loading_ui_ready = false
 	pending_result = result.duplicate(true)
+	if not _is_confirmable_result(pending_result):
+		pending_spec = null
+		_show_interpretation_error()
+		return
 	var raw_spec: Variant = pending_result.get("weapon_spec")
 	if not raw_spec is Dictionary:
 		pending_result = {}
@@ -699,6 +765,7 @@ func _show_interpretation_review() -> void:
 	if pending_spec == null:
 		return
 	review_mode = true
+	interpretation_error_mode = false
 	_review_ui_ready = false
 	modify_mode = false
 	drawing_canvas.hide()
@@ -706,6 +773,11 @@ func _show_interpretation_review() -> void:
 	pattern_selector.hide()
 	forge_action_row.hide()
 	review_panel.show()
+	confirm_button.show()
+	modify_button.show()
+	modify_button.text = "MODIFY INTERPRETATION"
+	try_again_button.show()
+	feedback_button.show()
 	feedback_button.disabled = false
 	_update_review_copy()
 	back_button.disabled = false
@@ -716,9 +788,75 @@ func _show_interpretation_review() -> void:
 	call_deferred("_mark_review_ui_ready")
 
 
+func _show_interpretation_error() -> void:
+	review_mode = true
+	interpretation_error_mode = true
+	modify_mode = false
+	_review_ui_ready = false
+	drawing_canvas.hide()
+	description_row.hide()
+	pattern_selector.hide()
+	forge_action_row.hide()
+	review_panel.show()
+	confirm_button.hide()
+	modify_button.show()
+	modify_button.text = "EDIT INPUT"
+	try_again_button.show()
+	feedback_button.hide()
+	var reason := str(pending_result.get("fallback_reason", "invalid_provider_response"))
+	var metadata: Dictionary = pending_result.get("provider_metadata", {})
+	review_summary.text = "INTERPRETATION ERROR: %s\nNo weapon was generated or equipped." % reason.replace("_", " ").to_upper()
+	review_summary.add_theme_color_override("font_color", Color("#ff9c9c"))
+	review_details.text = (
+		"%s\n"
+		+ "PROVIDER  %s / %s    ATTEMPTS %d    CONFIDENCE 0%%\n"
+		+ "Your drawing and description are preserved. Choose EDIT INPUT or TRY AGAIN."
+	) % [
+		_request_snapshot_line("INPUT SNAPSHOT"),
+		str(metadata.get("provider", "none")),
+		str(metadata.get("model", "none")),
+		int(metadata.get("attempts", 0)),
+	]
+	back_button.disabled = false
+	_apply_forge_layout()
+	_sync_web_description_overlay()
+	call_deferred("_mark_review_ui_ready")
+
+
+func _is_confirmable_result(result: Dictionary) -> bool:
+	var metadata: Dictionary = result.get("provider_metadata", {})
+	return (
+		bool(result.get("success", false))
+		and bool(result.get("provider_invoked", false))
+		and str(result.get("fallback_reason", "")).is_empty()
+		and result.get("weapon_spec") is Dictionary
+		and bool(result.get("runtime_valid", false))
+		and str(metadata.get("provider", "none")) not in ["", "none", "unknown"]
+		and int(metadata.get("attempts", 0)) >= 1
+		and float(result.get("confidence", 0.0)) > 0.0
+	)
+
+
+func _request_snapshot_line(prefix: String) -> String:
+	var request_id := str(last_request_snapshot.get("request_id", "pending"))
+	var description := str(last_request_snapshot.get("description", ""))
+	var drawing: Dictionary = last_request_snapshot.get("drawing_summary", {})
+	var bounded_description := description.left(72)
+	if description.length() > 72:
+		bounded_description += "…"
+	return "%s %s  •  \"%s\"  •  %d stroke(s) / %d point(s)" % [
+		prefix,
+		request_id,
+		bounded_description,
+		int(drawing.get("stroke_count", last_request_snapshot.get("stroke_count", 0))),
+		int(drawing.get("point_count", 0)),
+	]
+
+
 func _update_review_copy() -> void:
 	if pending_spec == null:
 		return
+	review_summary.add_theme_color_override("font_color", Color("#b9eaff"))
 	var fallback_reason := str(pending_result.get("fallback_reason", ""))
 	var summary := str(pending_result.get("interpretation_summary", "Weapon interpretation ready."))
 	if not fallback_reason.is_empty():
@@ -729,7 +867,8 @@ func _update_review_copy() -> void:
 	var cost_text := str(cost) if not cost is Dictionary else "%s %.6f" % [str(cost.get("currency", "USD")), float(cost.get("amount", 0.0))]
 	review_details.text = (
 		"%s    POWER %d/100\n"
-		+ "ATTACK  %s    ELEMENT  %s\n"
+		+ "FORM  %s    DELIVERY  %s / %s\n"
+		+ "ATTACK  %s    IMPACT  %s / %s    ELEMENT  %s\n"
 		+ "DAMAGE  %d    SPEED  %.2f    RANGE  %.0f\n"
 		+ "ABILITY  %s    STATUS  %s\n"
 		+ "WEAKNESS  %s\n"
@@ -738,7 +877,12 @@ func _update_review_copy() -> void:
 	) % [
 		pending_spec.display_name,
 		pending_spec.power_score,
+		pending_spec.weapon_form.to_upper(),
+		pending_spec.delivery.to_upper(),
+		pending_spec.trajectory.to_upper(),
 		pending_spec.attack_label().to_upper(),
+		pending_spec.impact.replace("_", " ").to_upper(),
+		pending_spec.area_effect.to_upper(),
 		pending_spec.element.to_upper(),
 		pending_spec.damage,
 		pending_spec.attack_speed,
@@ -757,6 +901,7 @@ func _update_review_copy() -> void:
 
 func _show_forge_form(correction: bool) -> void:
 	review_mode = false
+	interpretation_error_mode = false
 	_review_ui_ready = false
 	_loading_ui_ready = false
 	modify_mode = correction
@@ -788,6 +933,10 @@ func _set_forge_interactable(enabled: bool) -> void:
 
 
 func _modify_interpretation() -> void:
+	if interpretation_error_mode:
+		_show_forge_form(false)
+		_show_forge_toast("Input restored from the failed request.", Color("#b9eaff"), 1.6)
+		return
 	if pending_spec == null:
 		return
 	var current_index := AttackPatternSelector.PATTERNS.find(pending_spec.attack_pattern)
@@ -823,7 +972,8 @@ func _apply_manual_correction() -> void:
 	pending_result.corrections = corrected.corrections.duplicate()
 	pending_result.corrections.append("manual correction: attack_pattern set to %s" % corrected.attack_pattern)
 	pending_result.fallback_reason = ""
-	pending_result.provider_metadata = {"provider": "player_correction", "model": "deterministic_validator", "attempts": 0}
+	pending_result.success = true
+	pending_result.provider_invoked = true
 	pending_result.latency_ms = int(service.last_record.get("elapsed_ms", 0))
 	pending_result.estimated_cost = "UNKNOWN"
 	pending_result.power_budget = corrected.budget_breakdown.duplicate(true)
@@ -870,7 +1020,8 @@ func _flag_result() -> void:
 
 
 func _confirm_interpretation() -> void:
-	if pending_spec == null:
+	if pending_spec == null or not _is_confirmable_result(pending_result):
+		_show_forge_toast("This result cannot be equipped. Edit the input or retry.", Color("#ff8f8f"), 2.0)
 		return
 	current_spec = pending_spec
 	current_strokes = request_strokes.duplicate(true)
@@ -878,6 +1029,10 @@ func _confirm_interpretation() -> void:
 
 
 func _commit_weapon() -> void:
+	if current_spec == null or not _is_confirmable_result(pending_result):
+		current_spec = null
+		_show_interpretation_error()
+		return
 	player.equip(current_spec, current_strokes)
 	player.set_combat_enabled(true)
 	description_input.release_focus()
@@ -957,6 +1112,8 @@ func _open_reforge() -> void:
 	pending_result = {}
 	pending_spec = null
 	request_strokes.clear()
+	last_request_snapshot = {}
+	interpretation_error_mode = false
 	feedback_button.disabled = false
 	description_input.release_focus()
 	if web_mobile_bridge.is_available():
@@ -1001,6 +1158,9 @@ func _on_player_attack(spec: WeaponSpec, origin: Vector2, direction: Vector2, st
 	_qa_attack_count += 1
 	_qa_last_attack_pattern = spec.attack_pattern
 	_update_qa_bridge()
+	if spec.delivery == "thrown" and spec.trajectory == "arc":
+		_launch_projectile(spec, origin, direction, strokes)
+		return
 	match spec.attack_pattern:
 		"melee_slash": _launch_melee(spec, origin, direction)
 		"area_blast": _launch_area(spec, player.global_position + Vector2(0, -12), direction)
@@ -1045,9 +1205,13 @@ func _launch_projectile(spec: WeaponSpec, origin: Vector2, direction: Vector2, s
 	projectile.configure(spec, strokes, direction, player)
 	projectile.global_position = origin
 	projectile.hit_target.connect(func(label_text: String, amount: int): combat_status.text = "%s hit %s for %d." % [spec.attack_label(), label_text, amount])
+	projectile.area_impact.connect(func(impact_position: Vector2, impact_direction: Vector2):
+		_launch_area(spec, impact_position, impact_direction)
+		combat_status.text = "Thrown %s exploded at its landing point." % spec.weapon_form
+	)
 	world.add_child(projectile)
 	projectile.add_to_group("forge_transient_attack")
-	combat_status.text = {"straight_projectile": "Straight projectile launched; stops on first target.", "boomerang": "Boomerang outbound; it can strike again on return.", "piercing": "Piercing lance launched; shield bypass active."}.get(spec.attack_pattern, "Attack launched.")
+	combat_status.text = "Grenade thrown on a visible arc; explosion follows at impact." if spec.delivery == "thrown" and spec.trajectory == "arc" else {"straight_projectile": "Straight projectile launched; stops on first target.", "boomerang": "Boomerang outbound; it can strike again on return.", "piercing": "Piercing lance launched; shield bypass active."}.get(spec.attack_pattern, "Attack launched.")
 
 
 func _on_target_damage(label_text: String, amount: int, note: String) -> void:
@@ -1183,7 +1347,7 @@ func _update_qa_bridge() -> void:
 		screen = "confirmation"
 	elif review_mode:
 		screen = "confirmation"
-		phase = "fallback" if not str(pending_result.get("fallback_reason", "")).is_empty() else "result"
+		phase = "error" if interpretation_error_mode else "result"
 	var request_id := interpreter.active_request_id
 	if request_id.is_empty():
 		request_id = str(pending_result.get("request_id", ""))
@@ -1198,7 +1362,11 @@ func _update_qa_bridge() -> void:
 		"request_attempts": interpreter.attempts,
 		"in_flight": interpreter.in_flight,
 		"request_id": request_id,
-		"description": description_input.text,
+		"description": _description_draft,
+		"request_snapshot": last_request_snapshot,
+		"description_revision": _last_web_description_revision,
+		"description_composing": _web_description_composing,
+		"interpretation_error": interpretation_error_mode,
 		"drawing_count": drawing_canvas.strokes.size(),
 		"selector_visible": selector_visible,
 		"selected_pattern": pattern_selector.selected_pattern(),
@@ -1273,6 +1441,11 @@ func _confirmation_field_evidence() -> Dictionary:
 		"name": pending_spec.display_name,
 		"summary": str(pending_result.get("interpretation_summary", "Weapon interpretation ready.")),
 		"attack_pattern": pending_spec.attack_pattern,
+		"weapon_form": pending_spec.weapon_form,
+		"delivery": pending_spec.delivery,
+		"trajectory": pending_spec.trajectory,
+		"impact": pending_spec.impact,
+		"area_effect": pending_spec.area_effect,
 		"element": pending_spec.element,
 		"damage": pending_spec.damage,
 		"attack_speed": pending_spec.attack_speed,

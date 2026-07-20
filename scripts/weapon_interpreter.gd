@@ -14,6 +14,7 @@ var request_count := 0
 var attempts := 0
 var active_request_id := ""
 var last_result: Dictionary = {}
+var last_request_snapshot: Dictionary = {}
 var test_scenario := "success"
 var test_options: Dictionary = {}
 var test_mode_enabled := false
@@ -57,10 +58,16 @@ func start_interpretation(
 		"locale": locale.left(16),
 		"request_id": active_request_id,
 		"supported_attack_patterns": Array(WeaponSpec.ATTACK_PATTERNS),
+		"supported_weapon_forms": Array(WeaponSpec.WEAPON_FORMS),
+		"supported_deliveries": Array(WeaponSpec.DELIVERIES),
+		"supported_trajectories": Array(WeaponSpec.TRAJECTORIES),
+		"supported_impacts": Array(WeaponSpec.IMPACTS),
+		"supported_area_effects": Array(WeaponSpec.AREA_EFFECTS),
 		"supported_elements": Array(WeaponSpec.ELEMENTS),
 		"supported_abilities": Array(WeaponSpec.SPECIAL_ABILITIES),
 		"maximum_power_score": PowerBudget.MAX_POWER,
 	}
+	last_request_snapshot = _active_payload.duplicate(true)
 	var selected_scenario := scenario if not scenario.is_empty() else test_scenario
 	_active_test_options = test_options.duplicate(true)
 	if selected_scenario != "success":
@@ -102,6 +109,10 @@ func start_interpretation(
 		_release_http_request(request_node)
 		call_deferred("_complete_with_fallback", _request_revision, "network_unavailable")
 	return active_request_id
+
+
+func active_payload_snapshot() -> Dictionary:
+	return _active_payload.duplicate(true)
 
 
 static func configure_http_request(request_node: HTTPRequest, web_build: bool) -> void:
@@ -192,6 +203,10 @@ func _complete_local(revision: int, scenario: String) -> void:
 			{"provider": "deterministic_client_test", "model": "fault-injection", "attempts": 1},
 			UNKNOWN_COST,
 		)
+		repaired_result.success = false
+		repaired_result.provider_invoked = true
+		repaired_result.weapon_spec = null
+		repaired_result.runtime_valid = false
 		repaired_result.corrections.append("client: unsupported provider output repaired")
 		_finish(revision, repaired_result)
 		return
@@ -258,6 +273,29 @@ func _validate_server_result(server_result: Dictionary, expected_request_id: Str
 		return {"ok": false, "reason": "stale_response"}
 	if str(server_result.get("request_id", "")) != expected:
 		return {"ok": false, "reason": "stale_response"}
+	var fallback_reason := str(server_result.get("fallback_reason", "")).left(64)
+	if not bool(server_result.get("success", false)) or not fallback_reason.is_empty():
+		var error_response := {
+			"success": false,
+			"provider_invoked": bool(server_result.get("provider_invoked", false)),
+			"request_id": expected,
+			"weapon_spec": null,
+			"interpretation_summary": str(server_result.get("interpretation_summary", "Weapon interpretation failed. Your input was preserved.")).left(240),
+			"confidence": 0.0,
+			"corrections": [],
+			"fallback_reason": fallback_reason if not fallback_reason.is_empty() else "invalid_provider_response",
+			"provider_metadata": _sanitize_provider_metadata(server_result.get("provider_metadata", {})),
+			"latency_ms": maxi(int(server_result.get("latency_ms", Time.get_ticks_msec() - _started_msec)), 0),
+			"estimated_cost": _sanitize_cost(server_result.get("estimated_cost", UNKNOWN_COST)),
+			"power_budget": {},
+			"schema_valid": false,
+			"allow_list_valid": false,
+			"power_valid": false,
+			"runtime_valid": false,
+		}
+		for correction: Variant in server_result.get("corrections", []):
+			error_response.corrections.append(str(correction).left(240))
+		return {"ok": true, "result": error_response}
 	var raw_spec: Variant = server_result.get("weapon_spec")
 	if not raw_spec is Dictionary:
 		return {"ok": false, "reason": "invalid_provider_response"}
@@ -274,8 +312,19 @@ func _validate_server_result(server_result: Dictionary, expected_request_id: Str
 	)
 	if not valid:
 		return {"ok": false, "reason": "post_validation_failed"}
+	var metadata := _sanitize_provider_metadata(server_result.get("provider_metadata", {}))
+	var confidence := clampf(float(server_result.get("confidence", 0.0)), 0.0, 1.0)
+	if (
+		not bool(server_result.get("provider_invoked", false))
+		or str(metadata.provider) in ["", "none", "unknown"]
+		or int(metadata.attempts) < 1
+		or confidence <= 0.0
+	):
+		return {"ok": false, "reason": "provider_not_invoked"}
 
 	var response := server_result.duplicate(true)
+	response.success = true
+	response.provider_invoked = true
 	response.weapon_spec = spec.to_dict()
 	var corrections: Array[String] = []
 	for correction: Variant in server_result.get("corrections", []):
@@ -289,10 +338,10 @@ func _validate_server_result(server_result: Dictionary, expected_request_id: Str
 	response.power_valid = true
 	response.runtime_valid = true
 	response.interpretation_summary = str(response.get("interpretation_summary", _interpretation_summary(spec))).left(240)
-	response.confidence = clampf(float(response.get("confidence", 0.0)), 0.0, 1.0)
-	response.fallback_reason = str(response.get("fallback_reason", "")).left(64)
+	response.confidence = confidence
+	response.fallback_reason = ""
 	response.estimated_cost = _sanitize_cost(response.get("estimated_cost", UNKNOWN_COST))
-	response.provider_metadata = _sanitize_provider_metadata(response.get("provider_metadata", {}))
+	response.provider_metadata = metadata
 	response.latency_ms = maxi(int(response.get("latency_ms", Time.get_ticks_msec() - _started_msec)), 0)
 	return {"ok": true, "result": response}
 
@@ -300,19 +349,25 @@ func _validate_server_result(server_result: Dictionary, expected_request_id: Str
 func _complete_with_fallback(revision: int, reason: String) -> void:
 	if revision != _request_revision or not in_flight:
 		return
-	var balanced := PowerBudget.balance(WeaponSpec.fallback().to_dict())
-	var spec := WeaponSpec.from_dict(balanced.values)
-	spec.corrections.assign(balanced.corrections)
-	spec.budget_breakdown = balanced.after.duplicate(true)
-	var result := _result_from_spec(
-		spec,
-		"A safe practice weapon was substituted because the interpreter was unavailable.",
-		0.0,
-		reason,
-		{"provider": "none", "model": "none", "attempts": attempts},
-		UNKNOWN_COST,
-	)
-	result.corrections.push_front("fallback: %s" % reason)
+	var result := {
+		"success": false,
+		"provider_invoked": false,
+		"request_id": active_request_id,
+		"weapon_spec": null,
+		"interpretation_summary": "Weapon interpretation failed. Your drawing and description were preserved.",
+		"confidence": 0.0,
+		"corrections": ["fallback: %s" % reason],
+		"fallback_reason": reason,
+		"provider_metadata": {"provider": "none", "model": "none", "attempts": 0},
+		"latency": {"total_ms": maxi(Time.get_ticks_msec() - _started_msec, 0), "provider_ms": 0, "attempts": 0},
+		"latency_ms": maxi(Time.get_ticks_msec() - _started_msec, 0),
+		"estimated_cost": UNKNOWN_COST,
+		"power_budget": {},
+		"schema_valid": false,
+		"allow_list_valid": false,
+		"power_valid": false,
+		"runtime_valid": false,
+	}
 	_finish(revision, result)
 
 
@@ -325,9 +380,12 @@ func _result_from_spec(
 	estimated_cost: Variant,
 ) -> Dictionary:
 	var calculated := PowerBudget.calculate(spec.to_dict())
+	var successful := fallback_reason.is_empty()
 	return {
+		"success": successful,
+		"provider_invoked": true,
 		"request_id": active_request_id,
-		"weapon_spec": spec.to_dict(),
+		"weapon_spec": spec.to_dict() if successful else null,
 		"interpretation_summary": summary.left(240),
 		"confidence": clampf(confidence, 0.0, 1.0),
 		"corrections": spec.corrections.duplicate(),
@@ -341,11 +399,12 @@ func _result_from_spec(
 		"latency_ms": maxi(Time.get_ticks_msec() - _started_msec, 0),
 		"estimated_cost": _sanitize_cost(estimated_cost),
 		"power_budget": calculated,
-		"schema_valid": spec.is_valid(),
-		"allow_list_valid": spec.is_valid(),
-		"power_valid": float(calculated.total) <= PowerBudget.MAX_POWER,
+		"schema_valid": successful and spec.is_valid(),
+		"allow_list_valid": successful and spec.is_valid(),
+		"power_valid": successful and float(calculated.total) <= PowerBudget.MAX_POWER,
 		"runtime_valid": (
-			spec.is_valid()
+			successful
+			and spec.is_valid()
 			and float(calculated.total) <= PowerBudget.MAX_POWER
 			and spec.power_score == int(ceil(float(calculated.total)))
 		),

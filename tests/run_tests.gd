@@ -11,6 +11,7 @@ func _init() -> void:
 	_test_determinism()
 	_test_runtime_repair()
 	_test_power_budget()
+	_test_weapon_semantics()
 	_test_schema_runtime_parity()
 	_test_drawing_summary()
 	_test_attack_pattern_touch_selector()
@@ -132,6 +133,26 @@ func _test_power_budget() -> void:
 	_expect(compatibility_balance.values.visual_material == "forged_metal", "element-incompatible material is normalized")
 
 
+func _test_weapon_semantics() -> void:
+	var cases := [
+		["a thrown grenade that explodes after landing", {"weapon_form":"grenade", "delivery":"thrown", "trajectory":"arc", "impact":"delayed_or_contact", "area_effect":"explosion", "attack_pattern":"area_blast", "weapon_class":"ranged"}],
+		["a wooden bow firing arrows", {"weapon_form":"bow", "delivery":"projectile", "trajectory":"direct", "impact":"contact", "area_effect":"none", "attack_pattern":"straight_projectile", "weapon_class":"ranged"}],
+		["a plain steel sword", {"weapon_form":"sword", "delivery":"held", "trajectory":"direct", "impact":"contact", "area_effect":"none", "attack_pattern":"melee_slash", "weapon_class":"melee"}],
+		["a boomerang that returns", {"weapon_form":"boomerang", "delivery":"thrown", "trajectory":"returning", "impact":"contact", "area_effect":"none", "attack_pattern":"boomerang", "weapon_class":"ranged"}],
+		["a spear that pierces shields", {"weapon_form":"spear", "delivery":"projectile", "trajectory":"direct", "impact":"piercing", "area_effect":"none", "attack_pattern":"piercing", "weapon_class":"ranged"}],
+	]
+	for entry: Array in cases:
+		var spec := WeaponCompiler.new().compile(str(entry[0]), {"aspect_ratio": 2.0, "point_count": 12})
+		var expected: Dictionary = entry[1]
+		for field: String in expected:
+			_expect(spec.to_dict()[field] == expected[field], "%s preserves %s=%s" % [spec.weapon_form, field, expected[field]])
+		_expect(spec.display_name != "Practice Sketchblade" and spec.is_valid(), "%s produces a real validated semantic result" % spec.weapon_form)
+	var grenade := WeaponCompiler.new().compile("a thrown grenade that explodes on contact").to_dict()
+	var parts := PowerBudget.calculate(grenade)
+	for field: String in ["delivery", "trajectory", "impact", "area_effect", "area_radius", "projectile_speed"]:
+		_expect(float(parts[field]) > 0.0, "grenade pays explicit %s power cost" % field)
+
+
 func _test_schema_runtime_parity() -> void:
 	var file := FileAccess.open("res://schema/weapon_spec.schema.json", FileAccess.READ)
 	_expect(file != null, "WeaponSpec JSON Schema is readable")
@@ -144,6 +165,11 @@ func _test_schema_runtime_parity() -> void:
 	_expect(required.size() == runtime_keys.size(), "schema and runtime require the same field count")
 	for field: String in runtime_keys: _expect(field in required, "schema requires runtime field '%s'" % field)
 	_expect(schema.properties.attack_pattern.enum == Array(WeaponSpec.ATTACK_PATTERNS), "schema attack allow-list matches runtime")
+	_expect(schema.properties.weapon_form.enum == Array(WeaponSpec.WEAPON_FORMS), "schema weapon-form allow-list matches runtime")
+	_expect(schema.properties.delivery.enum == Array(WeaponSpec.DELIVERIES), "schema delivery allow-list matches runtime")
+	_expect(schema.properties.trajectory.enum == Array(WeaponSpec.TRAJECTORIES), "schema trajectory allow-list matches runtime")
+	_expect(schema.properties.impact.enum == Array(WeaponSpec.IMPACTS), "schema impact allow-list matches runtime")
+	_expect(schema.properties.area_effect.enum == Array(WeaponSpec.AREA_EFFECTS), "schema area-effect allow-list matches runtime")
 	_expect(schema.properties.element.enum == Array(WeaponSpec.ELEMENTS), "schema element allow-list matches runtime")
 
 
@@ -229,6 +255,21 @@ func _test_forge_reset_state() -> void:
 	forge.description_input.text = "editable after reset"
 	forge.drawing_canvas.strokes.append(PackedVector2Array([Vector2(15, 15), Vector2(90, 45)]))
 	_expect(forge.description_input.text == "editable after reset" and not forge.drawing_canvas.is_empty(), "RESET allows immediate text and drawing input")
+	var confirmable := {
+		"success": true, "provider_invoked": true, "fallback_reason": "",
+		"weapon_spec": WeaponSpec.fallback().to_dict(), "runtime_valid": true,
+		"confidence": 0.8,
+		"provider_metadata": {"provider": "anthropic", "model": "claude-haiku-4-5-20251001", "attempts": 1},
+	}
+	_expect(forge._is_confirmable_result(confirmable), "real provider result is confirmable")
+	var explicit_error := confirmable.duplicate(true)
+	explicit_error.success = false
+	explicit_error.provider_invoked = false
+	explicit_error.fallback_reason = "empty_description"
+	explicit_error.weapon_spec = null
+	explicit_error.confidence = 0.0
+	explicit_error.provider_metadata = {"provider": "none", "model": "none", "attempts": 0}
+	_expect(not forge._is_confirmable_result(explicit_error), "EMPTY DESCRIPTION/provider none/confidence zero is never confirmable")
 	forge.queue_free()
 
 
@@ -242,12 +283,27 @@ func _test_weapon_interpreter_response_context() -> void:
 	interpreter._request_revision = 2
 	var balanced := PowerBudget.balance(WeaponSpec.fallback().to_dict())
 	var valid_response := {
+		"success": true,
+		"provider_invoked": true,
 		"request_id": "expected-request",
 		"weapon_spec": balanced.values,
 		"corrections": [],
+		"confidence": 0.8,
+		"fallback_reason": "",
+		"provider_metadata": {"provider": "anthropic", "model": "claude-haiku-4-5-20251001", "attempts": 1},
+		"runtime_valid": true,
 	}
 	var accepted: Dictionary = interpreter._validate_server_result(valid_response, "expected-request")
-	_expect(bool(accepted.get("ok", false)), "matching server request_id passes client revalidation")
+	_expect(bool(accepted.get("ok", false)) and bool(accepted.result.get("success", false)), "matching successful server request passes client revalidation")
+	var error_response := valid_response.duplicate(true)
+	error_response.success = false
+	error_response.provider_invoked = false
+	error_response.weapon_spec = null
+	error_response.confidence = 0.0
+	error_response.fallback_reason = "empty_description"
+	error_response.provider_metadata = {"provider": "none", "model": "none", "attempts": 0}
+	var explicit_failure: Dictionary = interpreter._validate_server_result(error_response, "expected-request")
+	_expect(bool(explicit_failure.get("ok", false)) and not bool(explicit_failure.result.runtime_valid) and explicit_failure.result.weapon_spec == null, "fallback is normalized to a non-equipable explicit error")
 	var stale_response := valid_response.duplicate(true)
 	stale_response.request_id = "stale-request"
 	var rejected: Dictionary = interpreter._validate_server_result(stale_response, "expected-request")

@@ -3,6 +3,7 @@ extends Area2D
 
 signal hit_target(target_name: String, damage: int)
 signal finished(pattern: String)
+signal area_impact(impact_position: Vector2, direction: Vector2)
 
 var _spec: WeaponSpec
 var _direction := Vector2.RIGHT
@@ -13,6 +14,9 @@ var _returning := false
 var _hit_keys: Dictionary = {}
 var _hit_count := 0
 var _strokes: Array[PackedVector2Array] = []
+var _velocity := Vector2.ZERO
+var _elapsed := 0.0
+var _detonated := false
 
 
 func configure(spec: WeaponSpec, strokes: Array[PackedVector2Array], direction: Vector2, player: ForgePlayer = null) -> void:
@@ -37,11 +41,23 @@ func _ready() -> void:
 	_visual.rotation = 0.0 if _direction.x >= 0.0 else PI
 	_visual.configure(_strokes, _spec)
 	add_child(_visual)
+	if _spec.delivery == "thrown" and _spec.trajectory == "arc":
+		_velocity = _direction * maxf(_spec.projectile_speed * 0.56, 180.0) + Vector2.UP * minf(_spec.projectile_speed * 0.48, 330.0)
 	queue_redraw()
 
 
 func _physics_process(delta: float) -> void:
 	if _spec == null: return
+	_elapsed += delta
+	if _spec.delivery == "thrown" and _spec.trajectory == "arc":
+		_velocity.y += 920.0 * delta
+		var arc_step := _velocity * delta
+		position += arc_step
+		_distance_travelled += absf(arc_step.x)
+		rotation += delta * 7.5 * signf(_direction.x)
+		if _elapsed >= 0.72 or _distance_travelled >= _spec.attack_range:
+			_detonate()
+		return
 	var speed := _spec.projectile_speed
 	if _spec.attack_pattern == "boomerang" and _returning:
 		speed = _spec.return_speed
@@ -65,6 +81,9 @@ func _physics_process(delta: float) -> void:
 
 func _on_body_entered(body: Node) -> void:
 	if not body.has_method("take_damage") or _spec == null: return
+	if _spec.delivery == "thrown" and _spec.area_effect == "explosion":
+		_detonate()
+		return
 	var phase := "return" if _returning else "out"
 	var key := "%d:%s" % [body.get_instance_id(), phase]
 	if _hit_keys.has(key): return
@@ -78,6 +97,15 @@ func _on_body_entered(body: Node) -> void:
 	elif _spec.attack_pattern == "piercing" and _hit_count >= _spec.pierce_count:
 		finished.emit(_spec.attack_pattern)
 		queue_free()
+
+
+func _detonate() -> void:
+	if _detonated:
+		return
+	_detonated = true
+	area_impact.emit(global_position, _direction)
+	finished.emit(_spec.attack_pattern)
+	queue_free()
 
 
 func _draw() -> void:
