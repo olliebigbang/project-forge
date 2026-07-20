@@ -1,6 +1,6 @@
 # M1B1 acceptance plan
 
-Status: **TO VALIDATE — guarded Anthropic integration passed offline; live-provider and physical-device gates remain open**
+Status: **TO VALIDATE — public/provider automated gates passed; physical iPhone gate remains open**
 
 M1A remains the stable rollback baseline. M1B1 cannot merge, clean its branches,
 or proceed to M1B2 until the product owner accepts the public preview on a real
@@ -14,10 +14,10 @@ iPhone Safari session.
 | M1B1-02 | Provider-neutral request/response contract includes every required field | **CONFIRMED** |
 | M1B1-03 | Backend limits and validates request types, lengths and drawing-summary bounds | **CONFIRMED (Node + red team)** |
 | M1B1-04 | Native structured adapter output is repaired by schema, allow-list and PowerBudget gates | **CONFIRMED (Anthropic adapter offline tests)** |
-| M1B1-05 | Secrets exist only as server-side secret environment values and never appear in build, Git or logs | **CONFIRMED (Sites secret metadata, boundary, leak probe, and secret scan); TO VALIDATE deployed assets** |
+| M1B1-05 | Secrets exist only as server-side secret environment values and never appear in build, Git or logs | **CONFIRMED (Sites secret metadata, deployed-asset boundary, leak probe, and secret scan)** |
 | M1B1-06 | Logs omit raw input, full provider output, secrets and unnecessary personal data | **CONFIRMED (malicious nested-metadata leak regression)** |
-| M1B1-06A | Provider/model are exactly Anthropic / `claude-haiku-4-5-20251001` through native Messages + Structured Outputs; no upgrade/fallback/compatibility route | **CONFIRMED (15 adapter tests)** |
-| M1B1-06B | Worker + D1 enforce the lifetime USD 5 cap before invocation and conservatively handle unknown billing | **CONFIRMED (9 budget tests); TO VALIDATE on Sites D1** |
+| M1B1-06A | Provider/model are exactly Anthropic / `claude-haiku-4-5-20251001` through native Messages + Structured Outputs; no upgrade/fallback/compatibility route | **CONFIRMED (17 adapter tests + public live canary)** |
+| M1B1-06B | Worker + D1 enforce the lifetime USD 5 cap before invocation and conservatively handle unknown billing | **CONFIRMED (14 budget tests + deployed D1 reserve/settle audit)** |
 
 ## Player flow
 
@@ -37,28 +37,28 @@ iPhone Safari session.
 | M1B1-13 | Blank, long, ambiguous, misspelled, mixed-language and multi-concept input resolve safely | **CONFIRMED (deterministic adapter + matrices)** |
 | M1B1-14 | Prompt injection, code requests, unsupported abilities and budget-bypass requests cannot alter execution boundaries | **CONFIRMED (60-case red-team corpus)** |
 | M1B1-15 | Bad JSON, missing fields, timeout, offline, 429, 5xx and unavailable backend produce a validated fallback without a crash | **CONFIRMED (simulated faults)** |
-| M1B1-16 | Anthropic makes one attempt only; wrapper timeouts abort and do not retry; cancellation preserves drawing/text; durable idempotency shares one provider operation across worker bindings | **CONFIRMED (adapter/D1/abort probes + Chromium + prior WebKit + late-A-after-B client probe); TO VALIDATE on Sites/current WebKit** |
-| M1B1-17 | Identical concepts stay in a stable Power range and every final score is at most 100 | **CONFIRMED (deterministic adapter); TO VALIDATE with real model** |
+| M1B1-16 | Anthropic makes one attempt only; wrapper timeouts abort and do not retry; cancellation preserves drawing/text; durable idempotency shares one provider operation across worker bindings | **CONFIRMED (adapter/D1/abort probes + deployed Sites safe/live probes + current Chromium/WebKit + late-A-after-B client probe)** |
+| M1B1-17 | Identical concepts stay in a stable Power range and every final score is at most 100 | **CONFIRMED (deterministic suites + 42-case real-model matrix)** |
 
 ## Matrix and quality targets
 
 | ID | Acceptance criterion | Current status |
 | --- | --- | --- |
 | M1B1-18 | At least 40 human-labelled normal, creative, ambiguous, extreme, unsafe and transport cases are recorded | **CONFIRMED (48 main + 60 red-team cases)** |
-| M1B1-19 | Final Schema pass rate is 100%; allow-list pass rate is 100%; Power pass rate is 100% | **CONFIRMED (provider-neutral); TO VALIDATE with real model** |
-| M1B1-20 | Labelled normal attack-pattern and element accuracy is at least 90% | **TO VALIDATE** |
-| M1B1-21 | Chinese and English normal concepts both succeed | **TO VALIDATE** |
-| M1B1-22 | Each case records interpretation, final spec, repairs, fallback, latency and cost (`UNKNOWN` when unavailable) | **CONFIRMED for local adapter; TO VALIDATE with real provider usage** |
-| M1B1-23 | Real-provider median latency target is at most 5 s and P95 target is at most 10 s; failures are reported honestly | **TO VALIDATE** |
+| M1B1-19 | Final Schema pass rate is 100%; allow-list pass rate is 100%; Power pass rate is 100% | **CONFIRMED (42/42 real-provider cases at 100% for all three gates)** |
+| M1B1-20 | Labelled normal attack-pattern and element accuracy is at least 90% | **CONFIRMED (24 eligible cases; pattern 100%, element 100%)** |
+| M1B1-21 | Chinese and English normal concepts both succeed | **CONFIRMED (real-provider matrix)** |
+| M1B1-22 | Each case records interpretation, final spec, repairs, fallback, latency and cost (`UNKNOWN` when unavailable) | **CONFIRMED (privacy-bounded 42-case real-provider artifact)** |
+| M1B1-23 | Real-provider median latency target is at most 5 s and P95 target is at most 10 s; failures are reported honestly | **CONFIRMED (median 1.318 s; P95 4.846 s; 29/29 provider calls succeeded)** |
 
 ## Regression and delivery
 
 | ID | Acceptance criterion | Current status |
 | --- | --- | --- |
-| M1B1-24 | All M1A compiler, five-attack, four-element and target-lab tests remain green | **CONFIRMED (458 assertions)** |
+| M1B1-24 | All M1A compiler, five-attack, four-element and target-lab tests remain green | **CONFIRMED (461 assertions)** |
 | M1B1-25 | 844×390, 852×393, 915×412, 844×343 toolbar stress, portrait gate, keyboard and Safari-toolbar flows remain usable | **CONFIRMED (final Chromium + version-matched WebKit); TO VALIDATE on physical iPhone M1B1** |
-| M1B1-26 | Godot parse, unit, worker, both D1 guards, Web build, Chromium and WebKit regression pass without new application errors | **CONFIRMED (`333758d`: Godot 458, worker 4/4, WASM 1/1, interpreter 68/68, request D1 9/9, Anthropic 16/16, budget D1 14/14, hostile safety 11/11, Web bundle, Chromium/WebKit app console 0)** |
-| M1B1-27 | PR and CI pass; a new uncached public deployment is verified by HTTP and resource hash | **TO VALIDATE** |
+| M1B1-26 | Godot parse, unit, worker, both D1 guards, Web build, Chromium and WebKit regression pass without new application errors | **CONFIRMED (`ad9c089`: Godot 461, worker 4/4, WASM 1/1, interpreter 68/68, request D1 9/9, Anthropic 17/17, budget D1 14/14, hostile safety 11/11, Web bundle, Chromium/WebKit app console 0)** |
+| M1B1-27 | PR and CI pass; a new uncached public deployment is verified by HTTP and resource hash | **CONFIRMED (draft PR #3 CI successful; Sites v15 deployment and five core resource hashes match local build)** |
 | M1B1-28 | Product owner accepts the new public build on physical iPhone Safari | **TO VALIDATE** |
 
 ## Measurement rules

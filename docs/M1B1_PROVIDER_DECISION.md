@@ -40,8 +40,9 @@ ANTHROPIC_API_KEY=<Sites Secret>
   from Claude Code or the local shell.
 - **CONFIRMED** The key is never read back, logged, copied into Git, injected into
   Godot, or shipped in HTML, JavaScript, WASM or PCK assets.
-- **TO VALIDATE** A dedicated Anthropic workspace provider-side spend limit must
-  be confirmed before enabling paid public traffic. This is independent of D1.
+- **CONFIRMED** A dedicated Anthropic workspace provider-side spend limit at or
+  below USD 5 was configured before controlled paid traffic. This remains an
+  independent backstop to the D1 application ledger.
 
 ## Five-dollar hard limit
 
@@ -76,16 +77,19 @@ ANTHROPIC_API_KEY=<Sites Secret>
 
 ## Evidence state
 
-- **CONFIRMED (offline)** 16 Anthropic adapter, 14 provider-budget and 11 hostile
-  safety tests pass alongside the existing interpreter, D1, Godot and Web suites.
-- **CONFIRMED (offline browser)** Final Chromium and version-matched WebKit mobile
-  flows pass at all target viewports with zero application console messages.
+- **CONFIRMED** 17 Anthropic adapter, 14 provider-budget and 11 hostile safety
+  tests pass alongside the existing interpreter, D1, Godot and Web suites.
+- **CONFIRMED (public browser)** Final Chromium and version-matched WebKit mobile
+  flows pass on public v15 at all target viewports with zero application console
+  errors.
 - **CONFIRMED (offline)** The paid 42-case runner is hard-disabled unless an
   explicit authorization environment value is present; it calls only the same-
   origin Project Forge endpoint and never reads a provider key.
-- **TO VALIDATE** One controlled canary, the 42-case real-provider matrix, measured
-  accuracy/latency/cost, deployed D1 migration, public resource hash, WebKit and
-  physical iPhone Safari acceptance.
+- **CONFIRMED** The public canary, deployed D1 reserve/settle audit, five core
+  resource hashes, and 42-case real-provider matrix passed. The matrix achieved
+  42/42 cases, 100% labelled pattern and element accuracy, 100% final validity,
+  1.318 s median, 4.846 s P95, and USD 0.033588 measured cost.
+- **TO VALIDATE** Physical iPhone Safari acceptance of public v15.
 
 Official implementation references checked on 2026-07-20:
 

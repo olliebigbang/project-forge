@@ -1,6 +1,136 @@
 # M1B1 Mobile Regression Test Results
 
-## Public v11 deployed-preview regression
+## Final public v15 and real Anthropic integration — authoritative result
+
+- **Executed:** 2026-07-20 (Australia/Sydney)
+- **Candidate source revision:** `ad9c08999451cbe2ec5ec7addfb8f4481755ba89`
+- **Public URL:** `https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/`
+- **Sites version:** 15
+- **Sites deployment:** `appgdep_6a5dc0e626288191bfae1bf650271f29`
+- **Provider/model:** Anthropic native Messages API + native Structured Outputs /
+  `claude-haiku-4-5-20251001`
+- **Disposition:** **PASS — PROVIDER, PUBLIC, SECURITY, CI, CHROMIUM AND WEBKIT
+  AUTOMATED GATES**
+- **Open gate:** **TO VALIDATE — product-owner physical iPhone Safari acceptance**
+
+M1B1 remains an acceptance candidate. It must not merge, clean its branch, or
+start M1B2 until the product owner accepts this public build on a real iPhone.
+
+### v14 blocking transport root cause and v15 repair
+
+The v14 Worker correctly returned HTTP 200 and a validated Anthropic result with
+`Content-Encoding: gzip`. Browser Fetch had already decoded the response, but
+Godot Web's `HTTPRequest.accept_gzip = true` attempted a second decompression.
+Godot reported `RESULT_BODY_DECOMPRESS_FAILED`, supplied an empty body, and the
+client correctly—but misleadingly—selected its validated `network_unavailable`
+fallback.
+
+Revision `ad9c089` disables engine gzip decoding only on Web. Native Godot keeps
+gzip support. The response still has to pass transport result, HTTP status,
+bounded non-empty JSON, request-ID/revision, JSON Schema, allow-list, runtime
+repair and `PowerBudget` checks before it can change game state.
+
+A zero-cost public regression deliberately exercised a gzip-encoded HTTP 200
+safe response. Godot reported transport result `0`, HTTP `200`, the expected
+validated `prompt_injection` fallback, zero provider attempts, and zero
+application console errors. This proves the fix without a paid call.
+
+### Full automated suite
+
+| Suite | Final result |
+|---|---|
+| Godot 4.7.1 import and parse | PASS |
+| M1A deterministic matrix and target lab | 32 cases, 461 assertions, 0 failures |
+| Main scene smoke | PASS |
+| Static Worker routes | 4/4 PASS |
+| WebAssembly split-loader | 1/1 PASS |
+| M1B1 interpreter/HTTP | 68/68 PASS |
+| D1 request quota/idempotency | 9/9 PASS |
+| Anthropic native adapter | 17/17 PASS |
+| D1 provider-budget guard | 14/14 PASS |
+| Hostile provider-output safety | 11/11 PASS |
+| Godot Web export and Sites bundle | PASS |
+| Draft PR #3 CI | PASS |
+
+### Controlled 42-case real-provider matrix
+
+The privacy-bounded machine-readable artifact is
+[`M1B1_REAL_PROVIDER_MATRIX_V14.json`](M1B1_REAL_PROVIDER_MATRIX_V14.json).
+It records semantic labels, repairs, validity, latency and bounded cost metadata;
+it does not retain raw prompts, provider free-form prose, secrets or full provider
+responses.
+
+| Metric | Result |
+|---|---:|
+| Executed / passed | 42 / 42 |
+| Accuracy-eligible labelled cases | 24 |
+| Attack-pattern accuracy | 100% |
+| Element accuracy | 100% |
+| JSON Schema / allow-list / runtime pass rates | 100% / 100% / 100% |
+| Provider calls / successes | 29 / 29 |
+| Median provider latency | 1,318 ms |
+| P95 provider latency | 4,846 ms |
+| Measured matrix cost | USD 0.033588 |
+
+### Public v15 live canary
+
+Exactly one paid browser UI request was authorized for the final transport
+canary. Request `m1b1-85b5bf9f2aafeba575bb44bb743c66ba` returned Anthropic /
+the exact model in one attempt, selected `boomerang` + `electric`, passed all
+three validity gates, produced Power Score 77, entered combat, and executed the
+boomerang attack. Provider latency was 1,292 ms and verified cost was USD
+0.001167. Its D1 audit settled `actual_microusd = 1167`.
+
+The controlled development evidence is approximately USD 0.271 in aggregate
+when ambiguous earlier canaries are conservatively charged at their full
+reservation. This is a reconstruction from retained audit results rather than a
+single D1 ledger-total query. Every paid call was nevertheless guarded by the
+Worker + D1 lifetime USD 5 fail-closed cap, and a separate Anthropic workspace
+cap at or below USD 5 was configured before paid traffic.
+
+### Public browser and asset verification
+
+| Engine / path | Result | Compile requests | Application console errors |
+|---|---|---:|---:|
+| Chromium simulated full lifecycle | PASS | 4 intercepted | 0 |
+| WebKit 2327 simulated full lifecycle | PASS | 4 intercepted | 0 |
+| Chromium real live canary | PASS | exactly 1 | 0 |
+| Gzip safe-response transport probe | PASS | zero paid calls | 0 |
+
+Both simulated engines passed 844×390, 852×393, 915×412 and 844×343 toolbar
+stress; Description synchronization; drawing; loading/cancel/late-response;
+portrait/landscape recovery; background/resume simulation; confirmation;
+MODIFY; twenty pattern switches; combat; and explicit retry-safe behavior. The
+only retained browser messages are known Windows WebGL renderer notices and one
+Cloudflare-injected `styleMedia` deprecation in WebKit; no application warning or
+error was accepted.
+
+All core public resources returned HTTP 200 with
+`Cache-Control: public, max-age=0, must-revalidate` and matched the locally built
+v15 bytes:
+
+| Resource | SHA-256 |
+|---|---|
+| `index.js` | `68586D6DAAFC93C6E697B3FB258976874AA7459B8931165EBB1DC3C9614CC42C` |
+| `index.pck` | `322EA1F4E7697039B768757AB190A6C7F217853CAF7956130478C987C2363C60` |
+| `wasm_chunk_loader.js` | `91156D01569FCAC8471115F4EE2BF50B6E1D60AD2C15ECB10F891C6A35A1A2DF` |
+| `index.wasm.part0` | `C275B33C7A910B2CC899BDB23DAF5F6636F120850EDC6EDCBAC341403DF7EB5B` |
+| `index.wasm.part1` | `18646FB4D2C6B6FD2D6E90173B1E2904B501D2F1D33CC94710FCE6D3D1DB9CC4` |
+
+### Retained final screenshots
+
+- [844×390 forge](m1b1_v15/forge-844x390.png)
+- [Real-provider confirmation](m1b1_v15/live-confirmation.png)
+- [Real-provider boomerang combat](m1b1_v15/live-boomerang-combat.png)
+- [Portrait rotate gate](m1b1_v15/portrait-rotate.png)
+- [WebKit 844×390 forge](m1b1_v15/webkit-forge-844x390.png)
+
+The machine-readable public summary is
+[`M1B1_PUBLIC_V15_RESULTS.json`](M1B1_PUBLIC_V15_RESULTS.json). Historical v11
+and pre-integration results are preserved below for audit chronology; they no
+longer represent the final candidate.
+
+## Historical public v11 deployed-preview regression
 
 - **Executed:** 2026-07-20 (Australia/Sydney)
 - **Public URL:** `https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/`
@@ -124,7 +254,7 @@ old deployment.
 This automated public gate does not claim a paid-provider smoke or physical
 iPhone Safari acceptance. Those remain separate owner/integrator gates.
 
-## Anthropic integration mobile QA addendum
+## Historical Anthropic integration mobile QA addendum
 
 - **Prepared:** 2026-07-20 (Australia/Sydney)
 - **QA branch:** `codex/qa/m1b1-anthropic-mobile`
@@ -179,8 +309,8 @@ provider quality, latency, billing, or physical Safari behavior.
 | AN-C-06 | Safe retry result | A two-attempt retry-safe result preserves data and keeps normal-player selector hidden | PASS simulated Chromium/WebKit |
 | AN-B-01 | Chromium console | Any application error/warning fails; exact GPU `ReadPixels`/context-lifecycle signatures are retained separately | PASS; 0 application messages |
 | AN-B-02 | WebKit console | Same functional flow and console policy, with exact Windows WebGL signatures separated | PASS; 0 application messages, 17 known renderer messages |
-| AN-L-01 | Live provider smoke | One paid request must report provider/model, one attempt, bounded USD cost, expected boomerang/electric semantics, then attack | NOT RUN by QA; requires integrator authorization and live guarded deployment |
-| AN-L-02 | Public identity | Public HTML/PCK/JS/WASM hashes must match the tested deployment, not query-only cache busting | PASS public v11; stable core hashes recorded above |
+| AN-L-01 | Live provider smoke | One paid request must report provider/model, one attempt, bounded USD cost, expected boomerang/electric semantics, then attack | PASS public v15; exactly one call, USD 0.001167, 1,292 ms, boomerang/electric confirmed and attacked |
+| AN-L-02 | Public identity | Public HTML/PCK/JS/WASM hashes must match the tested deployment, not query-only cache busting | PASS public v15; five core resource hashes match `ad9c089` build |
 | AN-L-03 | Physical Safari | Real keyboard, finger drawing, safe areas, toolbar, active-request rotation/background, confirmation rotation | TO VALIDATE on product-owner iPhone |
 
 ### Pre-integration execution result

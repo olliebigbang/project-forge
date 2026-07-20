@@ -66,6 +66,11 @@ flowchart LR
 - **CONFIRMED** Each HTTP node binds the initiating revision and request ID. The
   client requires the response ID to match before any state change, so a cancelled
   request A cannot commit after request B starts.
+- **CONFIRMED** Godot Web disables `HTTPRequest` gzip decoding because browser
+  Fetch has already decoded Sites responses carrying `Content-Encoding: gzip`.
+  Native builds retain engine gzip support. Both paths still require a successful
+  transport result, HTTP 200, non-empty bounded JSON, matching request ID, schema,
+  allow-list, runtime repair, and `PowerBudget` validation before state changes.
 - **CONFIRMED** Provider free-form names, summaries, correction text, metadata,
   and nested cost objects are not reflected. Display names/summaries and repair
   messages are generated from allow-listed labels; cost is exactly `UNKNOWN` or a
@@ -75,7 +80,8 @@ flowchart LR
   isolates, returning 429 plus `Retry-After`; it fails closed before provider
   invocation if the request guard is incomplete or unavailable. Any real provider
   configuration requires a complete D1 binding and cannot silently downgrade to
-  memory. A provider account spend cap remains mandatory before paid public traffic.
+  memory. A provider account spend cap at or below USD 5 was configured before
+  controlled paid traffic and remains mandatory.
 - **CONFIRMED** A second D1 ledger enforces the lifetime USD 5 application cap.
   The immutable key includes milestone, provider, exact model and pricing
   revision. A transaction reserves 201,280 micro-USD before provider invocation;
@@ -184,14 +190,17 @@ COOP/COEP/CORP and cache headers and owns `POST /api/compile-weapon`.
   they omit raw descriptions, drawings, keys, and full provider responses.
 - **CONFIRMED** Provider/model/environment names and the USD 5 D1 algorithm are
   recorded in `docs/M1B1_PROVIDER_DECISION.md`.
-- **TO VALIDATE** Anthropic workspace spend limit and deployed D1 migrations.
-  Provider-side moderation, production authentication, telemetry destination and
-  retention remain **TBD**.
+- **CONFIRMED** The Anthropic workspace spend limit and deployed Sites D1
+  migrations were verified before controlled paid traffic. Provider-side
+  moderation, production authentication, telemetry destination and retention
+  remain **TBD**.
 
 - **TO VALIDATE** Physical iOS/Android safe areas, virtual keyboards, thermal/GPU
   performance, and browser-specific audio remain device-stage work.
-- **TO VALIDATE** Real-provider accuracy, latency, P95, cost, rate-limit behavior,
-  and public deployment remain unmeasured until the controlled live gate runs.
+- **CONFIRMED** Public v15 and the controlled 42-case real-provider gate passed:
+  42/42 cases, 100% labelled pattern and element accuracy, 100% final validity,
+  1.318 s median, 4.846 s P95, and USD 0.033588 measured matrix cost. Production
+  traffic-scale rate-limit behavior remains **TO VALIDATE**.
 
 ## Mobile Web presentation and input boundary
 

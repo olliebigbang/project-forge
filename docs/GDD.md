@@ -1,7 +1,7 @@
 # Project Forge — Game Design Document
 
 Version: 0.1 (organized from the supplied GDD)  
-Current delivery milestone: **M1B1 real text-to-weapon interpreter — Anthropic integration CONFIRMED in source/offline tests; live deployment and device acceptance TO VALIDATE**
+Current delivery milestone: **M1B1 real text-to-weapon interpreter — public v15 and real-provider automated gates CONFIRMED; physical iPhone M1B1 acceptance TO VALIDATE**
 Stable mobile acceptance: **CONFIRMED on physical iPhone Safari with v9**
 
 ## 1. Product identity
@@ -215,9 +215,10 @@ Target data flow:
 - **CONFIRMED (M1B1)** Worker + D1 enforce the approved USD 5 lifetime provider
   budget by reserving worst-case spend before invocation and failing closed on
   exhaustion or guard uncertainty. Unknown billing is charged conservatively.
-- **TO VALIDATE** A separate Anthropic workspace spend limit is required before
-  paid public traffic. Provider moderation, production authentication policy,
-  observability, cache policy, and retention periods remain **TBD**.
+- **CONFIRMED (M1B1)** A separate Anthropic workspace spend limit at or below
+  USD 5 was configured before controlled paid traffic. Provider moderation,
+  production authentication policy, observability, cache policy, and retention
+  periods remain **TBD**.
 
 ## 9. Safety and content control
 
@@ -280,12 +281,15 @@ rolling for a higher damage value.
   input, explicit power budget, runtime and JSON Schema validation/repair, five
   attack forms, four elements, target lab, 32 input cases, public Web deployment,
   and physical iPhone Safari acceptance.
-- **M1B1 — real text-to-weapon interpreter (in progress):** Anthropic Haiku 4.5
-  is selected and configured server-side. The branch has the native adapter,
-  same-origin contract, safe fallback, confirmation/correction UI, D1 USD 5 hard
-  limit, 48-case main matrix, 60-case red-team corpus, and mobile regression.
-  Real semantic accuracy, latency, cost, public preview, WebKit rerun and physical
-  iPhone acceptance remain **TO VALIDATE**.
+- **M1B1 — real text-to-weapon interpreter (acceptance candidate):** Anthropic
+  Haiku 4.5 is configured server-side through the native Messages API and native
+  Structured Outputs. Public v15 confirms the same-origin contract, safe
+  fallback, confirmation/correction UI, deployed D1 USD 5 hard limit, and exact
+  model. The real-provider matrix passed 42/42 cases with 100% labelled pattern
+  and element accuracy, 100% Schema/allow-list/runtime validity, 1.318 s median
+  provider latency, 4.846 s P95, and USD 0.033588 measured matrix cost. Chromium
+  and version-matched WebKit public regression passed with zero application
+  console errors. Physical iPhone Safari M1B1 acceptance remains **TO VALIDATE**.
 - **M1B2 — drawing semantic understanding (not started):** image/vision meaning
   is explicitly outside M1B1; only bounded `drawing_summary` metadata is sent.
 - **M2 — vertical slice:** production combat character, three normal monsters, one

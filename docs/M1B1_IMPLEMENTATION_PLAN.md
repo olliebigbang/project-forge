@@ -1,6 +1,6 @@
 # M1B1 Real Text-to-Weapon AI Interpreter — implementation plan
 
-Status: **CONFIRMED — Anthropic guarded integration implemented; live and device gates pending**
+Status: **CONFIRMED — Anthropic guarded integration and public/provider automated gates passed; physical iPhone gate pending**
 
 Stable baseline: `v0.1.0-m1a` / `b09bd8f`
 
@@ -39,10 +39,11 @@ does not claim visual understanding; image semantics remain M1B2.
    schema, budget, worker, and public-resource regression.
 8. **CONFIRMED** Anthropic with immutable model
    `claude-haiku-4-5-20251001`, native Messages/Structured Outputs, Sites Secret,
-   and the USD 5 Worker + D1 application cap were selected and implemented.
-   Real latency and cost remain `UNKNOWN` until the guarded live matrix runs.
-9. **TO VALIDATE** Create a PR and public preview only after real-provider tests
-   pass. Do not merge or clean M1B1 worktrees before physical iPhone acceptance.
+   and the USD 5 Worker + D1 application cap were selected and implemented. The
+   guarded matrix measured 1.318 s median, 4.846 s P95, and USD 0.033588 cost.
+9. **CONFIRMED** Draft PR #3, successful CI, and uncached public Sites v15 were
+   created after real-provider tests passed. **TO VALIDATE:** physical iPhone
+   acceptance. Do not merge or clean M1B1 branches before that acceptance.
 
 ## Architecture boundary
 
