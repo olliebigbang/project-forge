@@ -563,6 +563,11 @@ try {
     );
     assertCreativeInput(restoredConfirmation, timeoutDescription, "confirmation rotation");
 
+    // A physical orientation animation does not permit a same-frame tap. Give
+    // WebKit one short visual-settle window after the bridge reports the restored
+    // confirmation, then require the very first user-equivalent tap to succeed.
+    await sleep(250);
+
     await tapControl("modify");
     let modified = await waitFor(
       (value) => value.screen === "confirmation" && value.modify_mode && value.selector_visible,

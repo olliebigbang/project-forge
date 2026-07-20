@@ -1,14 +1,15 @@
 # M1B1 Mobile Regression Test Results
 
-## Anthropic integration mobile QA addendum (pre-integration design)
+## Anthropic integration mobile QA addendum
 
 - **Prepared:** 2026-07-20 (Australia/Sydney)
 - **QA branch:** `codex/qa/m1b1-anthropic-mobile`
 - **QA worktree:** `C:\Users\Eddie L\Documents\project-forge-m1b1-anthropic-mobile`
 - **Baseline source revision:** `d41511c9c65c0c9760d79b62ee7bc9f7e78951b6`
+- **Integrated candidate under test:** `fc9820f`
 - **Selected provider/model:** Anthropic / `claude-haiku-4-5-20251001`
 - **Real Anthropic call in this QA workstream:** **NOT RUN**
-- **Current disposition:** **TEST DESIGN READY; INTEGRATED ANTHROPIC CANDIDATE TO VALIDATE**
+- **Current disposition:** **PASS - SIMULATED CHROMIUM + WEBKIT MOBILE GATE ON `fc9820f`**
 
 The executable QA design is
 `tests/browser/run_m1b1_anthropic_mobile_regression.mjs`. Its default
@@ -18,42 +19,42 @@ Anthropic header, call Anthropic, or spend provider budget. A separate
 `live-one-call` mode is hard-disabled unless the integrator explicitly sets
 `M1B1_QA_ALLOW_LIVE_PROVIDER=one-paid-call`; this QA branch did not set it.
 
-`CONFIRMED` on the provider-neutral baseline, Chromium simulated HTTP regression
-passes the complete flow described below. This proves the browser/UI oracles and
-test harness, not Anthropic Structured Outputs, real D1 budget enforcement,
-provider quality, latency, billing, or deployed Safari behavior.
+`CONFIRMED` candidate `fc9820f` passes the complete simulated HTTP flow in both
+Chromium and WebKit. This proves the browser/UI oracles and test harness, not a
+real Anthropic invocation, live Structured Outputs, deployed D1 budget state,
+provider quality, latency, billing, or physical Safari behavior.
 
 ### Anthropic mobile acceptance matrix
 
-| ID | Area | Automated oracle | Pre-integration status |
+| ID | Area | Automated oracle | Latest disposition |
 |---|---|---|---|
-| AN-M-01 | Normal UI | Five attack-pattern controls have no visible/clickable rectangles before MODIFY or Developer/Test Mode | PASS Chromium; TO VALIDATE integrated WebKit/public |
-| AN-M-02 | Layout | 844×390 keeps canvas/input/clear/RESET/FORGE in bounds, canvas >= 40% and about 150 CSS px, no document scroll | PASS Chromium |
-| AN-M-03 | Layout | 852×393 meets the same geometry and touch-target rules | PASS Chromium |
-| AN-M-04 | Layout | 915×412 meets the same geometry and touch-target rules | PASS Chromium |
-| AN-M-05 | Safari toolbar stress | 844×343 remains usable after a reduced `visualViewport` | PASS Chromium simulation; physical Safari TO VALIDATE |
-| AN-M-06 | Description | Native HTML overlay focuses, edits, deletes, clears, and synchronizes to Godot | PASS Chromium; real iOS keyboard TO VALIDATE |
-| AN-M-07 | Drawing | Stroke is accepted only within the reported canvas and survives request lifecycle changes | PASS Chromium touch |
-| AN-P-01 | Client boundary | Godot calls only same-origin `/api/compile-weapon` | PASS intercepted HTTP |
-| AN-P-02 | Secret boundary | Client sends no `Authorization`, `x-api-key`, or `anthropic-version` header | PASS intercepted HTTP |
-| AN-P-03 | Drawing privacy | Request carries bounded numeric `drawing_summary`, never raw point/stroke geometry | PASS intercepted HTTP |
-| AN-P-04 | Request identity | Browser request IDs match the random 128-bit `m1b1-<32 hex>` form | PASS intercepted HTTP |
-| AN-R-01 | Loading | Delayed request exposes a reachable CANCEL and does not duplicate the logical request | PASS Chromium |
-| AN-R-02 | Active rotation | Portrait gate appears during an active request; returning to landscape restores loading without refresh | PASS Chromium |
-| AN-R-03 | Background/resume | Temporary tab background/foreground does not lose text, drawing, or lock the UI | PASS Chromium tab simulation; real iOS suspension TO VALIDATE |
-| AN-R-04 | Cancel | CANCEL returns to idle and preserves Description/drawing | PASS Chromium |
-| AN-R-05 | Late response | Cancelled late response cannot commit or navigate | PASS Chromium |
-| AN-R-06 | Wrapper timeout | Timeout reaches a validated fallback with exactly one recorded provider attempt; no automatic retry | PASS simulated response; Worker/Anthropic TO VALIDATE |
-| AN-R-07 | TRY AGAIN | User action creates exactly one new logical request ID and preserves creative input | PASS Chromium |
-| AN-R-08 | Explicit safe retry | One logical request may record exactly two provider attempts only for a fixture explicitly marked retry-safe | PASS simulated response; adapter classification TO VALIDATE |
-| AN-C-01 | Confirmation | Result/fallback is schema-, allow-list-, runtime-, and PowerBudget-valid before presentation | PASS Chromium |
-| AN-C-02 | Confirmation rotation | Portrait and landscape round-trip restores the same confirmation and creative input | PASS Chromium |
-| AN-C-03 | MODIFY | Only MODIFY exposes five mutually exclusive controls; all five repairs remain valid | PASS Chromium |
-| AN-C-04 | Touch stress | Twenty additional mode changes do not lock the page | PASS Chromium |
-| AN-C-05 | Combat | Confirmed corrected boomerang enters combat, hides selector, and executes boomerang attack | PASS Chromium |
-| AN-C-06 | Safe retry result | A two-attempt retry-safe result preserves data and keeps normal-player selector hidden | PASS Chromium simulated response |
+| AN-M-01 | Normal UI | Five attack-pattern controls have no visible/clickable rectangles before MODIFY or Developer/Test Mode | PASS simulated Chromium/WebKit; public TO VALIDATE |
+| AN-M-02 | Layout | 844×390 keeps canvas/input/clear/RESET/FORGE in bounds, canvas >= 40% and about 150 CSS px, no document scroll | PASS simulated Chromium/WebKit |
+| AN-M-03 | Layout | 852×393 meets the same geometry and touch-target rules | PASS simulated Chromium/WebKit |
+| AN-M-04 | Layout | 915×412 meets the same geometry and touch-target rules | PASS simulated Chromium/WebKit |
+| AN-M-05 | Safari toolbar stress | 844×343 remains usable after a reduced `visualViewport` | PASS simulated Chromium/WebKit; physical Safari TO VALIDATE |
+| AN-M-06 | Description | Native HTML overlay focuses, edits, deletes, clears, and synchronizes to Godot | PASS simulated Chromium/WebKit; real iOS keyboard TO VALIDATE |
+| AN-M-07 | Drawing | Stroke is accepted only within the reported canvas and survives request lifecycle changes | PASS Chromium touch + WebKit pointer; physical WebKit finger TO VALIDATE |
+| AN-P-01 | Client boundary | Godot calls only same-origin `/api/compile-weapon` | PASS intercepted HTTP in both engines |
+| AN-P-02 | Secret boundary | Client sends no `Authorization`, `x-api-key`, or `anthropic-version` header | PASS intercepted HTTP in both engines |
+| AN-P-03 | Drawing privacy | Request carries bounded numeric `drawing_summary`, never raw point/stroke geometry | PASS intercepted HTTP in both engines |
+| AN-P-04 | Request identity | Browser request IDs match the random 128-bit `m1b1-<32 hex>` form | PASS intercepted HTTP in both engines |
+| AN-R-01 | Loading | Delayed request exposes a reachable CANCEL and does not duplicate the logical request | PASS simulated Chromium/WebKit |
+| AN-R-02 | Active rotation | Portrait gate appears during an active request; returning to landscape restores loading without refresh | PASS simulated Chromium/WebKit |
+| AN-R-03 | Background/resume | Temporary tab background/foreground does not lose text, drawing, or lock the UI | PASS tab simulation in both engines; real iOS suspension TO VALIDATE |
+| AN-R-04 | Cancel | CANCEL returns to idle and preserves Description/drawing | PASS simulated Chromium/WebKit |
+| AN-R-05 | Late response | Cancelled late response cannot commit or navigate | PASS simulated Chromium/WebKit |
+| AN-R-06 | Wrapper timeout | Timeout reaches a validated fallback with exactly one recorded provider attempt; no automatic retry | PASS simulated Chromium/WebKit; real Anthropic TO VALIDATE |
+| AN-R-07 | TRY AGAIN | User action creates exactly one new logical request ID and preserves creative input | PASS simulated Chromium/WebKit |
+| AN-R-08 | Explicit safe retry | One logical request may record exactly two provider attempts only for a fixture explicitly marked retry-safe | PASS simulated Chromium/WebKit; real adapter classification TO VALIDATE |
+| AN-C-01 | Confirmation | Result/fallback is schema-, allow-list-, runtime-, and PowerBudget-valid before presentation | PASS simulated Chromium/WebKit |
+| AN-C-02 | Confirmation rotation | Portrait and landscape round-trip restores the same confirmation and creative input | PASS simulated Chromium/WebKit |
+| AN-C-03 | MODIFY | Only MODIFY exposes five mutually exclusive controls; all five repairs remain valid | PASS simulated Chromium/WebKit |
+| AN-C-04 | Touch stress | Twenty additional mode changes do not lock the page | PASS simulated Chromium/WebKit |
+| AN-C-05 | Combat | Confirmed corrected boomerang enters combat, hides selector, and executes boomerang attack | PASS simulated Chromium/WebKit |
+| AN-C-06 | Safe retry result | A two-attempt retry-safe result preserves data and keeps normal-player selector hidden | PASS simulated Chromium/WebKit |
 | AN-B-01 | Chromium console | Any application error/warning fails; exact GPU `ReadPixels`/context-lifecycle signatures are retained separately | PASS; 0 application messages |
-| AN-B-02 | WebKit console | Same functional flow and console policy, with exact Windows WebGL signatures separated | TO VALIDATE on integrated candidate |
+| AN-B-02 | WebKit console | Same functional flow and console policy, with exact Windows WebGL signatures separated | PASS; 0 application messages, 17 known renderer messages |
 | AN-L-01 | Live provider smoke | One paid request must report provider/model, one attempt, bounded USD cost, expected boomerang/electric semantics, then attack | NOT RUN by QA; requires integrator authorization and live guarded deployment |
 | AN-L-02 | Public identity | Public HTML/PCK/JS/WASM hashes must match the tested deployment, not query-only cache busting | TO VALIDATE after deployment |
 | AN-L-03 | Physical Safari | Real keyboard, finger drawing, safe areas, toolbar, active-request rotation/background, confirmation rotation | TO VALIDATE on product-owner iPhone |
@@ -85,31 +86,63 @@ drawing state were retained across every required cancellation/failure/retry
 boundary. Application console errors/warnings were zero; four exact Chromium
 `ReadPixels` GPU performance warnings were retained as renderer evidence.
 
-The first WebKit attempt was **INCONCLUSIVE / HARNESS ENVIRONMENT**, not a product
-failure: the cached Playwright JavaScript package expected WebKit revision 2311,
-while only revision 2327 remained installed. Launching 2327 through the older
-package did not complete inside 120 seconds. The integrated follow-up must run
-with a matching Playwright package/browser revision before WebKit can pass.
+### Final integrated candidate rerun
+
+QA merged `fc9820f` into the isolated branch, exported a fresh Godot 4.7.1 Web
+build, and ran the finalized `simulated` suite independently in both engines.
+`M1B1_QA_ALLOW_LIVE_PROVIDER` was absent for every command, so no test could enter
+`live-one-call` mode and no Anthropic request was made.
+
+| Engine | Result | Same-origin simulated calls | Application errors/warnings | Known renderer messages |
+|---|---|---:|---:|---:|
+| Chromium | **PASS** | 4 | 0 | 4 `ReadPixels` GPU warnings |
+| WebKit | **PASS** | 4 | 0 | 1 `WEBGL_polygon_mode` + 16 `glBlitFramebuffer` messages |
+
+Both engines produced identical geometry: 237.25 px canvas at 844×390, 239.08
+px at 852×393, 258.07 px at 915×412, and 195.32 px in the 844×343 toolbar
+stress viewport. Both passed loading rotation, tab background/resume simulation,
+CANCEL and late-response rejection, timeout with one attempt, TRY AGAIN with a
+new request ID, confirmation rotation, five-mode MODIFY plus twenty switches,
+corrected boomerang combat, explicitly retry-safe two-attempt metadata, and all
+Description/drawing preservation assertions.
+
+The earlier WebKit harness mismatch is closed. The installed WebKit revision was
+2327, while the remaining general Playwright package expected revision 2311.
+Local browser metadata identified the exact matching package as
+`1.62.0-alpha-1783623505000`; installing that JavaScript package with
+`--ignore-scripts` reused revision 2327 without downloading or replacing a
+browser. The version-matched run completed in 17.5 seconds.
+
+Two diagnostic WebKit runs tapped MODIFY in the same polling frame in which the
+confirmation returned from portrait to landscape; the driver discarded that
+tap while the page stayed responsive and unchanged. The runner now waits 250 ms
+for the visible orientation transition to settle, then requires the first
+user-equivalent MODIFY tap to succeed. The final WebKit and Chromium runs pass
+this rule. A real iPhone orientation animation naturally imposes a longer delay,
+but physical-device confirmation remains required.
+
+Ignored detailed evidence:
+
+- `output/playwright/m1b1-anthropic-fc9820f/chromium-final.json`
+- `output/playwright/m1b1-anthropic-fc9820f/webkit-final.json`
 
 Tested local asset identity:
 
 | Asset | SHA-256 |
 |---|---|
-| `index.html` | `1050C12712C4AE4D62F46BA2DFCB6C5C1E9BD0BDE19E8169FDB1023237F009B5` |
+| `index.html` | `ADF9AA1ED7763499F5DEDE1BE0261AF91CD26B104E7F5267E8AD7955FAC46597` |
 | `index.js` | `68586D6DAAFC93C6E697B3FB258976874AA7459B8931165EBB1DC3C9614CC42C` |
-| `index.pck` | `5462FE85920D9E1ACD07E5705C525FE76868A5319ACE2CC2B8D5F4636BB5122D` |
+| `index.pck` | `D10941B9083F1551DC85D82CBB8E64F1F0F2E41186AA066164ABEF82703DBCE8` |
 | `index.wasm` | `35116F68540AC41ACF7D71EA457ADDED91B5E960A9CCA3E2ACC72918EAF01277` |
 
 ### Integration blockers and required follow-up
 
-- **P1 gate:** run the new matrix against the integrator's Anthropic + D1 commit
-  in both Chromium and a version-matched Playwright WebKit runtime.
-- **P1 gate:** prove the Worker timeout records one attempt and never invokes an
-  automatic retry; prove a second attempt occurs only under an adapter fixture
-  explicitly classified retry-safe.
-- **P1 gate:** prove D1 fail-closed and USD 5 budget responses recover to a usable
-  mobile forge without losing text/drawing. Browser QA must not attempt to spend
-  through the full cap.
+- **Closed offline mobile gate:** candidate `fc9820f` passes the new simulated
+  matrix in Chromium and version-matched WebKit.
+- **Separate server gate:** Worker timeout accounting, retry-safe classification,
+  D1 fail-closed behavior, and conservative charging are owned by the adapter and
+  budget-guard test suites. This mobile QA injected their safe response contracts
+  but did not independently call Anthropic or spend through the USD 5 cap.
 - **P1 gate:** deploy new asset hashes and repeat public Chromium/WebKit smoke.
 - **Physical device gate:** real iPhone Safari remains authoritative for keyboard,
   finger drawing, toolbar/safe area, background suspension, and active-request or
