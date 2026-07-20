@@ -1,0 +1,356 @@
+{
+  "suite": "M1B1 real Claude blocker evidence",
+  "generated_at": "2026-07-20T09:22:50.201Z",
+  "target": "https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?build=blocker-v16-2dfc6fa",
+  "provider": "anthropic",
+  "model": "claude-haiku-4-5-20251001",
+  "planned_provider_calls": 2,
+  "submitted_compile_requests": 2,
+  "blocked_duplicate_requests": 0,
+  "reported_provider_attempts": 2,
+  "reported_provider_attempts_status": "confirmed_from_two_server_responses",
+  "application_budget_usd": 5,
+  "d1_lifetime_budget_evidence": "Correlate request IDs with Sites Worker provider_budget=settled logs; static guard tests prove the USD 5 fail-closed cap.",
+  "cases": [
+    {
+      "kind": "grenade",
+      "status": "passed",
+      "submitted_compile_requests": 1,
+      "blocked_duplicate_requests": 0,
+      "reported_provider_attempts": 1,
+      "submitted_request_id": "m1b1-14c6f2d1bd9a25edac09aa52a7c34b45",
+      "description": "a thrown grenade that flies in an arc and explodes after landing",
+      "request": {
+        "request_id": "m1b1-14c6f2d1bd9a25edac09aa52a7c34b45",
+        "description": "a thrown grenade that flies in an arc and explodes after landing",
+        "drawing_summary": {
+          "aspect_ratio": 0.999901100430287,
+          "coverage": 0.0834693726313169,
+          "dominant_direction": "mixed",
+          "point_count": 97,
+          "stroke_count": 1
+        }
+      },
+      "response": {
+        "http_status": 200,
+        "success": true,
+        "provider_invoked": true,
+        "provider_metadata": {
+          "provider": "anthropic",
+          "model": "claude-haiku-4-5-20251001",
+          "attempts": 1
+        },
+        "confidence": 0.9,
+        "latency_ms": 3383,
+        "observed_ms": 8027,
+        "estimated_cost": {
+          "amount": 0.001797,
+          "currency": "USD"
+        },
+        "schema_valid": true,
+        "allow_list_valid": true,
+        "power_valid": true,
+        "runtime_valid": true,
+        "corrections": [
+          "weapon_class: normalized to ranged for area_blast",
+          "budget: strong capability added tradeoff 'cooldown_lock'"
+        ],
+        "weapon_spec": {
+          "name": "Ink Arc Grenade",
+          "weapon_class": "ranged",
+          "weapon_form": "grenade",
+          "delivery": "thrown",
+          "trajectory": "arc",
+          "impact": "delayed_or_contact",
+          "area_effect": "explosion",
+          "attack_pattern": "area_blast",
+          "element": "normal",
+          "damage": 34,
+          "attack_speed": 0.7,
+          "range": 220,
+          "special_ability": "none",
+          "status_effect": "none",
+          "drawback": "cooldown_lock",
+          "visual_material": "forged_metal",
+          "power_score": 59,
+          "projectile_speed": 560,
+          "area_radius": 165,
+          "pierce_count": 1,
+          "return_speed": 680
+        },
+        "power_budget": {
+          "damage": 18.700000000000003,
+          "attack_speed": 7,
+          "range": 4.888888888888889,
+          "attack_pattern": 18,
+          "element": 0,
+          "special_ability": 0,
+          "status_effect": 0,
+          "delivery": 5,
+          "trajectory": 4,
+          "impact": 3,
+          "area_effect": 6,
+          "projectile_speed": 2.8,
+          "return_speed": 0,
+          "area_radius": 5.5,
+          "piercing": 0,
+          "drawback_credit": -16,
+          "total": 58.9
+        }
+      },
+      "client": {
+        "request_snapshot": {
+          "description": "a thrown grenade that flies in an arc and explodes after landing",
+          "description_revision": 2,
+          "drawing_summary": {
+            "aspect_ratio": 0.999901100430287,
+            "coverage": 0.0834693726313169,
+            "dominant_direction": "mixed",
+            "point_count": 97,
+            "stroke_count": 1
+          },
+          "request_id": "m1b1-14c6f2d1bd9a25edac09aa52a7c34b45",
+          "stroke_count": 1
+        },
+        "stroke_geometry": {
+          "fitted_bounds": {
+            "height": 73.5999984741211,
+            "width": 73.5927200317383,
+            "x": 24.2036399841309,
+            "y": -36.7999992370605
+          },
+          "padding_fraction": 0.1,
+          "relative_aspect_error": 2.15019004601302e-7,
+          "rendered_aspect": 0.999901315428027,
+          "scale_x": 0.311178786745496,
+          "scale_y": 0.311178786745496,
+          "source_aspect": 0.999901100430287,
+          "source_bounds": {
+            "height": 236.519973754883,
+            "width": 236.49658203125,
+            "x": 723.251647949219,
+            "y": 109.499984741211
+          }
+        },
+        "confirmation_visual_transforms": {
+          "held": {
+            "absolute_delta": 0,
+            "scale_x": 1,
+            "scale_y": 1
+          },
+          "projectiles": [],
+          "review": {
+            "absolute_delta": 0,
+            "scale_x": 1,
+            "scale_y": 1
+          }
+        },
+        "held_visual_transform": {
+          "absolute_delta": 0,
+          "scale_x": 1,
+          "scale_y": 1
+        },
+        "attack_visual_transform": {
+          "absolute_delta": 5.96046447753906e-8,
+          "scale_x": 0.999999940395355,
+          "scale_y": 1
+        },
+        "attack_pattern_executed": "area_blast",
+        "flight": {
+          "active_projectiles": 1,
+          "active_area_blasts": 0,
+          "projectile_origin": {
+            "x": 417.5,
+            "y": 430.799987792969
+          },
+          "combat_message": "Grenade thrown on a visible arc; explosion follows at impact.",
+          "visual_transforms": [
+            {
+              "absolute_delta": 0,
+              "scale_x": 0.519999980926514,
+              "scale_y": 0.519999980926514
+            }
+          ]
+        },
+        "impact": {
+          "active_projectiles": 0,
+          "active_area_blasts": 1,
+          "projectile_origin": {
+            "x": 417.5,
+            "y": 430.799987792969
+          },
+          "area_impact_position": {
+            "x": 642.246887207031,
+            "y": 479.915557861328
+          },
+          "area_impact_distance": 230.051086425781,
+          "combat_message": "Thrown grenade exploded at its landing point."
+        }
+      },
+      "application_console_errors": 0
+    },
+    {
+      "kind": "bow",
+      "status": "passed",
+      "submitted_compile_requests": 1,
+      "blocked_duplicate_requests": 0,
+      "reported_provider_attempts": 1,
+      "submitted_request_id": "m1b1-275938d440292dec4be7a96a0b6963f7",
+      "description": "a wooden longbow that fires a straight arrow projectile",
+      "request": {
+        "request_id": "m1b1-275938d440292dec4be7a96a0b6963f7",
+        "description": "a wooden longbow that fires a straight arrow projectile",
+        "drawing_summary": {
+          "aspect_ratio": 6.19528114508692,
+          "coverage": 0.343359492064571,
+          "dominant_direction": "horizontal",
+          "point_count": 19,
+          "stroke_count": 1
+        }
+      },
+      "response": {
+        "http_status": 200,
+        "success": true,
+        "provider_invoked": true,
+        "provider_metadata": {
+          "provider": "anthropic",
+          "model": "claude-haiku-4-5-20251001",
+          "attempts": 1
+        },
+        "confidence": 0.9,
+        "latency_ms": 1390,
+        "observed_ms": 5596,
+        "estimated_cost": {
+          "amount": 0.001778,
+          "currency": "USD"
+        },
+        "schema_valid": true,
+        "allow_list_valid": true,
+        "power_valid": true,
+        "runtime_valid": true,
+        "corrections": [],
+        "weapon_spec": {
+          "name": "Ink Longbow",
+          "weapon_class": "ranged",
+          "weapon_form": "bow",
+          "delivery": "projectile",
+          "trajectory": "direct",
+          "impact": "contact",
+          "area_effect": "none",
+          "attack_pattern": "straight_projectile",
+          "element": "normal",
+          "damage": 26,
+          "attack_speed": 1.3,
+          "range": 675,
+          "special_ability": "none",
+          "status_effect": "none",
+          "drawback": "none",
+          "visual_material": "forged_metal",
+          "power_score": 58,
+          "projectile_speed": 620,
+          "area_radius": 120,
+          "pierce_count": 1,
+          "return_speed": 680
+        },
+        "power_budget": {
+          "damage": 14.3,
+          "attack_speed": 13,
+          "range": 15,
+          "attack_pattern": 9,
+          "element": 0,
+          "special_ability": 0,
+          "status_effect": 0,
+          "delivery": 3,
+          "trajectory": 0,
+          "impact": 0,
+          "area_effect": 0,
+          "projectile_speed": 3.1,
+          "return_speed": 0,
+          "area_radius": 0,
+          "piercing": 0,
+          "drawback_credit": 0,
+          "total": 57.4
+        }
+      },
+      "client": {
+        "request_snapshot": {
+          "description": "a wooden longbow that fires a straight arrow projectile",
+          "description_revision": 2,
+          "drawing_summary": {
+            "aspect_ratio": 6.19528114508692,
+            "coverage": 0.343359492064571,
+            "dominant_direction": "horizontal",
+            "point_count": 19,
+            "stroke_count": 1
+          },
+          "request_id": "m1b1-275938d440292dec4be7a96a0b6963f7",
+          "stroke_count": 1
+        },
+        "stroke_geometry": {
+          "fitted_bounds": {
+            "height": 15.2374048233032,
+            "width": 94.4000015258789,
+            "x": 13.8000001907349,
+            "y": -7.61870193481445
+          },
+          "padding_fraction": 0.1,
+          "relative_aspect_error": 1.36709551123992e-7,
+          "rendered_aspect": 6.19528029813281,
+          "scale_x": 0.0790649848234453,
+          "scale_y": 0.0790649848234453,
+          "source_aspect": 6.19528114508692,
+          "source_bounds": {
+            "height": 192.720001220703,
+            "width": 1193.95458984375,
+            "x": 152.445495605469,
+            "y": 122.639984130859
+          }
+        },
+        "confirmation_visual_transforms": {
+          "held": {
+            "absolute_delta": 0,
+            "scale_x": 1,
+            "scale_y": 1
+          },
+          "projectiles": [],
+          "review": {
+            "absolute_delta": 0,
+            "scale_x": 1,
+            "scale_y": 1
+          }
+        },
+        "held_visual_transform": {
+          "absolute_delta": 0,
+          "scale_x": 1,
+          "scale_y": 1
+        },
+        "attack_visual_transform": {
+          "absolute_delta": 5.96046447753906e-8,
+          "scale_x": 0.999999940395355,
+          "scale_y": 1
+        },
+        "attack_pattern_executed": "straight_projectile",
+        "flight": {
+          "active_projectiles": 1,
+          "active_area_blasts": 0,
+          "projectile_origin": {
+            "x": 417.5,
+            "y": 430.799987792969
+          },
+          "combat_message": "Straight projectile launched; stops on first target.",
+          "visual_transforms": [
+            {
+              "absolute_delta": 0,
+              "scale_x": 0.519999980926514,
+              "scale_y": 0.519999980926514
+            }
+          ]
+        },
+        "impact": null
+      },
+      "application_console_errors": 0
+    }
+  ],
+  "measured_cost_usd": 0.003575,
+  "passed": true
+}

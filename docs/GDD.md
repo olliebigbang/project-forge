@@ -1,7 +1,7 @@
 # Project Forge — Game Design Document
 
 Version: 0.1 (organized from the supplied GDD)  
-Current delivery milestone: **M1A deterministic weapon compiler — CONFIRMED complete**
+Current delivery milestone: **M1B1 real text-to-weapon interpreter — physical iPhone acceptance CONFIRMED; formal merge/deploy closure in progress**
 Stable mobile acceptance: **CONFIRMED on physical iPhone Safari with v9**
 
 ## 1. Product identity
@@ -110,13 +110,21 @@ Voice is an input method, not a separate weapon system.
 
 ### 5.2 AI responsibilities and boundaries
 
-- **CONFIRMED** AI may interpret a weapon concept, select supported classes and
-  ability modules, allocate values inside a power budget, name and explain the
-  result, and detect unsafe content.
+- **CONFIRMED (M1B1)** AI interprets the concept and selects only supported
+  semantic labels. The project-owned compiler, validator, and `PowerBudget`—not
+  the model—deterministically assign or repair executable numeric values.
 - **CONFIRMED** AI must not generate or execute game code, create infinite damage,
   alter saves, call engine functions directly, bypass budgets, or return an
   unsupported capability.
 - **CONFIRMED (M0)** Use a deterministic local mock. No paid API or API key.
+- **CONFIRMED (M1B1)** The production client calls only the same-origin project
+  endpoint. The selected server adapter uses Anthropic's native Messages API,
+  native Structured Outputs, and immutable model
+  `claude-haiku-4-5-20251001`; it never uses an OpenAI-compatible route or model
+  upgrade. The credential is a Sites Secret and never enters client assets.
+- **CONFIRMED (M1B1)** Provider free-form display text, correction text, metadata,
+  and nested cost fields are untrusted and never reflected directly. The server
+  derives names, summaries, and repair messages from allow-listed semantic labels.
 
 ### 5.3 Canonical `WeaponSpec`
 
@@ -124,6 +132,11 @@ Voice is an input method, not a separate weapon system.
 {
   "name": "极寒回旋伞",
   "weapon_class": "ranged",
+  "weapon_form": "boomerang",
+  "delivery": "thrown",
+  "trajectory": "returning",
+  "impact": "contact",
+  "area_effect": "none",
   "attack_pattern": "boomerang",
   "element": "ice",
   "damage": 32,
@@ -139,6 +152,13 @@ Voice is an input method, not a separate weapon system.
 
 - **CONFIRMED** Runtime data must pass schema validation and numeric clamping.
 - **CONFIRMED** The checked-in schema is `schema/weapon_spec.schema.json`.
+- **CONFIRMED (M1B1)** Weapon form and delivery semantics are independent from
+  the executable attack/effect module. In particular, a grenade is thrown on an
+  arc before `area_blast` creates the landing explosion; `area_blast` alone is
+  not a delivery mechanism.
+- **TO VALIDATE** `front_shield` in the product-intent example is not in the
+  current executable M1A allow-list. M1B1 repairs/omits it instead of inventing a
+  new module; adding a shield ability requires separate gameplay and budget work.
 
 ### 5.4 Supported modules
 
@@ -147,7 +167,9 @@ Voice is an input method, not a separate weapon system.
 - **CONFIRMED (full MVP/M1):** normal, fire, ice, and electricity.
 - **CONFIRMED (full MVP/M1):** burn, freeze, chain hit, knockback, and temporary
   shield.
-- **CONFIRMED (M0):** only melee slash and straight projectile are executable.
+- **CONFIRMED (M1A):** all five listed attack forms and all four elements are
+  executable. Temporary front shielding remains **TO VALIDATE** as a future
+  supported ability.
 - **CONFIRMED** The first version promises stable combinations of supported
   modules, not perfect realization of arbitrary descriptions.
 
@@ -161,6 +183,12 @@ Voice is an input method, not a separate weapon system.
 - **CONFIRMED** A polished asynchronous card image may not block combat.
 - **CONFIRMED (M0)** The spike directly reuses normalized player strokes and adds
   only a simple color/glow treatment; grip inference and smoothing are later work.
+- **CONFIRMED (M1B1 P0 visual-role fix)** Confirmation and held visuals use the
+  actual stroke bounding box, 10% padding, and one uniform scale; canvas
+  whitespace is ignored and original strokes are not rewritten. A projectile
+  reuses player ink only when the validated form is itself thrown (grenade or
+  boomerang). Bow, bullet, energy and piercing projectiles are deterministic
+  program graphics, separate from the held weapon and impact effect.
 
 ## 7. Enemies and levels
 
@@ -186,13 +214,28 @@ Target data flow:
 
 - **CONFIRMED** No AI key in the client; all real AI requests go through a backend.
 - **CONFIRMED** Validate input and output; require JSON Schema; clamp numeric
-  bounds; provide a fallback; log latency, errors, and estimated cost; cache
+  bounds; provide an explicit non-equipable error on failure; log latency,
+  errors, and estimated cost; cache
   equivalent input; never call AI during combat; do not retain raw voice by
   default.
 - **CONFIRMED (M0)** `MockAIService` runs locally and implements the same data
   boundary without network access.
-- **TBD** Backend language, provider, hosting, cache, observability, moderation
-  vendor, and retention periods.
+- **CONFIRMED (M1B1)** Godot Web calls `POST /api/compile-weapon` on its own
+  origin. The Sites server worker owns request limits, safety checks, provider
+  invocation, schema/allow-list/budget enforcement, non-equipable failure
+  envelopes, and privacy-safe
+  audit metadata. Secrets exist only as server environment variables.
+- **CONFIRMED (M1B1)** Random client/request IDs, SHA-256 privacy namespaces,
+  strict response-ID matching, and privacy-safe logs are programmatically
+  enforced. Sites D1 owns atomic per-session/network quotas and cross-isolate
+  idempotency.
+- **CONFIRMED (M1B1)** Worker + D1 enforce the approved USD 5 lifetime provider
+  budget by reserving worst-case spend before invocation and failing closed on
+  exhaustion or guard uncertainty. Unknown billing is charged conservatively.
+- **CONFIRMED (M1B1)** A separate Anthropic workspace spend limit at or below
+  USD 5 was configured before controlled paid traffic. Provider moderation,
+  production authentication policy, observability, cache policy, and retention
+  periods remain **TBD**.
 
 ## 9. Safety and content control
 
@@ -255,9 +298,25 @@ rolling for a higher damage value.
   input, explicit power budget, runtime and JSON Schema validation/repair, five
   attack forms, four elements, target lab, 32 input cases, public Web deployment,
   and physical iPhone Safari acceptance.
-- **M1B — real AI interpretation (not started):** AI inference may be considered
-  only as a separately scoped branch after release planning; no paid API or M1B
-  implementation is part of the M1A stable branch.
+- **M1B1 — real text-to-weapon interpreter (acceptance candidate):** Anthropic
+  Haiku 4.5 is configured server-side through the native Messages API and native
+  Structured Outputs. The public blocker-fix candidate confirms the same-origin
+  contract, explicit non-equipable failure flow, atomic request snapshots,
+  confirmation/correction UI, deployed D1 USD 5 hard limit, and exact
+  model. The real-provider matrix passed 42/42 cases with 100% labelled pattern
+  and element accuracy, 100% Schema/allow-list/runtime validity, 1.318 s median
+  provider latency, 4.846 s P95, and USD 0.033588 measured matrix cost. Chromium
+  and version-matched WebKit public regression passed with zero application
+  console errors. Two additional live blocker cases confirmed grenade
+  thrown/arc/landing-explosion and bow direct-projectile semantics for USD
+  0.003575 total. Physical iPhone Safari M1B1 acceptance is **CONFIRMED**.
+  A later physical-iPhone pass reopened two P0 gates: keyboard focus/Canvas
+  stability and held/projectile/impact visual separation. The replacement keeps
+  a stable Canvas with compact text entry, keeps bows held while arrows fly, and
+  gives grenades a centred drawn flight copy plus independent explosion. These
+  are **CONFIRMED in Chromium/WebKit and on physical iPhone Safari**.
+- **M1B2 — drawing semantic understanding (not started):** image/vision meaning
+  is explicitly outside M1B1; only bounded `drawing_summary` metadata is sent.
 - **M2 — vertical slice:** production combat character, three normal monsters, one
   boss, 3–4 stages, win/loss/retry, base audio, animation, feedback.
 - **M3 — voice and mobile test:** voice-to-text, Android internal test, iOS

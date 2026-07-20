@@ -19,6 +19,11 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v6
 
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
       - name: Install Godot 4.7.1 and Web export templates
         shell: bash
         run: |
@@ -52,20 +57,102 @@ jobs:
         run: |
           node --test tests/static_worker.test.mjs
           node --test tests/wasm_chunk_loader.test.mjs
+          node --test tests/weapon_interpreter.test.mjs
+          node --test tests/durable_request_guard.test.mjs
+          node --test tests/anthropic_weapon_adapter.test.mjs
+          node --test tests/provider_budget_guard.test.mjs
+          node --test tests/m1b1_anthropic_safety_regression.test.mjs
 
-      - name: Export Web release
+      - name: Build canonical Web and Sites release
+        shell: pwsh
+        run: ./scripts/build_sites_preview.ps1
+
+      - name: Verify canonical Sites bundle
+        shell: bash
         run: |
-          mkdir -p build/web
-          godot --headless --path . --export-release Web build/web/index.html
-          test -s build/web/index.html
-          test -s build/web/index.js
-          test -s build/web/index.pck
-          test -s build/web/index.wasm
+          set -euo pipefail
 
-      - name: Upload Web build
+          # The deployable Sites artifact carries its project configuration.
+          mkdir -p dist/.openai
+          cp .openai/hosting.json dist/.openai/hosting.json
+
+          required_files=(
+            build/web/index.html
+            build/web/index.js
+            build/web/index.pck
+            build/web/index.wasm
+            dist/.openai/hosting.json
+            dist/client/index.html
+            dist/client/index.js
+            dist/client/index.pck
+            dist/client/index.wasm.part0
+            dist/client/index.wasm.part1
+            dist/client/wasm_chunk_loader.js
+            dist/server/index.js
+            dist/server/weapon_contract.mjs
+            dist/server/weapon_schema.mjs
+            dist/server/durable_request_guard.mjs
+            dist/server/interpreter_error.mjs
+            dist/server/anthropic_weapon_adapter.mjs
+            dist/server/provider_budget_guard.mjs
+            dist/server/weapon_interpreter.mjs
+          )
+          for file in "${required_files[@]}"; do
+            test -s "$file"
+          done
+
+          # Prove that the canonical Web build includes all iOS/Safari guards.
+          grep -Fq 'viewport-fit=cover' build/web/index.html
+          grep -Fq 'data-forge-canvas-guard' build/web/index.html
+          grep -Fq 'data-forge-mobile-input' build/web/index.html
+          grep -Fq '"canvasResizePolicy":0' build/web/index.html
+
+          # Prove that Sites contains the guarded shell plus its WASM loader.
+          grep -Fq 'viewport-fit=cover' dist/client/index.html
+          grep -Fq 'data-forge-canvas-guard' dist/client/index.html
+          grep -Fq 'data-forge-mobile-input' dist/client/index.html
+          grep -Fq '<script src="wasm_chunk_loader.js"></script>' dist/client/index.html
+          test ! -e dist/client/index.wasm
+
+          # Reassembly must be byte-identical to the canonical Godot WASM.
+          cat dist/client/index.wasm.part0 dist/client/index.wasm.part1 \
+            > /tmp/project-forge-index.wasm
+          cmp build/web/index.wasm /tmp/project-forge-index.wasm
+          cmp build/web/index.js dist/client/index.js
+          cmp build/web/index.pck dist/client/index.pck
+
+          # Every Worker module must be the exact reviewed source file.
+          cmp hosting/static_worker.mjs dist/server/index.js
+          for module in \
+            weapon_contract \
+            weapon_schema \
+            durable_request_guard \
+            interpreter_error \
+            anthropic_weapon_adapter \
+            provider_budget_guard \
+            weapon_interpreter; do
+            cmp "hosting/${module}.mjs" "dist/server/${module}.mjs"
+          done
+          cmp .openai/hosting.json dist/.openai/hosting.json
+
+          # Sites rejects files over 25 MB; fail before publishing such a bundle.
+          oversized="$(find dist -type f -size +25M -print -quit)"
+          test -z "$oversized"
+
+          mkdir -p release-hashes
+          find dist -type f -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > release-hashes/SHA256SUMS.txt
+          sha256sum --check release-hashes/SHA256SUMS.txt
+
+      - name: Upload deployable Sites bundle and hashes
         uses: actions/upload-artifact@v6
         with:
-          name: project-forge-web
-          path: build/web
+          name: project-forge-sites-${{ github.sha }}
+          path: |
+            dist
+            release-hashes/SHA256SUMS.txt
           if-no-files-found: error
-          retention-days: 7
+          include-hidden-files: true
+          retention-days: 30

@@ -17,6 +17,10 @@ const DRAWBACK_CREDIT := {
 	"slow_projectile": 9.0, "low_impact": 9.0, "self_stagger": 14.0,
 	"narrow_arc": 8.0, "cooldown_lock": 16.0,
 }
+const DELIVERY_COST := {"held": 0.0, "projectile": 3.0, "thrown": 5.0}
+const TRAJECTORY_COST := {"direct": 0.0, "arc": 4.0, "returning": 5.0}
+const IMPACT_COST := {"contact": 0.0, "delayed_or_contact": 3.0, "piercing": 4.0}
+const AREA_EFFECT_COST := {"none": 0.0, "explosion": 6.0}
 
 
 static func balance(raw: Dictionary) -> Dictionary:
@@ -25,6 +29,7 @@ static func balance(raw: Dictionary) -> Dictionary:
 	var notes: Array[String] = []
 	notes.assign(repaired.corrections)
 	var before := calculate(values)
+	_enforce_semantic_compatibility(values, notes)
 
 	if _has_strong_capability(values) and values.drawback == "none":
 		values.drawback = _matching_drawback(values)
@@ -55,13 +60,20 @@ static func calculate(values: Dictionary) -> Dictionary:
 		"element": float(ELEMENT_COST.get(values.get("element", "normal"), 0.0)),
 		"special_ability": float(SPECIAL_COST.get(values.get("special_ability", "none"), 0.0)),
 		"status_effect": float(STATUS_COST.get(values.get("status_effect", "none"), 0.0)),
+		"delivery": float(DELIVERY_COST.get(values.get("delivery", "held"), 0.0)),
+		"trajectory": float(TRAJECTORY_COST.get(values.get("trajectory", "direct"), 0.0)),
+		"impact": float(IMPACT_COST.get(values.get("impact", "contact"), 0.0)),
+		"area_effect": float(AREA_EFFECT_COST.get(values.get("area_effect", "none"), 0.0)),
 		"projectile_speed": 0.0,
+		"return_speed": 0.0,
 		"area_radius": 0.0,
 		"piercing": 0.0,
 		"drawback_credit": -float(DRAWBACK_CREDIT.get(values.get("drawback", "none"), 0.0)),
 	}
-	if values.get("attack_pattern") in ["straight_projectile", "boomerang", "piercing"]:
+	if values.get("delivery", "held") != "held":
 		parts.projectile_speed = float(values.get("projectile_speed", 560.0)) / 200.0
+	if values.get("attack_pattern") == "boomerang":
+		parts.return_speed = float(values.get("return_speed", 680.0)) / 250.0
 	if values.get("attack_pattern") == "area_blast":
 		parts.area_radius = float(values.get("area_radius", 120.0)) / 30.0
 	if values.get("attack_pattern") == "piercing":
@@ -78,6 +90,8 @@ static func _has_strong_capability(values: Dictionary) -> bool:
 		or values.element != "normal" or values.special_ability != "none"
 		or values.damage > 45 or values.attack_speed > 1.6 or values.range > 700.0
 		or values.area_radius > 130.0 or values.pierce_count > 2
+		or values.delivery == "thrown" or values.trajectory != "direct"
+		or values.impact != "contact" or values.area_effect != "none"
 	)
 
 
@@ -88,8 +102,40 @@ static func _matching_drawback(values: Dictionary) -> String:
 		"piercing": return "narrow_arc"
 		"straight_projectile": return "low_impact"
 	if values.attack_speed > 1.6: return "low_impact"
-	if values.range > 700.0: return "slow_projectile"
+	if values.range > 700.0 and values.attack_pattern in ["straight_projectile", "boomerang", "piercing"]: return "slow_projectile"
 	return "slow_recovery"
+
+
+static func _enforce_semantic_compatibility(values: Dictionary, notes: Array[String]) -> void:
+	var pattern: String = values.attack_pattern
+	var ability: String = values.special_ability
+	var incompatible_ability: bool = (
+		(ability == "return_strike" and pattern != "boomerang")
+		or (ability == "splash_wave" and pattern != "area_blast")
+		or (ability == "shield_break" and pattern != "piercing")
+		or (ability == "knockback_burst" and pattern not in ["melee_slash", "area_blast"])
+		or (ability == "chain_arc" and values.element != "electric")
+	)
+	if incompatible_ability:
+		notes.append("compatibility: %s removed from %s/%s" % [ability, pattern, values.element])
+		values.special_ability = "none"
+
+	var expected_status: String = str({"fire": "burn", "ice": "freeze", "electric": "shock"}.get(values.element, "none"))
+	if values.status_effect in ["burn", "freeze", "shock"] and values.status_effect != expected_status:
+		notes.append("compatibility: status_effect %s normalized to %s for %s" % [values.status_effect, expected_status, values.element])
+		values.status_effect = expected_status
+
+	var expected_material: String = str({
+		"normal": "forged_metal", "fire": "ember_metal",
+		"ice": "frozen_metal", "electric": "charged_metal",
+	}.get(values.element, "forged_metal"))
+	if values.visual_material != "ink" and values.visual_material != expected_material:
+		notes.append("compatibility: visual_material normalized to %s for %s" % [expected_material, values.element])
+		values.visual_material = expected_material
+
+	if values.drawback == "slow_projectile" and values.delivery == "held":
+		values.drawback = _matching_drawback(values)
+		notes.append("compatibility: slow_projectile replaced because %s has no projectile" % pattern)
 
 
 static func _enforce_drawback(values: Dictionary, notes: Array[String]) -> void:
@@ -150,10 +196,15 @@ static func _reduce_to_budget(values: Dictionary, notes: Array[String], initial:
 		values.range = maxf(40.0, floorf(values.range - (float(current.total) - MAX_POWER) * 45.0))
 		notes.append("budget: range reduced %.0f -> %.0f" % [old_range, values.range])
 		current = calculate(values)
-	if float(current.total) > MAX_POWER and values.attack_pattern in ["straight_projectile", "boomerang", "piercing"] and values.projectile_speed > 180.0:
+	if float(current.total) > MAX_POWER and values.delivery != "held" and values.projectile_speed > 180.0:
 		var old_projectile_speed: float = values.projectile_speed
 		values.projectile_speed = maxf(180.0, floorf(values.projectile_speed - (float(current.total) - MAX_POWER) * 200.0))
 		notes.append("budget: projectile_speed reduced %.0f -> %.0f" % [old_projectile_speed, values.projectile_speed])
+		current = calculate(values)
+	if float(current.total) > MAX_POWER and values.attack_pattern == "boomerang" and values.return_speed > 180.0:
+		var old_return_speed: float = values.return_speed
+		values.return_speed = maxf(180.0, floorf(values.return_speed - (float(current.total) - MAX_POWER) * 250.0))
+		notes.append("budget: return_speed reduced %.0f -> %.0f" % [old_return_speed, values.return_speed])
 		current = calculate(values)
 	if float(current.total) > MAX_POWER and values.attack_pattern == "area_blast" and values.area_radius > 40.0:
 		var old_radius: float = values.area_radius

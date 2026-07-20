@@ -1,0 +1,54 @@
+{
+  "suite": "M1B1 final public delivery",
+  "generated_at": "2026-07-20",
+  "public_url": "https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/",
+  "sites_version": 15,
+  "deployment_id": "appgdep_6a5dc0e626288191bfae1bf650271f29",
+  "source_revision": "ad9c08999451cbe2ec5ec7addfb8f4481755ba89",
+  "provider": "anthropic",
+  "model": "claude-haiku-4-5-20251001",
+  "status": "automated_and_provider_gates_passed",
+  "physical_iphone_safari": "TO VALIDATE",
+  "real_provider_matrix": {
+    "executed": 42,
+    "passed": 42,
+    "accuracy_eligible": 24,
+    "attack_pattern_accuracy": 1.0,
+    "element_accuracy": 1.0,
+    "schema_pass_rate": 1.0,
+    "allow_list_pass_rate": 1.0,
+    "runtime_pass_rate": 1.0,
+    "provider_calls": 29,
+    "provider_successes": 29,
+    "median_provider_latency_ms": 1318,
+    "p95_provider_latency_ms": 4846,
+    "measured_cost_usd": 0.033588
+  },
+  "live_ui_canary": {
+    "request_id": "m1b1-85b5bf9f2aafeba575bb44bb743c66ba",
+    "attempts": 1,
+    "attack_pattern": "boomerang",
+    "element": "electric",
+    "power_score": 77,
+    "schema_valid": true,
+    "allow_list_valid": true,
+    "runtime_valid": true,
+    "provider_latency_ms": 1292,
+    "measured_cost_usd": 0.001167,
+    "d1_actual_microusd": 1167,
+    "combat_attack_confirmed": true
+  },
+  "public_browser_regression": {
+    "chromium": "PASS",
+    "webkit_2327": "PASS",
+    "application_console_errors": 0,
+    "viewports": ["844x390", "852x393", "915x412", "844x343"]
+  },
+  "core_asset_sha256": {
+    "index.js": "68586D6DAAFC93C6E697B3FB258976874AA7459B8931165EBB1DC3C9614CC42C",
+    "index.pck": "322EA1F4E7697039B768757AB190A6C7F217853CAF7956130478C987C2363C60",
+    "wasm_chunk_loader.js": "91156D01569FCAC8471115F4EE2BF50B6E1D60AD2C15ECB10F891C6A35A1A2DF",
+    "index.wasm.part0": "C275B33C7A910B2CC899BDB23DAF5F6636F120850EDC6EDCBAC341403DF7EB5B",
+    "index.wasm.part1": "18646FB4D2C6B6FD2D6E90173B1E2904B501D2F1D33CC94710FCE6D3D1DB9CC4"
+  }
+}

@@ -1,0 +1,206 @@
+# M1B1 blocker-fix delivery
+
+Status: **CONFIRMED on physical iPhone Safari; formal release closure in
+progress**. The accepted fixes remain isolated on
+`codex/fix/m1b1-input-aspect`, PR
+[#4](https://github.com/olliebigbang/project-forge/pull/4), and are not yet
+merged. M1B2 remains paused.
+
+## Separate diagnoses
+
+### P0: input/provider/weapon semantics
+
+**CONFIRMED** Description existed in two unsynchronized states. Immediately
+before FORGE, a stale unversioned HTML value could overwrite the acknowledged
+Godot value. The Worker then converted `EMPTY DESCRIPTION` into an executable
+Practice Sketchblade, and the client treated any valid-looking `weapon_spec` as
+success even when provider metadata was `none / none`, attempts were zero, and
+confidence was zero.
+
+**CONFIRMED** The old contract represented only an `attack_pattern`. It could
+label a grenade as `area_blast`, but could not represent thrown delivery, an arc
+trajectory, contact/delay, or a landing explosion. The immediate blast at the
+player was therefore contract behavior, not a Claude recognition error.
+
+P0 implementation commit: `28323ed` plus provider-identity hardening in
+`2dfc6fa`.
+
+### P1: drawing proportion
+
+**CONFIRMED** The visual path first normalized X and Y by different canvas
+dimensions, then independently filled a fixed weapon rectangle. Canvas whitespace
+participated in the transform, and piercing added another non-uniform scale.
+This was independent of AI interpretation.
+
+P1 implementation commit: `3723abd`.
+
+## Delivered behavior
+
+- FORGE atomically freezes acknowledged Description revision, numeric drawing
+  summary, raw-stroke deep copy, and random request ID; the visible request
+  snapshot is the exact outgoing state.
+- Provider failure, empty input, zero confidence, no invocation, wrong provider,
+  wrong model, invalid response, or fallback cannot expose CONFIRM or enter
+  combat. Practice Sketchblade is not emitted as a disguised success.
+- Success requires the exact identity
+  `anthropic / claude-haiku-4-5-20251001` at response, confirmation, and equip
+  boundaries.
+- WeaponSpec v2 separates `weapon_form`, `delivery`, `trajectory`, `impact`, and
+  `area_effect` from `attack_pattern`.
+- Grenade is `thrown / arc`; it visibly travels before an explosion is created
+  at contact or bounded-flight completion. `area_blast` describes the landing
+  effect only.
+- Bow is `projectile / direct / contact / straight_projectile`; its drawn bow
+  remains held while a separate procedural arrow travels.
+- Actual stroke bounds ignore canvas whitespace. Every player-ink review, held,
+  melee-animation, grenade-copy and boomerang-copy visual uses 10% padding and
+  one uniform `min(width scale, height scale)` scalar without rewriting source
+  points. Arrow, bullet, energy and spear projectiles are separate deterministic
+  program shapes.
+
+## Real Claude evidence
+
+The guarded public run executed exactly once and allowed exactly two POSTs. No
+duplicate request was observed or allowed. Both D1 charges settled.
+
+| Case | Request ID | Provider result | Combat result | Latency | Cost |
+| --- | --- | --- | --- | ---: | ---: |
+| grenade | `m1b1-14c6f2d1bd9a25edac09aa52a7c34b45` | `grenade / thrown / arc / delayed_or_contact / explosion / area_blast` | visible projectile, then landing blast 230.05 px from origin | 3,383 ms | USD 0.001797 |
+| bow | `m1b1-275938d440292dec4be7a96a0b6963f7` | `bow / projectile / direct / contact / none / straight_projectile` | visible straight projectile | 1,390 ms | USD 0.001778 |
+
+Total measured cost: **USD 0.003575** against the Worker + D1 lifetime hard cap
+of USD 5. Complete request snapshot, bounded response, repairs, budget, runtime
+state, and transform evidence are in the
+[machine report](evidence/m1b1-blockers/real-provider-grenade-bow.json). The
+[Worker correlation](evidence/m1b1-blockers/real-provider-worker-log-summary.json)
+records `provider_budget.state=settled` for both request IDs without raw input or
+provider output.
+
+## Aspect-ratio evidence
+
+| Shape | Source ratio | Rendered ratio | Relative error | Padding |
+| --- | ---: | ---: | ---: | ---: |
+| real wide bow | 6.195281 | 6.195280 | 0.000000137 | 10% |
+| real round grenade | 0.999901 | 0.999901 | 0.000000215 | 10% |
+
+Both are below the required 2% error. Confirmation, held, melee-animation, and
+semantic drawn-projectile global-transform X/Y scale deltas were zero or at
+floating-point epsilon. Procedural projectiles use their own deterministic
+geometry and never copy the held drawing.
+
+Before/after evidence:
+
+- [wide bow before](evidence/m1b1-blockers/before-wide-bow-combat.png) / [after confirmation](evidence/m1b1-blockers/after-wide-bow-confirmation.png) / [after combat](evidence/m1b1-blockers/after-wide-bow-combat.png)
+- [round grenade before](evidence/m1b1-blockers/before-round-grenade-combat.png) / [after confirmation](evidence/m1b1-blockers/after-round-grenade-confirmation.png) / [after combat](evidence/m1b1-blockers/after-round-grenade-combat.png)
+- [real grenade arc](evidence/m1b1-blockers/real-grenade-arc-flight.png) / [real landing explosion](evidence/m1b1-blockers/real-grenade-landing-explosion.png)
+- [real bow confirmation](evidence/m1b1-blockers/real-bow-confirmation.png) / [real projectile](evidence/m1b1-blockers/real-bow-projectile.png)
+
+## Automated and deployed verification
+
+**CONFIRMED** Full local verification passed:
+
+- Godot import/typed parse and scene smoke;
+- 32 Godot matrix cases, 629 assertions, zero failures;
+- Worker 4/4, WASM loader 1/1, interpreter 76/76, D1 request guard 9/9,
+  Anthropic adapter 17/17, D1 budget guard 14/14, and hostile safety 11/11;
+- Web export and Sites package build;
+- Chromium and Playwright WebKit P0/P1 browser regression with zero application
+  console errors;
+- mobile input/composition/cancel/retry/keyboard/rotation regression in both
+  browser engines with zero application console errors.
+
+**CONFIRMED** Sites version 19, sourced from runtime commit `6d5ba3a`, passed the
+same P0/P1 fixture regression in Chromium and version-matched Playwright WebKit.
+Both public runs reported zero application console errors. Draft PR #4 remains
+open and Draft; its runtime commit and evidence follow-up both pass CI.
+
+**CONFIRMED** A separate public zero-paid safety request was rejected before
+provider invocation with `success=false`, `provider_invoked=false`, attempts 0,
+`weapon_spec=null`, `runtime_valid=false`, matching input/request snapshot,
+hidden CONFIRM, visible EDIT INPUT / TRY AGAIN, HTTP 200 `no-store`, and zero
+application console errors.
+
+Candidate/public integrity probe:
+
+| Resource | Local candidate SHA-256 | Public Sites v19 |
+| --- | --- | --- |
+| `index.js` | `68586d6daafc93c6e697b3fb258976874aa7459b8931165ebb1dc3c9614cc42c` | exact match |
+| `index.pck` | `a8ccb39bb0667f988f9ef5f65ecb8fbc3f3bbdd781a3e547bf3e656a049e5016` | exact match |
+| reconstructed `index.wasm` | `35116f68540ac41acf7d71ea457added91b5e960a9cca3e2acc72918eaf01277` | exact match from both public chunks |
+
+The HTML and core assets return HTTP 200 with
+`Cache-Control: public, max-age=0, must-revalidate`. The Sites service exposes
+one stable public origin rather than a separate immutable version URL; the build
+label is diagnostic only. Correctness is established by the actual redeployment
+and byte-for-byte resource hashes, not by changing a query string.
+
+`docs/.gdignore` keeps retained QA screenshots/reports outside Godot's resource
+scanner. The final PCK hash above was identical across two consecutive exports,
+so adding delivery evidence can no longer perturb the game package.
+
+## Public preview and physical-device result
+
+Preview:
+<https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?qa=m1b1&release=p0-v20-6d5ba3a>
+
+The `release` value is a diagnostic label; Sites version 19 and the exact public
+hashes above prove that this is a fresh deployment rather than a query-only cache
+change. Public fixture reports and screenshots are retained under
+[`evidence/m1b1-p0-v20-public/`](evidence/m1b1-p0-v20-public/).
+
+Playwright WebKit on Windows remained a Safari-engine approximation. On
+2026-07-20, the product owner independently accepted the same public build on a
+physical iPhone Safari session. This closes the device gate; PR/CI review,
+post-merge deployment, production smoke, and rollback verification remain the
+release-closure gates. M1B2 must not start during closure.
+
+Physical-iPhone checklist completed:
+
+1. Open the preview in Safari, rotate to landscape, draw a round grenade, enter
+   `grenade`, and tap FORGE.
+2. Verify the visible request snapshot is non-empty and the result shows
+   Anthropic/Haiku, grenade/thrown/arc/explosion; CONFIRM and verify visible
+   flight followed by a remote blast.
+3. REFORGE, draw a wide bow, enter `bow`, and verify the review, held weapon, and
+   straight projectile retain the wide aspect.
+4. Close/reopen the iOS keyboard once and rotate portrait -> landscape once;
+   verify Description and drawing remain, then forge again.
+5. Try a blank Description and verify an explicit error with edit/retry actions,
+   no CONFIRM, and no Practice Sketchblade combat path.
+
+## Reopened physical-iPhone P0 candidate
+
+The prior candidate did not pass physical-iPhone acceptance. Two later findings
+are separately diagnosed and evidenced here:
+
+- [iOS keyboard/Canvas P0](M1B1_IOS_KEYBOARD_P0_EVIDENCE.md): export policy `2`,
+  temporary keyboard height and Safari focus scrolling competed for Canvas
+  ownership. The replacement freezes a stable Canvas and presents a safe-area
+  compact text-entry dock with Description, clear and Done.
+- [weapon visual roles P0](M1B1_WEAPON_VISUAL_ROLES_P0_EVIDENCE.md): the former
+  projectile path reused the complete held `WeaponVisual`. The replacement uses
+  a deterministic held/projectile/impact bundle, including held bow plus arrow
+  and centred thrown grenade plus separate explosion.
+
+Current automated candidate results: Godot 629 assertions; Worker/WASM,
+interpreter, request D1, Anthropic adapter, budget D1, and hostile-safety suites
+PASS; canonical Web/Sites build PASS; Chromium and WebKit P0 regression PASS
+with zero application console errors. Physical iPhone Safari is **CONFIRMED**.
+PR #4 remains unmerged only until the requested final review, CI, stable deploy,
+smoke test, and rollback checks finish. M1B2 stays paused.
+
+## PR head and accepted Sites runtime identity
+
+**CONFIRMED:** the accepted Sites v19 deployment records source runtime commit
+`6d5ba3a7c10c2eb46154209744c9af55e072cb32`. The pre-closure PR head
+`019a6e82af554c22c2022b22e71bfb2245e4bd11` is its direct child and changes only
+README/documentation plus committed screenshots/reports. There is no runtime,
+scene, Worker, schema, export, or build-script delta between those two commits.
+Consequently the identifiers differ because evidence was committed after the
+runtime deployment, not because the phone tested uncommitted gameplay code.
+
+Two consecutive builds from `019a6e8` produced identical JS, PCK, WASM chunks,
+and Worker hashes; the PCK and reconstructed WASM matched the accepted public
+assets byte-for-byte. The formal closure fixes add only a bounded Worker request
+reader, canonical CI packaging, and release records; they do not alter the
+physically accepted client UI or combat behavior.

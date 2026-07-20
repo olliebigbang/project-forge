@@ -1,6 +1,7 @@
-# M0/M1A Acceptance Plan and Full-MVP Traceability
+# M0/M1A Acceptance Record and M1B1 Gate
 
-This file preserves the completed M0 gate and the completed M1A gate.
+This file preserves the completed M0 and M1A gates and points to the active M1B1
+acceptance contract in `docs/M1B1_ACCEPTANCE.md`.
 `docs/GDD.md` retains the broader product definition; later requirements remain
 visible without being silently pulled into the deterministic compiler milestone.
 **CONFIRMED:** the product owner completed the v9 physical iPhone Safari
@@ -35,8 +36,35 @@ CI, and the physical-device result together close this gate.
   portrait → landscape transitions plus Safari toolbar expansion/collapse on the
   same physical device.
 - **CONFIRMED** The product owner formally accepted the v9 M1A mobile gate.
-- **CONFIRMED** M1B is not started during release closure and must use a separate
-  future development branch.
+- **CONFIRMED** M1B1 began only after release closure, from accepted `main`, on
+  the isolated `codex/feat/m1b1-real-text-interpreter` branch. The stable M1A tag
+  and deployment remain unchanged.
+
+## M1B1 current gate
+
+The detailed, executable criteria are in `docs/M1B1_ACCEPTANCE.md`. Provider,
+deployed D1 and controlled paid evidence remain valid. The previous public
+candidate was reopened for keyboard/Canvas and weapon-visual-role P0 failures.
+The replacement passes desktop browser automation and the product owner accepted
+it on physical iPhone Safari. Final PR CI, main deployment, production smoke, and
+rollback verification remain separate release-closure gates.
+
+| Area | Status | Evidence / remaining gate |
+| --- | --- | --- |
+| Same-origin `WeaponInterpreter` client/server contract | **CONFIRMED** | Godot calls only `/api/compile-weapon`; static worker and local server route it |
+| Schema, allow-list, semantic compatibility, and PowerBudget enforcement | **CONFIRMED (offline + live)** | Godot 629 assertions; Node interpreter 76/76; 48-case main matrix; 60-case red-team corpus; real-provider matrix 42/42 plus live grenade/bow blocker cases |
+| Anthropic native Messages/Structured Outputs, exact model and one-attempt policy | **CONFIRMED (offline + live)** | 17/17 adapter tests and public one-call canary; exact `claude-haiku-4-5-20251001`; refusal/truncation/usage/16 KiB response tests |
+| Worker + D1 lifetime USD 5 reservation and settlement guard | **CONFIRMED (offline + deployed)** | 14/14 budget tests plus 11/11 hostile safety tests; public reserve/settle audit; cap/exhaustion/concurrency/non-2xx/unknown-billing probes |
+| Loading, duplicate lock, aborting timeout, cancel, stale rejection, D1 idempotency, and explicit non-equipable errors | **CONFIRMED (simulated + deployed D1)** | D1 request guard 9/9, no-`weapon_spec` failure regression, live two-request duplicate gate, settled D1 audits, and final Chromium/WebKit regression |
+| Normal-player selector hidden; Developer/MODIFY correction remains validated | **CONFIRMED (browser automation)** | Five patterns compiled, corrected, confirmed, and attacked in Chromium and WebKit |
+| 844×390, 852×393, 915×412, 844×343 toolbar stress, keyboard-height recovery, and rotation cycles | **CONFIRMED (Chromium + WebKit + physical iPhone)** | No scrolling/cropping; app console errors/warnings 0; real keyboard/orientation/toolbars accepted |
+| AI provider, model, and deployment secret | **CONFIRMED (configuration)** | Anthropic, fixed Haiku 4.5 snapshot, Sites secret present; secret value never read back |
+| Anthropic workspace spend limit | **CONFIRMED** | Provider-account backstop at or below USD 5 was configured before controlled paid traffic |
+| Real-provider 40+ case accuracy, latency, P95, cost, and fallback evidence | **CONFIRMED** | 42/42 pass; pattern and element accuracy 100%; validity 100%; median 1.318 s; P95 4.846 s; matrix cost USD 0.033588 |
+| iOS compact text-entry Canvas stability | **CONFIRMED (Chromium + WebKit + physical iPhone)** | Stable Canvas; 16px Description, clear and Done; edit/delete/restore/toolbars/three rotations accepted |
+| Held/projectile/impact visual separation | **CONFIRMED (Godot + Chromium + WebKit + physical iPhone)** | Bow held through arrows; grenade arc/blast/restore; sword no projectile; boomerang return |
+| Public M1B1 blocker preview and CI/PR | **CONFIRMED for accepted preview; release closure in progress** | Runtime `6d5ba3a` / Sites v19 hashes and browser tests passed; PR #4 final CI and main deployment are closure steps |
+| Physical iPhone Safari M1B1 acceptance | **CONFIRMED on 2026-07-20** | Product owner passed Description/keyboard, Bow, Grenade, Sword, Boomerang, orientation, and Safari toolbar checks |
 
 ## Status vocabulary
 
@@ -72,7 +100,8 @@ CI, and the physical-device result together close this gate.
 2. Emulate touch and draw a stroke in a phone landscape viewport.
 3. Generate the provided melee example and verify a melee `WeaponSpec`.
 4. Re-forge, generate the projectile example, and verify a ranged `WeaponSpec`.
-5. Generate with blank or unsupported text and confirm a bounded fallback result.
+5. Generate with blank text and confirm an explicit error with EDIT INPUT / TRY
+   AGAIN, no CONFIRM action, no executable `weapon_spec`, and no combat entry.
 
 ### Combat
 

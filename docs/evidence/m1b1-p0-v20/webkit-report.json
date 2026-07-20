@@ -1,0 +1,740 @@
+{
+  "suite": "M1B1 P0/P1 blocker regression",
+  "browser": "webkit",
+  "target": "http://127.0.0.1:8060/",
+  "captured_at": "2026-07-20T13:19:12.943Z",
+  "provider_claim": "SIMULATED RESPONSE - real provider is tested separately",
+  "cases": [
+    {
+      "kind": "bow",
+      "description": "a wooden bow firing arrows",
+      "request_id": "m1b1-cf646414446232718f3a4035f4b1c95b",
+      "request_snapshot": {
+        "description": "a wooden bow firing arrows",
+        "description_revision": 2,
+        "drawing_summary": {
+          "aspect_ratio": 6.21092429074253,
+          "coverage": 0.341659279323826,
+          "dominant_direction": "horizontal",
+          "point_count": 8,
+          "stroke_count": 1
+        },
+        "request_id": "m1b1-cf646414446232718f3a4035f4b1c95b",
+        "stroke_count": 1
+      },
+      "provider_metadata": {
+        "attempts": 1,
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic"
+      },
+      "latency_ms": 41,
+      "spec": {
+        "area_effect": "none",
+        "area_radius": 120,
+        "attack_pattern": "straight_projectile",
+        "attack_speed": 1.3,
+        "damage": 26,
+        "delivery": "projectile",
+        "drawback": "low_impact",
+        "element": "normal",
+        "impact": "contact",
+        "name": "Ink Longbow",
+        "pierce_count": 1,
+        "power_score": 49,
+        "projectile_speed": 620,
+        "range": 675,
+        "return_speed": 680,
+        "special_ability": "none",
+        "status_effect": "none",
+        "trajectory": "direct",
+        "visual_material": "forged_metal",
+        "weapon_class": "ranged",
+        "weapon_form": "bow"
+      },
+      "stroke_geometry": {
+        "fitted_bounds": {
+          "height": 15.1990270614624,
+          "width": 94.4000015258789,
+          "x": 13.8000001907349,
+          "y": -7.59951400756836
+        },
+        "padding_fraction": 0.1,
+        "relative_aspect_error": 1.14078481106006e-7,
+        "rendered_aspect": 6.21092358220972,
+        "scale_x": 0.0791615889236703,
+        "scale_y": 0.0791615889236703,
+        "source_aspect": 6.21092429074253,
+        "source_bounds": {
+          "height": 192.000015258789,
+          "width": 1192.49755859375,
+          "x": 152.445495605469,
+          "y": 122.000350952148
+        }
+      },
+      "visual_transforms": {
+        "held": {
+          "absolute_delta": 0,
+          "scale_x": 1,
+          "scale_y": 1
+        },
+        "projectiles": [],
+        "review": {
+          "absolute_delta": 0,
+          "scale_x": 1,
+          "scale_y": 1
+        }
+      },
+      "attack": {
+        "attack_pattern": "straight_projectile",
+        "delivery": "projectile",
+        "trajectory": "direct",
+        "impact": "contact",
+        "area_effect": "none",
+        "evidence": {
+          "iterations": [
+            {
+              "attack": 1,
+              "tap_attempts": 1,
+              "spawn_count": 1,
+              "finish_count": 1,
+              "max_active": 1,
+              "heading_error": 0,
+              "held_drift": 0
+            },
+            {
+              "attack": 2,
+              "tap_attempts": 1,
+              "spawn_count": 2,
+              "finish_count": 2,
+              "max_active": 1,
+              "heading_error": 0,
+              "held_drift": 0
+            },
+            {
+              "attack": 3,
+              "tap_attempts": 1,
+              "spawn_count": 3,
+              "finish_count": 3,
+              "max_active": 1,
+              "heading_error": 0,
+              "held_drift": 0
+            },
+            {
+              "attack": 4,
+              "tap_attempts": 1,
+              "spawn_count": 4,
+              "finish_count": 4,
+              "max_active": 1,
+              "heading_error": 0,
+              "held_drift": 0
+            },
+            {
+              "attack": 5,
+              "tap_attempts": 1,
+              "spawn_count": 5,
+              "finish_count": 5,
+              "max_active": 1,
+              "heading_error": 0,
+              "held_drift": 0
+            },
+            {
+              "attack": 6,
+              "tap_attempts": 1,
+              "spawn_count": 6,
+              "finish_count": 6,
+              "max_active": 1,
+              "heading_error": 0,
+              "held_drift": 0
+            },
+            {
+              "attack": 7,
+              "tap_attempts": 1,
+              "spawn_count": 7,
+              "finish_count": 7,
+              "max_active": 1,
+              "heading_error": 0,
+              "held_drift": 0
+            },
+            {
+              "attack": 8,
+              "tap_attempts": 1,
+              "spawn_count": 8,
+              "finish_count": 8,
+              "max_active": 1,
+              "heading_error": 0,
+              "held_drift": 0
+            },
+            {
+              "attack": 9,
+              "tap_attempts": 1,
+              "spawn_count": 9,
+              "finish_count": 9,
+              "max_active": 1,
+              "heading_error": 0,
+              "held_drift": 0
+            },
+            {
+              "attack": 10,
+              "tap_attempts": 1,
+              "spawn_count": 10,
+              "finish_count": 10,
+              "max_active": 1,
+              "heading_error": 0,
+              "held_drift": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "grenade",
+      "description": "a thrown grenade that explodes after landing",
+      "request_id": "m1b1-9b5ed79e2bb8fd37acec1b984de8412a",
+      "request_snapshot": {
+        "description": "a thrown grenade that explodes after landing",
+        "description_revision": 2,
+        "drawing_summary": {
+          "aspect_ratio": 1.00777427812947,
+          "coverage": 0.0826686655292179,
+          "dominant_direction": "mixed",
+          "point_count": 33,
+          "stroke_count": 1
+        },
+        "request_id": "m1b1-9b5ed79e2bb8fd37acec1b984de8412a",
+        "stroke_count": 1
+      },
+      "provider_metadata": {
+        "attempts": 1,
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic"
+      },
+      "latency_ms": 41,
+      "spec": {
+        "area_effect": "explosion",
+        "area_radius": 120,
+        "attack_pattern": "area_blast",
+        "attack_speed": 1,
+        "damage": 36,
+        "delivery": "thrown",
+        "drawback": "slow_recovery",
+        "element": "normal",
+        "impact": "delayed_or_contact",
+        "name": "Ink Arc Grenade",
+        "pierce_count": 1,
+        "power_score": 76,
+        "projectile_speed": 560,
+        "range": 132,
+        "return_speed": 680,
+        "special_ability": "knockback_burst",
+        "status_effect": "knockback",
+        "trajectory": "arc",
+        "visual_material": "forged_metal",
+        "weapon_class": "ranged",
+        "weapon_form": "grenade"
+      },
+      "stroke_geometry": {
+        "fitted_bounds": {
+          "height": 73.5999984741211,
+          "width": 74.1721801757812,
+          "x": 23.9139099121094,
+          "y": -36.7999992370605
+        },
+        "padding_fraction": 0.1,
+        "relative_aspect_error": 6.95248028037554e-8,
+        "rendered_aspect": 1.00777420806417,
+        "scale_x": 0.313910762504286,
+        "scale_y": 0.313910762504286,
+        "source_aspect": 1.00777427812947,
+        "source_bounds": {
+          "height": 234.461532592773,
+          "width": 236.284301757812,
+          "x": 722.850708007812,
+          "y": 109.077285766602
+        }
+      },
+      "visual_transforms": {
+        "held": {
+          "absolute_delta": 0,
+          "scale_x": 1,
+          "scale_y": 1
+        },
+        "projectiles": [],
+        "review": {
+          "absolute_delta": 0,
+          "scale_x": 1,
+          "scale_y": 1
+        }
+      },
+      "attack": {
+        "attack_pattern": "area_blast",
+        "delivery": "thrown",
+        "trajectory": "arc",
+        "impact": "delayed_or_contact",
+        "area_effect": "explosion",
+        "evidence": {
+          "arc_positions": [
+            {
+              "rotation": 0,
+              "time": 0,
+              "x": 468.5,
+              "y": 432.799987792969
+            },
+            {
+              "rotation": 0.213333323597908,
+              "time": 0.0666666666666667,
+              "x": 474.803466796875,
+              "y": 417.435516357422
+            },
+            {
+              "rotation": 0.426666676998138,
+              "time": 0.133333333333333,
+              "x": 481.10693359375,
+              "y": 406.160003662109
+            },
+            {
+              "rotation": 0.64000004529953,
+              "time": 0.2,
+              "x": 487.410400390625,
+              "y": 398.973358154297
+            },
+            {
+              "rotation": 0.853333413600922,
+              "time": 0.266666666666667,
+              "x": 493.7138671875,
+              "y": 395.875579833984
+            },
+            {
+              "rotation": 1.06666672229767,
+              "time": 0.333333333333333,
+              "x": 500.017333984375,
+              "y": 396.866668701172
+            },
+            {
+              "rotation": 1.27999985218048,
+              "time": 0.4,
+              "x": 506.32080078125,
+              "y": 401.946624755859
+            },
+            {
+              "rotation": 1.49333298206329,
+              "time": 0.466666666666667,
+              "x": 512.624267578125,
+              "y": 411.115539550781
+            },
+            {
+              "rotation": 1.70666611194611,
+              "time": 0.533333333333333,
+              "x": 518.927734375,
+              "y": 424.373352050781
+            },
+            {
+              "rotation": 1.91999924182892,
+              "time": 0.6,
+              "x": 525.231201171875,
+              "y": 441.720031738281
+            },
+            {
+              "rotation": 2.13333249092102,
+              "time": 0.666666666666667,
+              "x": 531.53466796875,
+              "y": 463.155578613281
+            },
+            {
+              "rotation": 2.23999905586243,
+              "time": 0.700000000000001,
+              "x": 534.686401367188,
+              "y": 469.300628662109
+            },
+            {
+              "rotation": 2.23999905586243,
+              "time": 0.700000000000001,
+              "x": 534.686401367188,
+              "y": 469.300628662109
+            }
+          ],
+          "impact_reason": "ground",
+          "landing_surface_y": 496.8,
+          "landing_center_y": 469.300625610352,
+          "landing_error": 0.00000305175785797474,
+          "restored_after_cooldown": true
+        }
+      }
+    },
+    {
+      "kind": "sword",
+      "description": "a plain steel sword",
+      "request_id": "m1b1-43f036ead1e65a9c346cd31873838e0e",
+      "request_snapshot": {
+        "description": "a plain steel sword",
+        "description_revision": 2,
+        "drawing_summary": {
+          "aspect_ratio": 5.89941883856426,
+          "coverage": 0.243032509011448,
+          "dominant_direction": "horizontal",
+          "point_count": 2,
+          "stroke_count": 1
+        },
+        "request_id": "m1b1-43f036ead1e65a9c346cd31873838e0e",
+        "stroke_count": 1
+      },
+      "provider_metadata": {
+        "attempts": 1,
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic"
+      },
+      "latency_ms": 41,
+      "spec": {
+        "area_effect": "none",
+        "area_radius": 120,
+        "attack_pattern": "melee_slash",
+        "attack_speed": 1,
+        "damage": 36,
+        "delivery": "held",
+        "drawback": "slow_recovery",
+        "element": "normal",
+        "impact": "contact",
+        "name": "Ink Sketchsword",
+        "pierce_count": 1,
+        "power_score": 33,
+        "projectile_speed": 560,
+        "range": 132,
+        "return_speed": 680,
+        "special_ability": "knockback_burst",
+        "status_effect": "knockback",
+        "trajectory": "direct",
+        "visual_material": "forged_metal",
+        "weapon_class": "melee",
+        "weapon_form": "sword"
+      },
+      "stroke_geometry": {
+        "fitted_bounds": {
+          "height": 16.0015754699707,
+          "width": 94.4000015258789,
+          "x": 13.8000001907349,
+          "y": -8.00078773498535
+        },
+        "padding_fraction": 0.1,
+        "relative_aspect_error": 1.98916164650953e-8,
+        "rendered_aspect": 5.89941872121528,
+        "scale_x": 0.0963057970854763,
+        "scale_y": 0.0963057970854763,
+        "source_aspect": 5.89941883856426,
+        "source_bounds": {
+          "height": 166.153823852539,
+          "width": 980.210998535156,
+          "x": 274.279602050781,
+          "y": 122.000350952148
+        }
+      },
+      "visual_transforms": {
+        "held": {
+          "absolute_delta": 0,
+          "scale_x": 1,
+          "scale_y": 1
+        },
+        "projectiles": [],
+        "review": {
+          "absolute_delta": 0,
+          "scale_x": 1,
+          "scale_y": 1
+        }
+      },
+      "attack": {
+        "attack_pattern": "melee_slash",
+        "delivery": "held",
+        "trajectory": "direct",
+        "impact": "contact",
+        "area_effect": "none",
+        "evidence": {
+          "projectile_delta": 0
+        }
+      }
+    },
+    {
+      "kind": "boomerang",
+      "description": "an electric boomerang that returns",
+      "request_id": "m1b1-8b679fb4720bc21c30d5ac7130dfa022",
+      "request_snapshot": {
+        "description": "an electric boomerang that returns",
+        "description_revision": 2,
+        "drawing_summary": {
+          "aspect_ratio": 3.10125629396445,
+          "coverage": 0.258421055422841,
+          "dominant_direction": "horizontal",
+          "point_count": 5,
+          "stroke_count": 1
+        },
+        "request_id": "m1b1-8b679fb4720bc21c30d5ac7130dfa022",
+        "stroke_count": 1
+      },
+      "provider_metadata": {
+        "attempts": 1,
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic"
+      },
+      "latency_ms": 41,
+      "spec": {
+        "area_effect": "none",
+        "area_radius": 120,
+        "attack_pattern": "boomerang",
+        "attack_speed": 0.95,
+        "damage": 30,
+        "delivery": "thrown",
+        "drawback": "self_stagger",
+        "element": "electric",
+        "impact": "contact",
+        "name": "Volt Returning Crescent",
+        "pierce_count": 1,
+        "power_score": 87,
+        "projectile_speed": 520,
+        "range": 620,
+        "return_speed": 760,
+        "special_ability": "return_strike",
+        "status_effect": "shock",
+        "trajectory": "returning",
+        "visual_material": "charged_metal",
+        "weapon_class": "ranged",
+        "weapon_form": "boomerang"
+      },
+      "stroke_geometry": {
+        "fitted_bounds": {
+          "height": 30.4392795562744,
+          "width": 94.4000091552734,
+          "x": 13.7999963760376,
+          "y": -15.2196388244629
+        },
+        "padding_fraction": 0.1,
+        "relative_aspect_error": 8.22331671646026e-8,
+        "rendered_aspect": 3.10125654899057,
+        "scale_x": 0.128812038567082,
+        "scale_y": 0.128812038567082,
+        "source_aspect": 3.10125629396445,
+        "source_bounds": {
+          "height": 236.307708740234,
+          "width": 732.850769042969,
+          "x": 458.876770019531,
+          "y": 77.6926574707031
+        }
+      },
+      "visual_transforms": {
+        "held": {
+          "absolute_delta": 0,
+          "scale_x": 1,
+          "scale_y": 1
+        },
+        "projectiles": [],
+        "review": {
+          "absolute_delta": 0,
+          "scale_x": 1,
+          "scale_y": 1
+        }
+      },
+      "attack": {
+        "attack_pattern": "boomerang",
+        "delivery": "thrown",
+        "trajectory": "returning",
+        "impact": "contact",
+        "area_effect": "none",
+        "evidence": {
+          "instance_id": 37832623657,
+          "returned": true
+        }
+      }
+    }
+  ],
+  "keyboard": {
+    "mode": "synthetic Visual Viewport; physical iPhone remains TO VALIDATE",
+    "baseline": {
+      "metrics": {
+        "width": 844,
+        "height": 390,
+        "offsetLeft": 0,
+        "offsetTop": 0,
+        "scale": 1,
+        "innerWidth": 844,
+        "innerHeight": 390,
+        "layoutWidth": 844,
+        "layoutHeight": 390,
+        "stableWidth": 844,
+        "stableHeight": 390,
+        "textEntryActive": false,
+        "keyboardOpen": false,
+        "safeTop": 0,
+        "safeRight": 0,
+        "safeBottom": 0,
+        "safeLeft": 0,
+        "inputFocused": false,
+        "canvasRect": {
+          "x": 0,
+          "y": 0,
+          "width": 844,
+          "height": 390
+        },
+        "canvasBackingWidth": 2532,
+        "canvasBackingHeight": 1170,
+        "pageScrollX": 0,
+        "pageScrollY": 0
+      },
+      "inputRect": {
+        "x": 105.453125,
+        "y": 290.703125,
+        "width": 680.765625,
+        "height": 46.03125
+      },
+      "clearRect": {
+        "x": 792.21875,
+        "y": 290.703125,
+        "width": 44,
+        "height": 46.03125
+      },
+      "doneRect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "rootRect": {
+        "x": 105.453125,
+        "y": 290.703125,
+        "width": 730.765625,
+        "height": 46.03125
+      },
+      "inputFontSize": 16,
+      "inputValue": "",
+      "rootVisible": true,
+      "doneVisible": false
+    },
+    "first_touch_focus": {
+      "point": {
+        "x": 445.8359375,
+        "y": 313.71875
+      },
+      "focused": true,
+      "compact_entry_visible": true
+    },
+    "opened": {
+      "metrics": {
+        "width": 844,
+        "height": 190,
+        "offsetLeft": 0,
+        "offsetTop": 92,
+        "scale": 1,
+        "innerWidth": 844,
+        "innerHeight": 390,
+        "layoutWidth": 844,
+        "layoutHeight": 390,
+        "stableWidth": 844,
+        "stableHeight": 390,
+        "textEntryActive": true,
+        "keyboardOpen": true,
+        "safeTop": 0,
+        "safeRight": 0,
+        "safeBottom": 0,
+        "safeLeft": 0,
+        "inputFocused": true,
+        "canvasRect": {
+          "x": 0,
+          "y": 0,
+          "width": 844,
+          "height": 390
+        },
+        "canvasBackingWidth": 2532,
+        "canvasBackingHeight": 1170,
+        "pageScrollX": 0,
+        "pageScrollY": 0
+      },
+      "inputRect": {
+        "x": 10,
+        "y": 102,
+        "width": 704,
+        "height": 44
+      },
+      "clearRect": {
+        "x": 720,
+        "y": 102,
+        "width": 44,
+        "height": 44
+      },
+      "doneRect": {
+        "x": 770,
+        "y": 102,
+        "width": 64,
+        "height": 44
+      },
+      "rootRect": {
+        "x": 6,
+        "y": 98,
+        "width": 832,
+        "height": 52
+      },
+      "inputFontSize": 16,
+      "inputValue": "keyboard text remains visible",
+      "rootVisible": true,
+      "doneVisible": true
+    },
+    "closed": {
+      "metrics": {
+        "width": 844,
+        "height": 390,
+        "offsetLeft": 0,
+        "offsetTop": 0,
+        "scale": 1,
+        "innerWidth": 844,
+        "innerHeight": 390,
+        "layoutWidth": 844,
+        "layoutHeight": 390,
+        "stableWidth": 844,
+        "stableHeight": 390,
+        "textEntryActive": false,
+        "keyboardOpen": false,
+        "safeTop": 0,
+        "safeRight": 0,
+        "safeBottom": 0,
+        "safeLeft": 0,
+        "inputFocused": false,
+        "canvasRect": {
+          "x": 0,
+          "y": 0,
+          "width": 844,
+          "height": 390
+        },
+        "canvasBackingWidth": 2532,
+        "canvasBackingHeight": 1170,
+        "pageScrollX": 0,
+        "pageScrollY": 0
+      },
+      "inputRect": {
+        "x": 105.453125,
+        "y": 290.703125,
+        "width": 680.765625,
+        "height": 46.03125
+      },
+      "clearRect": {
+        "x": 792.21875,
+        "y": 290.703125,
+        "width": 44,
+        "height": 46.03125
+      },
+      "doneRect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "rootRect": {
+        "x": 105.453125,
+        "y": 290.703125,
+        "width": 730.765625,
+        "height": 46.03125
+      },
+      "inputFontSize": 16,
+      "inputValue": "keyboard editable tex",
+      "rootVisible": true,
+      "doneVisible": false
+    },
+    "toolbar_height": 343,
+    "orientation_cycles": 3,
+    "description_preserved": true
+  },
+  "console_errors": []
+}

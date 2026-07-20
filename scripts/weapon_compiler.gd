@@ -9,7 +9,12 @@ const BLOCKED_KEYWORDS: PackedStringArray = [
 var last_record: Dictionary = {}
 
 
-func compile(description: String, drawing_summary: Dictionary = {}, forced_attack_pattern: String = "") -> WeaponSpec:
+func compile(
+	description: String,
+	drawing_summary: Dictionary = {},
+	forced_attack_pattern: String = "",
+	privacy_mode: bool = false,
+) -> WeaponSpec:
 	var started := Time.get_ticks_msec()
 	var normalized := description.strip_edges().to_lower().left(512)
 	var forced_pattern := forced_attack_pattern if forced_attack_pattern in WeaponSpec.ATTACK_PATTERNS else ""
@@ -24,11 +29,9 @@ func compile(description: String, drawing_summary: Dictionary = {}, forced_attac
 	spec.budget_breakdown = balanced.after.duplicate(true)
 	last_record = {
 		"timestamp_unix": int(Time.get_unix_time_from_system()),
-		"mode": "deterministic_mock_m1a",
-		"input": normalized.left(160),
+		"mode": "deterministic_private_m1b1" if privacy_mode else "deterministic_mock_m1a",
 		"forced_attack_pattern": forced_pattern,
 		"drawing_summary": drawing_summary,
-		"raw_spec": raw,
 		"weapon_spec": spec.to_dict(),
 		"budget_before": balanced.before,
 		"budget_after": balanced.after,
@@ -37,6 +40,13 @@ func compile(description: String, drawing_summary: Dictionary = {}, forced_attac
 		"runtime_valid": _is_runtime_valid(spec, balanced),
 		"elapsed_ms": maxi(Time.get_ticks_msec() - started, 0),
 	}
+	if privacy_mode:
+		last_record.input_length = normalized.length()
+	else:
+		# M1A's deterministic test harness retains its explicit fixture input and raw
+		# profile. M1B1 uses privacy_mode and never persists free-form player text.
+		last_record.input = normalized.left(160)
+		last_record.raw_spec = raw
 	_log_record(last_record)
 	print("[WeaponCompiler] ", JSON.stringify(last_record))
 	return spec
@@ -61,12 +71,16 @@ func compile_raw(raw: Dictionary) -> WeaponSpec:
 
 func _profile_for(text: String, drawing: Dictionary, forced_pattern: String = "") -> Dictionary:
 	var pattern := forced_pattern if forced_pattern in WeaponSpec.ATTACK_PATTERNS else _detect_pattern(text)
+	var form := _detect_weapon_form(text)
+	if not forced_pattern.is_empty() and str(WeaponSpec.canonical_semantics(form, pattern).attack_pattern) != pattern:
+		form = "generic"
 	var element := _detect_element(text)
 	var profile := _base_profile(pattern)
+	profile.merge(WeaponSpec.canonical_semantics(form, pattern), true)
 	profile.element = element
 	profile.status_effect = _status_for(element, profile.status_effect)
 	profile.visual_material = _material_for(element)
-	profile.name = "%s %s" % [_element_name(element), _pattern_name(pattern, drawing)]
+	profile.name = "%s %s" % [_element_name(element), _form_name(form, pattern, drawing)]
 	if _contains_any(text, ["massive", "ultimate", "overpowered", "huge damage", "超强", "巨大", "无敌"]):
 		profile.damage = 100
 		profile.attack_speed = 2.8
@@ -82,6 +96,8 @@ func _profile_for(text: String, drawing: Dictionary, forced_pattern: String = ""
 func _base_profile(pattern: String) -> Dictionary:
 	var common := {
 		"name": "Normal Sketchblade", "weapon_class": "melee", "attack_pattern": pattern,
+		"weapon_form": "generic", "delivery": "held", "trajectory": "direct",
+		"impact": "contact", "area_effect": "none",
 		"element": "normal", "damage": 36, "attack_speed": 1.0, "range": 132.0,
 		"special_ability": "knockback_burst", "status_effect": "knockback",
 		"drawback": "slow_recovery", "visual_material": "forged_metal", "power_score": 1,
@@ -89,13 +105,13 @@ func _base_profile(pattern: String) -> Dictionary:
 	}
 	match pattern:
 		"straight_projectile":
-			common.merge({"weapon_class": "ranged", "damage": 26, "attack_speed": 1.3, "range": 675.0, "special_ability": "none", "status_effect": "none", "drawback": "low_impact", "projectile_speed": 620.0}, true)
+			common.merge({"weapon_class": "ranged", "delivery": "projectile", "damage": 26, "attack_speed": 1.3, "range": 675.0, "special_ability": "none", "status_effect": "none", "drawback": "low_impact", "projectile_speed": 620.0}, true)
 		"boomerang":
-			common.merge({"weapon_class": "ranged", "damage": 30, "attack_speed": 0.95, "range": 620.0, "special_ability": "return_strike", "status_effect": "none", "drawback": "self_stagger", "projectile_speed": 520.0, "return_speed": 760.0}, true)
+			common.merge({"weapon_class": "ranged", "weapon_form": "boomerang", "delivery": "thrown", "trajectory": "returning", "damage": 30, "attack_speed": 0.95, "range": 620.0, "special_ability": "return_strike", "status_effect": "none", "drawback": "self_stagger", "projectile_speed": 520.0, "return_speed": 760.0}, true)
 		"area_blast":
-			common.merge({"weapon_class": "melee", "damage": 34, "attack_speed": 0.7, "range": 220.0, "special_ability": "splash_wave", "status_effect": "none", "drawback": "cooldown_lock", "area_radius": 165.0}, true)
+			common.merge({"weapon_class": "melee", "area_effect": "explosion", "damage": 34, "attack_speed": 0.7, "range": 220.0, "special_ability": "splash_wave", "status_effect": "none", "drawback": "cooldown_lock", "area_radius": 165.0}, true)
 		"piercing":
-			common.merge({"weapon_class": "ranged", "damage": 29, "attack_speed": 1.05, "range": 700.0, "special_ability": "shield_break", "status_effect": "none", "drawback": "narrow_arc", "projectile_speed": 720.0, "pierce_count": 3}, true)
+			common.merge({"weapon_class": "ranged", "delivery": "projectile", "impact": "piercing", "damage": 29, "attack_speed": 1.05, "range": 700.0, "special_ability": "shield_break", "status_effect": "none", "drawback": "narrow_arc", "projectile_speed": 720.0, "pierce_count": 3}, true)
 	return common
 
 
@@ -109,6 +125,15 @@ func _detect_pattern(text: String) -> String:
 	if _contains_any(text, ["piercing", "pierce", "drill", "穿透", "贯穿", "破盾"]): return "piercing"
 	if _contains_any(text, ["projectile", "shoot", "launcher", "arrow", "bow", "gun", "wand", "ranged", "投射", "发射", "远程"]): return "straight_projectile"
 	return "melee_slash"
+
+
+func _detect_weapon_form(text: String) -> String:
+	if _contains_any(text, ["grenade", "throwing bomb", "hand bomb"]): return "grenade"
+	if _contains_any(text, ["boomerang", "returning crescent"]): return "boomerang"
+	if _contains_any(text, ["bow", "longbow", "shortbow"]): return "bow"
+	if _contains_any(text, ["spear", "javelin", "lance"]): return "spear"
+	if _contains_any(text, ["sword", "blade", "katana", "sabre", "saber"]): return "sword"
+	return "generic"
 
 
 func _detect_element(text: String) -> String:
@@ -146,6 +171,16 @@ func _pattern_name(pattern: String, drawing: Dictionary) -> String:
 		"area_blast": return "Crowdbreaker Nova"
 		"piercing": return "Shieldsplitter Lance"
 	return "Longline Sketchblade" if float(drawing.get("aspect_ratio", 1.0)) > 1.7 else "Sketchblade"
+
+
+func _form_name(form: String, pattern: String, drawing: Dictionary) -> String:
+	match form:
+		"grenade": return "Arc Grenade"
+		"bow": return "Longbow"
+		"sword": return "Sketchsword"
+		"boomerang": return "Returning Crescent"
+		"spear": return "Shieldsplitter Spear"
+	return _pattern_name(pattern, drawing)
 
 
 func _contains_any(text: String, keywords: Variant) -> bool:

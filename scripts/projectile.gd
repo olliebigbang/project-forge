@@ -3,23 +3,48 @@ extends Area2D
 
 signal hit_target(target_name: String, damage: int)
 signal finished(pattern: String)
+signal area_impact(impact_position: Vector2, direction: Vector2, impact_reason: String)
 
 var _spec: WeaponSpec
+var _bundle: Dictionary = {}
 var _direction := Vector2.RIGHT
 var _distance_travelled := 0.0
-var _visual: WeaponVisual
+var _visual: ProjectileVisual
 var _player: ForgePlayer
 var _returning := false
 var _hit_keys: Dictionary = {}
 var _hit_count := 0
 var _strokes: Array[PackedVector2Array] = []
+var _velocity := Vector2.ZERO
+var _elapsed := 0.0
+var _detonated := false
+var _finish_emitted := false
+var _path_samples: Array[Dictionary] = []
+var _last_path_sample_elapsed := -1.0
+var _landing_surface_y := INF
+var _landing_center_y := INF
+var _landing_radius := 0.0
+var _landed_on_ground := false
+var _impact_reason := "none"
+
+const ARC_GRAVITY := 920.0
+const ARC_MAX_LIFETIME := 1.5
 
 
-func configure(spec: WeaponSpec, strokes: Array[PackedVector2Array], direction: Vector2, player: ForgePlayer = null) -> void:
+func configure(
+	spec: WeaponSpec,
+	strokes: Array[PackedVector2Array],
+	direction: Vector2,
+	player: ForgePlayer = null,
+	bundle: Dictionary = {},
+	landing_surface_y: float = INF,
+) -> void:
 	_spec = spec
+	_bundle = bundle.duplicate(true) if not bundle.is_empty() else WeaponVisualBundle.from_spec(spec)
 	_direction = direction.normalized()
 	_player = player
-	for stroke in strokes: _strokes.append(stroke.duplicate())
+	_strokes = StrokeFit.duplicate_strokes(strokes)
+	_landing_surface_y = landing_surface_y
 
 
 func _ready() -> void:
@@ -28,68 +53,157 @@ func _ready() -> void:
 	monitoring = true
 	var collider := CollisionShape2D.new()
 	var shape := CircleShape2D.new()
-	shape.radius = 20.0 if _spec.attack_pattern == "boomerang" else 13.0
+	shape.radius = 22.0 if str(_bundle.get("projectile_kind", "")) in ["boomerang", "grenade"] else 11.0
 	collider.shape = shape
 	add_child(collider)
 	body_entered.connect(_on_body_entered)
-	_visual = WeaponVisual.new()
-	_visual.scale = Vector2(0.52, 0.52) if _spec.attack_pattern != "piercing" else Vector2(0.68, 0.32)
-	_visual.rotation = 0.0 if _direction.x >= 0.0 else PI
-	_visual.configure(_strokes, _spec)
+	_visual = ProjectileVisual.new()
+	_visual.name = "ProjectileVisual"
+	_visual.configure(_bundle, _spec, _strokes)
 	add_child(_visual)
-	queue_redraw()
+	if _spec.delivery == "thrown" and _spec.trajectory == "arc":
+		_landing_radius = _visual.landing_radius()
+		if not is_finite(_landing_surface_y):
+			_landing_surface_y = global_position.y + 80.0
+		_landing_center_y = _landing_surface_y - _landing_radius
+		var upward_speed := minf(_spec.projectile_speed * 0.48, 330.0)
+		var vertical_distance := maxf(_landing_center_y - global_position.y, 8.0)
+		var flight_time := (upward_speed + sqrt(upward_speed * upward_speed + 2.0 * ARC_GRAVITY * vertical_distance)) / ARC_GRAVITY
+		var horizontal_distance := clampf(_spec.attack_range * 0.50, 64.0, 180.0)
+		var horizontal_speed := horizontal_distance / maxf(flight_time, 0.20)
+		_velocity = _direction * horizontal_speed + Vector2.UP * upward_speed
+	_apply_facing_rotation()
+	_record_path_sample(true)
 
 
 func _physics_process(delta: float) -> void:
-	if _spec == null: return
+	if _spec == null:
+		return
+	_elapsed += delta
+	if _spec.delivery == "thrown" and _spec.trajectory == "arc":
+		_velocity.y += ARC_GRAVITY * delta
+		var arc_step := _velocity * delta
+		position += arc_step
+		_distance_travelled += absf(arc_step.x)
+		_apply_rotation(delta)
+		_record_path_sample()
+		if _velocity.y >= 0.0 and global_position.y >= _landing_center_y:
+			global_position.y = _landing_center_y
+			_landed_on_ground = true
+			_record_path_sample(true)
+			_detonate("ground")
+		elif _elapsed >= ARC_MAX_LIFETIME:
+			# Fail visibly at the declared landing surface rather than exploding in
+			# mid-air if an extreme repaired spec produces unexpected timing.
+			global_position.y = _landing_center_y
+			_landed_on_ground = true
+			_record_path_sample(true)
+			_detonate("ground")
+		return
+
 	var speed := _spec.projectile_speed
 	if _spec.attack_pattern == "boomerang" and _returning:
 		speed = _spec.return_speed
 		if is_instance_valid(_player):
 			_direction = global_position.direction_to(_player.global_position + Vector2(0, -14))
 	var step := _direction * speed * delta
+	_velocity = _direction * speed
 	position += step
 	_distance_travelled += step.length()
-	rotation += delta * (9.0 if _spec.attack_pattern == "boomerang" else 2.2) * signf(_direction.x)
+	_apply_rotation(delta)
+	_record_path_sample()
 	if _spec.attack_pattern == "boomerang":
 		if not _returning and _distance_travelled >= _spec.attack_range * 0.52:
 			_returning = true
 			_distance_travelled = 0.0
 		if _returning and is_instance_valid(_player) and global_position.distance_to(_player.global_position) < 42.0:
-			finished.emit(_spec.attack_pattern)
-			queue_free()
+			_finish_and_free()
 	elif _distance_travelled >= _spec.attack_range:
-		finished.emit(_spec.attack_pattern)
-		queue_free()
+		_finish_and_free()
+
+
+func _apply_facing_rotation() -> void:
+	if str(_bundle.get("projectile_rotation_mode", "none")) == "face_velocity":
+		var heading := _velocity if _velocity.length_squared() > 0.001 else _direction
+		rotation = heading.angle()
+
+
+func _apply_rotation(delta: float) -> void:
+	match str(_bundle.get("projectile_rotation_mode", "none")):
+		"face_velocity": _apply_facing_rotation()
+		"tumble": rotation += delta * 3.2 * signf(_direction.x)
+		"return_spin": rotation += delta * 9.0 * signf(_direction.x)
+		_: rotation = 0.0 if _direction.x >= 0.0 else PI
 
 
 func _on_body_entered(body: Node) -> void:
-	if not body.has_method("take_damage") or _spec == null: return
+	if not body.has_method("take_damage") or _spec == null:
+		return
+	if _spec.delivery == "thrown" and _spec.area_effect == "explosion":
+		_detonate("contact")
+		return
 	var phase := "return" if _returning else "out"
 	var key := "%d:%s" % [body.get_instance_id(), phase]
-	if _hit_keys.has(key): return
+	if _hit_keys.has(key):
+		return
 	_hit_keys[key] = true
 	var actual: int = body.take_damage(_spec.damage, _spec.status_effect, _spec.attack_pattern, _direction)
 	_hit_count += 1
 	hit_target.emit(str(body.get("target_label")), actual)
 	if _spec.attack_pattern == "straight_projectile":
-		finished.emit(_spec.attack_pattern)
-		queue_free()
+		_finish_and_free()
 	elif _spec.attack_pattern == "piercing" and _hit_count >= _spec.pierce_count:
-		finished.emit(_spec.attack_pattern)
-		queue_free()
+		_finish_and_free()
 
 
-func _draw() -> void:
-	if _spec == null: return
-	var color := WeaponVisual._color_for_element(_spec.element)
-	if _spec.attack_pattern == "piercing":
-		draw_line(Vector2(-50, 0), Vector2(58, 0), Color(color, 0.28), 18.0, true)
-		draw_line(Vector2(-42, 0), Vector2(62, 0), color, 5.0, true)
-		draw_colored_polygon(PackedVector2Array([Vector2(62, 0), Vector2(38, -12), Vector2(38, 12)]), color)
-	elif _spec.attack_pattern == "boomerang":
-		draw_arc(Vector2.ZERO, 30.0, -2.5, 0.8, 20, Color(color, 0.3), 13.0, true)
-		draw_arc(Vector2.ZERO, 30.0, -2.5, 0.8, 20, color, 5.0, true)
-	else:
-		draw_line(Vector2(-36, 0), Vector2(18, 0), Color(color, 0.28), 12.0, true)
-		draw_circle(Vector2(18, 0), 8.0, color)
+func _detonate(reason: String) -> void:
+	if _detonated:
+		return
+	_detonated = true
+	_impact_reason = reason
+	area_impact.emit(global_position, _direction, reason)
+	_finish_and_free()
+
+
+func _finish_and_free() -> void:
+	if _finish_emitted:
+		return
+	_finish_emitted = true
+	_record_path_sample(true)
+	finished.emit(_spec.attack_pattern)
+	queue_free()
+
+
+func qa_visual_state() -> Dictionary:
+	var visual_state: Dictionary = _visual.qa_state() if is_instance_valid(_visual) else {}
+	var velocity_angle := _velocity.angle() if _velocity.length_squared() > 0.001 else _direction.angle()
+	visual_state.merge({
+		"instance_id": get_instance_id(),
+		"position": {"x": global_position.x, "y": global_position.y},
+		"velocity": {"x": _velocity.x, "y": _velocity.y},
+		"rotation": rotation,
+		"velocity_angle": velocity_angle,
+		"heading_error": absf(wrapf(rotation - velocity_angle, -PI, PI)),
+		"returning": _returning,
+		"elapsed": _elapsed,
+		"path_samples": _path_samples.duplicate(true),
+		"impact_reason": _impact_reason,
+		"landed_on_ground": _landed_on_ground,
+		"landing_surface_y": _landing_surface_y,
+		"landing_center_y": _landing_center_y,
+		"landing_radius": _landing_radius,
+		"landing_error": absf(global_position.y - _landing_center_y) if _landed_on_ground else -1.0,
+	}, true)
+	return visual_state
+
+
+func _record_path_sample(force: bool = false) -> void:
+	if not force and _last_path_sample_elapsed >= 0.0 and _elapsed - _last_path_sample_elapsed < 0.055:
+		return
+	_last_path_sample_elapsed = _elapsed
+	_path_samples.append({
+		"time": _elapsed,
+		"x": global_position.x,
+		"y": global_position.y,
+		"rotation": rotation,
+	})

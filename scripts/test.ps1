@@ -24,7 +24,12 @@ function Invoke-GodotCheck {
         [string[]]$Arguments
     )
     Write-Host "`n== $Label ==" -ForegroundColor Cyan
-    $output = @(& $script:Godot @Arguments 2>&1)
+    $logDirectory = Join-Path $repoRoot "output\godot-test-logs"
+    New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
+    $safeLabel = $Label -replace "[^A-Za-z0-9]+", "-"
+    $logFile = Join-Path $logDirectory ("{0}-{1}.log" -f $safeLabel, [guid]::NewGuid().ToString("N"))
+    $effectiveArguments = @($Arguments) + @("--log-file", $logFile)
+    $output = @(& $script:Godot @effectiveArguments 2>&1)
     $exitCode = $LASTEXITCODE
     $output | ForEach-Object { Write-Host $_ }
     if ($exitCode -ne 0) {
@@ -58,5 +63,25 @@ if ($LASTEXITCODE -ne 0) {
 if ($LASTEXITCODE -ne 0) {
     throw "WASM chunk loader tests failed with exit code $LASTEXITCODE"
 }
+& node --test (Join-Path $repoRoot "tests\weapon_interpreter.test.mjs")
+if ($LASTEXITCODE -ne 0) {
+    throw "Weapon interpreter tests failed with exit code $LASTEXITCODE"
+}
+& node --test (Join-Path $repoRoot "tests\durable_request_guard.test.mjs")
+if ($LASTEXITCODE -ne 0) {
+    throw "Durable request guard tests failed with exit code $LASTEXITCODE"
+}
+& node --test (Join-Path $repoRoot "tests\anthropic_weapon_adapter.test.mjs")
+if ($LASTEXITCODE -ne 0) {
+    throw "Anthropic weapon adapter tests failed with exit code $LASTEXITCODE"
+}
+& node --test (Join-Path $repoRoot "tests\provider_budget_guard.test.mjs")
+if ($LASTEXITCODE -ne 0) {
+    throw "Provider budget guard tests failed with exit code $LASTEXITCODE"
+}
+& node --test (Join-Path $repoRoot "tests\m1b1_anthropic_safety_regression.test.mjs")
+if ($LASTEXITCODE -ne 0) {
+    throw "Anthropic safety regression tests failed with exit code $LASTEXITCODE"
+}
 
-Write-Host "`nAll Project Forge M1A checks passed." -ForegroundColor Green
+Write-Host "`nAll Project Forge M1A + M1B1 checks passed." -ForegroundColor Green

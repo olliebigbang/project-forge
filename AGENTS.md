@@ -14,7 +14,7 @@ assets, balance data, or development direction from Cat Battle or another projec
 - Uncertainty must be marked exactly `CONFIRMED`, `ASSUMPTION`, `TO VALIDATE`, or
   `TBD`; do not silently resolve product questions.
 
-## Current stable scope: M1A complete
+## Stable baseline and current development scope
 
 - Godot 4.7.1, 2D landscape, Web-first.
 - Drawing and one text line feed a deterministic local `WeaponCompiler`.
@@ -24,14 +24,57 @@ assets, balance data, or development direction from Cat Battle or another projec
 - Strong capabilities must have a visible drawback or deterministic stat cost.
 - Test against stationary, moving, shield, and grouped targets.
 - Physical iPhone Safari acceptance for v9 is complete and recorded.
-- Do not continue M1B or other new-feature development on the M1A stable branch.
-  Any authorized next milestone must start from the stable tag on a separate
-  branch with its own acceptance plan.
+- **CONFIRMED** M1B1 real text interpretation and its reopened P0 fixes passed
+  physical iPhone Safari acceptance on 2026-07-20. Formal release closure uses
+  PR #4 from `codex/fix/m1b1-input-aspect`.
+- Do not start M1B2 during M1B1 closure or move/delete either stable tag.
 - The M1A forge uses five persistent attack-pattern test buttons. Never restore
   an `OptionButton`, `PopupMenu`, or full-screen modal selector for this flow.
 
 Do not add paid AI, secrets, production levels or art, voice, accounts, cloud
 saves, sharing, monetization, multiplayer, or store submission in M1A.
+
+## Current scope: M1B1
+
+- Normal players enter free text; five attack-pattern buttons are hidden until
+  Developer/Test Mode or MODIFY INTERPRETATION.
+- Godot calls only the same-origin project backend. Never call a provider from
+  Godot or expose a provider key to Web/client code.
+- Provider output is untrusted semantic data. Server and client both enforce the
+  existing schema allow-lists and `PowerBudget` before combat.
+- Never reflect provider free-form names, summaries, corrections, metadata or
+  nested cost objects. Generate player-facing text from validated labels and keep
+  cost to `UNKNOWN` or the strict bounded currency structure.
+- Preserve random caller/request IDs, SHA-256 namespaces, D1 cross-isolate
+  idempotency/quota, and strict response-ID/revision checks; a late response
+  cannot commit to a newer request.
+- A wrapper timeout must abort and must not automatically retry. Retry at most
+  once only when the provider adapter explicitly proves the failure retry-safe.
+- Before paid public traffic, require a provider account spend cap. Sites D1 is
+  the application quota/idempotency boundary. Any non-local provider with a
+  missing, partial, or unavailable D1 guard must fail closed before invocation.
+- **CONFIRMED** M1B1 uses Anthropic's native Messages API with native Structured
+  Outputs and the immutable model snapshot `claude-haiku-4-5-20251001`. Never use
+  an OpenAI-compatible Anthropic endpoint or auto-upgrade to another Claude tier.
+- **CONFIRMED** `M1B1_PROVIDER_BUDGET_USD=5` is a lifetime application hard cap.
+  Worker + D1 reserve worst-case spend before invocation, settle verified usage,
+  conservatively charge ambiguous outcomes, and fail closed on guard uncertainty.
+- `ANTHROPIC_API_KEY` is a Sites Secret only. Never read, print, copy, persist, or
+  inject it into tests, Godot, browser assets, Git, screenshots, or logs.
+- Drawing input is numeric `drawing_summary` only; visual semantics are M1B2.
+- Preserve drawing/text across cancellation, timeout, retry and explicit error
+  recovery. Provider failure must never create an equipable fallback weapon.
+- Keep `weapon_form`, `delivery`, `trajectory`, `impact`, and `area_effect`
+  independent from `attack_pattern`; `area_blast` never substitutes for a
+  grenade's thrown/arc delivery.
+- Fit player-ink visuals from actual raw-stroke bounds with 8%-12% padding and
+  one uniform scale. Never destructively rewrite source strokes. Only a semantic
+  thrown object may reuse ink as a projectile; bows, guns, energy and piercing
+  attacks use deterministic projectile visuals selected by `WeaponVisualBundle`.
+- Web keyboard entry owns a stable landscape Canvas. Never resize the game world
+  from the temporary keyboard-reduced Visual Viewport; keep Description, clear
+  and Done inside the visible safe area and restore normal layout after blur.
+- No M1B2, voice, production art, accounts, sharing, monetization or multiplayer.
 
 ## Engineering rules
 
@@ -55,7 +98,9 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
 ## Git and agent workflow
 
 - Stable branch after release closure: `main`.
-- Stable release tag: `v0.1.0-m1a`.
+- Stable M1B1 release tag after closure: `v0.2.0-m1b1`.
+- Retained M1A rollback tag: `v0.1.0-m1a`.
+- Current closure branch: `codex/fix/m1b1-input-aspect`.
 - Compact Landscape uses CSS `visualViewport` dimensions; do not size mobile
   touch controls from the 1280×720 logical viewport alone.
 - Web Description input is a bounded native HTML overlay synchronized with
