@@ -494,9 +494,14 @@ test("concurrent idempotent requests share one in-flight provider operation", as
   assert.equal(first.status, 200);
   assert.equal(second.status, 200);
   assert.equal(providerCalls, 1);
-  assert.equal(second.headers.get("x-forge-idempotent-replay"), "true");
-  assert.equal(second.headers.get("x-forge-idempotent-inflight"), "true");
-  assert.deepEqual(await second.json(), await first.json());
+  const responses = [first, second];
+  const replayResponses = responses.filter(
+    (response) => response.headers.get("x-forge-idempotent-replay") === "true",
+  );
+  assert.equal(replayResponses.length, 1);
+  assert.equal(replayResponses[0].headers.get("x-forge-idempotent-inflight"), "true");
+  const [firstBody, secondBody] = await Promise.all(responses.map((response) => response.json()));
+  assert.deepEqual(secondBody, firstBody);
 });
 
 test("idempotency keys are namespaced per client session", async () => {
