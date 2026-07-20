@@ -962,3 +962,138 @@ until M1B1-ANTH-001 through M1B1-ANTH-006 close on the integrated candidate.
 This review does not authorize M1B2, public paid traffic, a model upgrade, a
 provider fallback, or a relaxation of the existing client/server/Schema/Power
 boundaries.
+
+## 22. Anthropic integrated candidate audit (`4c8834a`)
+
+Document state: **FAIL — ONE P1 PROVIDER-BUDGET BLOCKER REPRODUCED; NO REAL
+ANTHROPIC REQUEST MADE**
+
+Prepared: 2026-07-20
+
+Implementation candidate:
+`4c8834a` (`feat: add guarded Anthropic weapon interpreter`)
+
+QA integration merge: `e6a887c` on
+`codex/qa/m1b1-anthropic-safety`
+
+### 22.1 Scope and provenance
+
+- **CONFIRMED** QA merged the exact supplied implementation candidate into the
+  isolated safety Worktree. QA changed no provider adapter, Worker orchestration,
+  D1 implementation, migration, game script, scene, Schema, build or deployment
+  code.
+- **CONFIRMED** QA added only
+  `tests/m1b1_anthropic_safety_regression.test.mjs` and this report evidence.
+- **CONFIRMED** All provider responses were locally injected `fetch` fixtures.
+  The Sites secret was not read or printed, no real Anthropic endpoint was
+  contacted, and measured provider spend for this audit is USD 0.
+
+### 22.2 Passing candidate controls
+
+| Control | Independent result |
+| --- | --- |
+| Direct provider path | **PASS** — exactly one `POST https://api.anthropic.com/v1/messages` with server `x-api-key`, `anthropic-version: 2023-06-01`, JSON content and `AbortSignal` |
+| Native Structured Outputs | **PASS** — `output_config.format.type=json_schema`; shallow required enum contract with `additionalProperties:false`; no OpenAI `response_format` or legacy `output_format` |
+| Fixed provider/model | **PASS** — only `anthropic` plus `claude-haiku-4-5-20251001`; aliases, Sonnet, Opus, OpenAI and unknown providers reject before invocation; served model is checked again |
+| No hidden provider capabilities | **PASS** — request has no tools, thinking, cache controls, server/client fallbacks, streaming, beta routing or provider-selected URL |
+| Zero automatic retry | **PASS** — raw `fetch`, adapter `maximumAttempts=1`, 429 and network fixtures each made one call even when wrapper option requested two |
+| Conservative reservation | **PASS** — exact constant 201,280 micro-USD equals 200,000 maximum input tokens at 1 micro-USD plus 256 maximum output tokens at 5 micro-USD |
+| Worker + D1 ceiling | **PASS locally** — Worker maximum USD 5, integer D1 limit 5,000,000, exact-cap atomic race permits one winner, one micro-USD over rejects, identity/pricing revision is lifetime scoped |
+| Measured settlement | **PASS** — verified 100 input plus 20 output tokens settles exactly 200 micro-USD and releases only measured excess |
+| Refusal/truncation | **PASS** — `refusal` and `max_tokens` content never compiles or persists; verified usage settles 200 micro-USD once and fallback remains Schema/runtime/Power valid |
+| Malformed successful response | **PASS** — missing usage commits the complete 201,280 micro-USD reservation; wrong served model settles measured cost but cannot become gameplay data |
+| Reservation breach | **PASS** — actual cost greater than reservation locks the lifetime budget, retains the reservation and denies the next reservation |
+| Secret/raw provider reflection | **PASS for injected paths** — unique API-key and raw-body markers were absent from client result, captured audit, D1 request result and D1 charge rows across refusal, truncation, malformed usage, wrong model and HTTP errors |
+| Client provider boundary | **PASS source scan** — no non-test key-shaped value, sensitive logging pattern or `api.anthropic.com` reference in client/game paths |
+
+Native Structured Outputs remain defense in depth rather than authority. The
+adapter returns semantic labels only; server-owned conversion, full repository
+Schema, allow-list, semantic compatibility and PowerBudget still run, followed
+by the existing Godot runtime repair.
+
+### 22.3 Commands and evidence
+
+| Command / probe | Result |
+| --- | --- |
+| `node --test tests/weapon_interpreter.test.mjs tests/durable_request_guard.test.mjs tests/anthropic_weapon_adapter.test.mjs tests/provider_budget_guard.test.mjs tests/static_worker.test.mjs tests/wasm_chunk_loader.test.mjs` | **PASS, 106/106** |
+| `node --test tests/m1b1_anthropic_safety_regression.test.mjs` | **FAIL as intended blocker evidence:** 6 runner tests pass; four HTTP status subtests fail, plus their aggregate parent is reported failed |
+| Refusal fixture | **PASS:** one call, fallback `provider_refusal`, 200 micro-USD spent, no raw marker |
+| `max_tokens` fixture | **PASS:** one call, fallback `provider_output_truncated`, 200 micro-USD spent, no raw marker |
+| Missing-usage HTTP 200 fixture | **PASS:** fallback `invalid_provider_usage`, 201,280 micro-USD conservative spend |
+| Wrong served-model fixture | **PASS:** fallback `provider_model_mismatch`, 200 micro-USD measured spend, no raw marker |
+| Usage greater than reservation | **PASS:** `reservation_breach`, budget locked, next request denied |
+| Tracked-source key/log/client-endpoint scan | **PASS:** zero non-test key-shaped values, zero matching sensitive log calls, zero client provider endpoints |
+
+Node emits its standard experimental SQLite warning for the local D1 parity
+harness. It does not affect assertions. No Godot or browser claim is made in this
+provider-safety subsection.
+
+### 22.4 M1B1-ANTH-REG-001 — non-2xx responses release unknown spend
+
+**Severity: P1 RELEASE BLOCKER. Status: OPEN at `4c8834a`.**
+
+The direct request has already been dispatched when
+`AnthropicWeaponAdapter.interpret()` receives an HTTP error. For every non-2xx
+status, the candidate sets:
+
+```text
+billing.disposition = "not_billed"
+```
+
+without an application-verifiable provider usage record or an official
+zero-billing guarantee for that exact request. `finalizeProviderBudget()` then
+calls `releaseProviderBudget()`, returning the entire pre-authorized amount to
+the D1 pool.
+
+The independent hostile HTTP-boundary probe produced the same result for all
+four high-risk statuses:
+
+| Anthropic fixture | Native calls | Expected D1 result | Actual D1 result | Status |
+| ---: | ---: | --- | --- | --- |
+| 429 | 1 | `conservative`, spent 201,280 | `released`, spent 0 | **FAIL** |
+| 500 | 1 | `conservative`, spent 201,280 | `released`, spent 0 | **FAIL** |
+| 504 | 1 | `conservative`, spent 201,280 | `released`, spent 0 | **FAIL** |
+| 529 | 1 | `conservative`, spent 201,280 | `released`, spent 0 | **FAIL** |
+
+The fallback WeaponSpecs were safe and no marker leaked, but those facts do not
+repair the financial boundary. Repeated upstream throttling, overload or timeout
+responses can currently consume one external request each while leaving the
+application USD ledger unchanged. Therefore Worker plus D1 does not yet enforce
+the owner's required fail-closed rule for unknown billing.
+
+Required repair and retest:
+
+1. Once the native `fetch` begins, leave billing `unknown` for every non-2xx
+   response unless the provider supplies authoritative per-request zero-cost
+   evidence that the application verifies. Status-code intuition is not proof.
+2. For this M1B1 fixed path, the safest acceptable rule is that every non-2xx
+   status commits the full 201,280 micro-USD reservation and performs zero retry.
+3. `not_invoked` may release only when failure is proven before dispatch. Current
+   model/key/config and D1 failures already occur before reservation or fetch.
+4. Rerun the exact QA regression for 429, 500, 504 and 529 and require charge
+   status `conservative`, `spent_microusd=201280`, `reserved_microusd=0`, one
+   native call, safe fallback, and zero secret/raw marker.
+5. Repeat the full 106-test suite and source/build scans after the fix.
+
+### 22.5 Additional non-blocking hardening observation
+
+**P2:** the adapter calls `response.json()` without an explicit upstream response
+byte limit. The 256-token output ceiling and direct fixed provider make ordinary
+responses small, and no leak was reproduced. A future hardening pass should read
+and bound response bytes before JSON parsing so a malformed upstream body cannot
+consume unbounded Worker memory. This does not downgrade the P1 finding above or
+authorize a live canary.
+
+### 22.6 Candidate disposition
+
+**FAIL — DO NOT RUN THE PAID CANARY OR DEPLOY THE REAL-PROVIDER PREVIEW AT
+`4c8834a`.** The direct native API, strict semantic schema, fixed model, one-call
+policy, 201,280 reservation, measured/refusal/truncation accounting, unknown-200
+conservative settlement, overspend lock and redaction controls pass locally.
+However, non-2xx error responses violate the explicit unknown-billing rule and
+leave a reproducible path around the application USD ledger.
+
+After M1B1-ANTH-REG-001 is fixed, QA must retest the exact integrated revision.
+Real Anthropic accuracy, latency, live usage, deployed Sites D1 behavior,
+provider-side spend ceiling, public assets and physical iPhone remain **TO
+VALIDATE** regardless of this offline result.
