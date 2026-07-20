@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 
@@ -14,7 +14,7 @@ const playwright = require(modulePath);
 const browserType = playwright[browserName];
 
 if (!browserType) throw new Error(`Unsupported browser: ${browserName}`);
-if (!new Set(["simulated", "live-one-call"]).has(mode)) {
+if (!new Set(["simulated", "fixture-one-call", "live-one-call"]).has(mode)) {
   throw new Error(`Unsupported Anthropic QA mode: ${mode}`);
 }
 if (
@@ -185,6 +185,8 @@ try {
   const page = await context.newPage();
   const consoleMessages = [];
   const apiObservations = [];
+  const apiResponseSnapshots = [];
+  const apiResponseTasks = [];
   const simulatedPlans = [];
   const screenshots = [];
   let simulatedProviderCalls = 0;
@@ -223,6 +225,37 @@ try {
         Array.isArray(body.drawing_summary?.strokes),
     });
   });
+  page.on("response", (response) => {
+    if (!response.url().includes("/api/compile-weapon")) return;
+    const task = response
+      .json()
+      .then((body) => {
+        const sourceSpec = body?.weapon_spec;
+        const weaponSpec =
+          sourceSpec && typeof sourceSpec === "object"
+            ? Object.fromEntries(Object.entries(sourceSpec).filter(([key]) => key !== "name"))
+            : null;
+        apiResponseSnapshots.push({
+          status: response.status(),
+          requestId: String(body?.request_id || ""),
+          fallbackReason: String(body?.fallback_reason || ""),
+          provider: String(body?.provider_metadata?.provider || ""),
+          model: String(body?.provider_metadata?.model || ""),
+          attempts: Number(body?.provider_metadata?.attempts ?? -1),
+          schemaValid: body?.schema_valid === true,
+          allowListValid: body?.allow_list_valid === true,
+          runtimeValid: body?.runtime_valid === true,
+          weaponSpec,
+        });
+      })
+      .catch((error) => {
+        apiResponseSnapshots.push({
+          status: response.status(),
+          parseError: String(error?.message || error),
+        });
+      });
+    apiResponseTasks.push(task);
+  });
 
   if (mode === "simulated") {
     await page.route("**/api/compile-weapon", async (route) => {
@@ -250,6 +283,28 @@ try {
         // scripted late response is fulfilled. This is expected in CANCEL tests.
         if (!String(error?.message || error).toLowerCase().includes("route")) throw error;
       }
+    });
+  } else if (mode === "fixture-one-call") {
+    const fixturePath = String(process.env.M1B1_QA_RESPONSE_FIXTURE ?? "").trim();
+    if (!fixturePath) {
+      throw new Error("M1B1_QA_RESPONSE_FIXTURE is required in fixture-one-call mode.");
+    }
+    const fixture = JSON.parse(await readFile(resolve(fixturePath), "utf8"));
+    await page.route("**/api/compile-weapon", async (route) => {
+      const payload = route.request().postDataJSON();
+      simulatedProviderCalls += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: {
+          "Cache-Control": "no-store",
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Embedder-Policy": "require-corp",
+          "Cross-Origin-Resource-Policy": "same-origin",
+          "X-Content-Type-Options": "nosniff",
+        },
+        body: JSON.stringify({ ...fixture, request_id: payload.request_id }),
+      });
     });
   }
 
@@ -456,16 +511,24 @@ try {
   await clearDescription.click();
   assert((await input.inputValue()) === "", "Description clear button failed");
 
-  if (mode === "live-one-call") {
+  if (mode === "live-one-call" || mode === "fixture-one-call") {
     const description = "a returning electric boomerang that shocks targets";
     await prepareInput(description);
     const before = await state();
     await tapControl("forge");
     const completed = await waitFor(terminal, "live Anthropic result", 20000);
+    await Promise.all(apiResponseTasks);
     assertCreativeInput(completed, description, "live Anthropic result");
     const result = assertSafe(completed, "live Anthropic result");
-    assert(completed.request_count === before.request_count + 1, "Live smoke made multiple logical requests");
-    assert(completed.phase === "result" && !completed.fallback_reason, "Live smoke fell back");
+    assert(
+      completed.request_count === before.request_count + 1,
+      "Single-call smoke made multiple logical requests",
+    );
+    assert(
+      completed.phase === "result" && !completed.fallback_reason,
+      `Single-call smoke fell back: ${completed.fallback_reason || "unknown"}; ` +
+        `response=${JSON.stringify(apiResponseSnapshots.at(-1) || null)}`,
+    );
     assert(result.provider_metadata?.provider === EXPECTED_PROVIDER, "Live response provider mismatch");
     assert(result.provider_metadata?.model === EXPECTED_MODEL, "Live response model mismatch");
     assert(result.provider_metadata?.attempts === 1, "Live success used more than one upstream attempt");
@@ -480,6 +543,7 @@ try {
         result.estimated_cost.amount < 5,
       "Live provider usage cost was not recorded as bounded USD metadata",
     );
+    await capture("live-confirmation");
     await tapControl("confirm");
     let combat = await waitFor((value) => value.screen === "combat", "live combat");
     assert(!combat.selector_visible, "Selector leaked into live combat");
@@ -487,6 +551,7 @@ try {
     await tapControl("attack");
     combat = await waitFor((value) => value.attack_count > attackCount, "live attack");
     assert(combat.last_attack_pattern === "boomerang", "Live weapon executed wrong attack module");
+    await capture("live-combat-boomerang-attack");
   } else {
     const preservedDescription = "a delayed electric boomerang for mobile cancellation";
     await prepareInput(preservedDescription);
@@ -656,6 +721,13 @@ try {
     assert(!observation.leakedStrokeGeometry, "Client sent raw stroke geometry to M1B1");
   }
 
+  const expectedSimulatedCalls =
+    mode === "simulated" ? 4 : mode === "fixture-one-call" ? 1 : 0;
+  assert(
+    simulatedProviderCalls === expectedSimulatedCalls,
+    `Provider-call accounting mismatch: expected ${expectedSimulatedCalls}, got ${simulatedProviderCalls}`,
+  );
+
   const knownRendererMessage = (entry) =>
     entry.text.includes("GPU stall due to ReadPixels") ||
     entry.text.includes("CONTEXT_LOST_WEBGL: loseContext") ||
@@ -675,11 +747,22 @@ try {
     suite: "M1B1 Anthropic mobile regression",
     mode,
     browserName,
-    providerClaim: mode === "live-one-call" ? EXPECTED_PROVIDER : "NOT TESTED - simulated HTTP only",
-    modelClaim: mode === "live-one-call" ? EXPECTED_MODEL : "NOT TESTED - simulated HTTP only",
+    providerClaim:
+      mode === "live-one-call"
+        ? EXPECTED_PROVIDER
+        : mode === "fixture-one-call"
+          ? "SIMULATED REAL RESPONSE FIXTURE"
+          : "NOT TESTED - simulated HTTP only",
+    modelClaim:
+      mode === "live-one-call"
+        ? EXPECTED_MODEL
+        : mode === "fixture-one-call"
+          ? "SIMULATED REAL RESPONSE FIXTURE"
+          : "NOT TESTED - simulated HTTP only",
     layouts,
     apiRequestCount: apiObservations.length,
-    simulatedProviderCalls: mode === "simulated" ? simulatedProviderCalls : 0,
+    apiResponses: apiResponseSnapshots,
+    simulatedProviderCalls: mode === "live-one-call" ? 0 : simulatedProviderCalls,
     orientationDuringLoading: mode === "simulated" ? "PASS" : "NOT RUN",
     confirmationRotation: mode === "simulated" ? "PASS" : "NOT RUN",
     backgroundResume: mode === "simulated" ? "PASS - tab simulation only" : "NOT RUN",

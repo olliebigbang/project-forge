@@ -1213,6 +1213,8 @@ func _update_qa_bridge() -> void:
 		"fallback_reason": str(pending_result.get("fallback_reason", "")),
 		"message": review_summary.text if review_mode else forge_status.text,
 		"late_response_ignored": interpreter.late_response_ignored,
+		"http_result_code": interpreter.last_http_result_code,
+		"http_response_code": interpreter.last_http_response_code,
 		"feedback_count": _qa_feedback_count,
 		"attack_count": _qa_attack_count,
 		"last_attack_pattern": _qa_last_attack_pattern,

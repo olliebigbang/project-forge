@@ -19,6 +19,8 @@ var test_options: Dictionary = {}
 var test_mode_enabled := false
 var force_local := false
 var late_response_ignored := 0
+var last_http_result_code := -1
+var last_http_response_code := 0
 
 var _http_request: HTTPRequest
 var _compiler := WeaponCompiler.new()
@@ -46,6 +48,8 @@ func start_interpretation(
 	attempts = 1
 	_request_revision += 1
 	_started_msec = Time.get_ticks_msec()
+	last_http_result_code = -1
+	last_http_response_code = 0
 	active_request_id = "m1b1-%s" % _random_token(16)
 	_active_payload = {
 		"description": description,
@@ -76,7 +80,7 @@ func start_interpretation(
 	var request_id := active_request_id
 	var request_node := HTTPRequest.new()
 	request_node.name = "WeaponInterpreterHttp_%d" % request_revision
-	request_node.timeout = REQUEST_TIMEOUT_SECONDS
+	configure_http_request(request_node, OS.has_feature("web"))
 	add_child(request_node)
 	_http_request = request_node
 	request_node.request_completed.connect(
@@ -98,6 +102,14 @@ func start_interpretation(
 		_release_http_request(request_node)
 		call_deferred("_complete_with_fallback", _request_revision, "network_unavailable")
 	return active_request_id
+
+
+static func configure_http_request(request_node: HTTPRequest, web_build: bool) -> void:
+	request_node.timeout = REQUEST_TIMEOUT_SECONDS
+	# Browser Fetch has already decoded compressed response bytes while retaining
+	# the Content-Encoding header. Godot Web must not try to decode that body a
+	# second time or HTTPRequest reports RESULT_BODY_DECOMPRESS_FAILED.
+	request_node.accept_gzip = not web_build
 
 
 func cancel() -> bool:
@@ -219,6 +231,8 @@ func _on_http_request_completed(
 	):
 		late_response_ignored += 1
 		return
+	last_http_result_code = result_code
+	last_http_response_code = response_code
 	if result_code != HTTPRequest.RESULT_SUCCESS:
 		var reason := "provider_timeout" if result_code == HTTPRequest.RESULT_TIMEOUT else "network_unavailable"
 		_complete_with_fallback(revision, reason)

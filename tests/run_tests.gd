@@ -253,6 +253,18 @@ func _test_weapon_interpreter_response_context() -> void:
 	var rejected: Dictionary = interpreter._validate_server_result(stale_response, "expected-request")
 	_expect(not bool(rejected.get("ok", false)) and rejected.reason == "stale_response", "mismatched server request_id is rejected")
 
+	var web_request := HTTPRequest.new()
+	interpreter.add_child(web_request)
+	WeaponInterpreter.configure_http_request(web_request, true)
+	_expect(not web_request.accept_gzip, "Web HTTPRequest disables duplicate gzip decompression")
+	_expect(is_equal_approx(web_request.timeout, WeaponInterpreter.REQUEST_TIMEOUT_SECONDS), "Web HTTPRequest preserves the bounded timeout")
+	web_request.queue_free()
+	var native_request := HTTPRequest.new()
+	interpreter.add_child(native_request)
+	WeaponInterpreter.configure_http_request(native_request, false)
+	_expect(native_request.accept_gzip, "native HTTPRequest keeps Godot gzip handling")
+	native_request.queue_free()
+
 	var stale_node := HTTPRequest.new()
 	interpreter.add_child(stale_node)
 	var before_ignored := interpreter.late_response_ignored
