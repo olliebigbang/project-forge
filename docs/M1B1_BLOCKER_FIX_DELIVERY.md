@@ -109,6 +109,12 @@ in Chromium and version-matched Playwright WebKit. The real-provider run also
 reported zero application console errors. Draft PR #4 CI was green before this
 evidence-only delivery update and is rechecked on the final pushed commit.
 
+**CONFIRMED** A separate public zero-paid safety request was rejected before
+provider invocation with `success=false`, `provider_invoked=false`, attempts 0,
+`weapon_spec=null`, `runtime_valid=false`, matching input/request snapshot,
+hidden CONFIRM, visible EDIT INPUT / TRY AGAIN, HTTP 200 `no-store`, and zero
+application console errors.
+
 Public integrity probe:
 
 | Resource | Public SHA-256 | Result |

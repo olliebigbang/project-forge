@@ -25,6 +25,7 @@ try {
       status: response.status(),
       contentType: response.headers()["content-type"] || "",
       contentEncoding: response.headers()["content-encoding"] || "",
+      cacheControl: response.headers()["cache-control"] || "",
     });
   });
 
@@ -64,11 +65,12 @@ try {
   const forge = controls.forge;
   await page.touchscreen.tap(forge.x + forge.width / 2, forge.y + forge.height / 2);
   await page.waitForFunction(
-    () => ["result", "fallback"].includes(window.__forgeM1B1Test.state().phase),
+    () => ["result", "error"].includes(window.__forgeM1B1Test.state().phase),
     null,
     { timeout: 15000 },
   );
   const state = await page.evaluate(() => window.__forgeM1B1Test.state());
+  const finalControls = await page.evaluate(() => window.__forgeM1B1Test.controls());
 
   const knownRendererMessage = (entry) =>
     entry.text.includes("GPU stall due to ReadPixels") ||
@@ -89,9 +91,18 @@ try {
   const evidence = {
     phase: state.phase,
     fallbackReason: state.fallback_reason,
+    success: state.result?.success,
+    providerInvoked: state.result?.provider_invoked,
     provider: state.result?.provider_metadata?.provider,
     attempts: state.result?.provider_metadata?.attempts,
+    weaponSpecIsNull: state.result?.weapon_spec === null,
     runtimeValid: state.runtime_valid,
+    requestSnapshotMatches:
+      state.request_snapshot?.description === description &&
+      state.request_snapshot?.request_id === state.result?.request_id,
+    confirmationHidden: finalControls.confirm?.width === 0,
+    editInputVisible: finalControls.modify?.width > 0,
+    tryAgainVisible: finalControls.try_again?.width > 0,
     httpResultCode: state.http_result_code,
     httpResponseCode: state.http_response_code,
     apiResponses,
@@ -99,14 +110,23 @@ try {
   };
   process.stdout.write(`${JSON.stringify(evidence, null, 2)}\n`);
   if (
-    state.phase !== "fallback" ||
+    state.phase !== "error" ||
     state.fallback_reason !== "prompt_injection" ||
+    state.result?.success !== false ||
+    state.result?.provider_invoked !== false ||
     state.result?.provider_metadata?.provider !== "none" ||
     state.result?.provider_metadata?.attempts !== 0 ||
-    state.runtime_valid !== true ||
+    state.result?.weapon_spec !== null ||
+    state.runtime_valid !== false ||
+    state.request_snapshot?.description !== description ||
+    state.request_snapshot?.request_id !== state.result?.request_id ||
+    finalControls.confirm?.width !== 0 ||
+    !(finalControls.modify?.width > 0) ||
+    !(finalControls.try_again?.width > 0) ||
     state.http_result_code !== 0 ||
     state.http_response_code !== 200 ||
     apiResponses.at(-1)?.status !== 200 ||
+    !apiResponses.at(-1)?.cacheControl.includes("no-store") ||
     seriousConsole.length !== 0
   ) {
     throw new Error(`Safe live transport failed: ${JSON.stringify(evidence)}`);
