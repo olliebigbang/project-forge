@@ -1097,3 +1097,125 @@ After M1B1-ANTH-REG-001 is fixed, QA must retest the exact integrated revision.
 Real Anthropic accuracy, latency, live usage, deployed Sites D1 behavior,
 provider-side spend ceiling, public assets and physical iPhone remain **TO
 VALIDATE** regardless of this offline result.
+
+## 23. Conservative non-2xx billing fix retest (`fc9820f`)
+
+Document state: **PASS — P1 M1B1-ANTH-REG-001 CLOSED OFFLINE; REAL PROVIDER AND
+DEPLOYED D1 STILL NOT TESTED**
+
+Prepared: 2026-07-20
+
+Fix candidate:
+`fc9820f00e34385cb0bcc7351a3cb43aa690374e`
+
+QA merge and exact tested tree:
+`9451125e701ae121a2b6f171b30601ffdf7feb2d`
+
+### 23.1 Fix review
+
+The repair removes the unconditional `billing.disposition = "not_billed"`
+assignment from the post-dispatch non-2xx path. `interpret()` sets billing to
+`unknown` immediately before native `fetch`; a returned 429, 500, 504, 529 or
+other non-2xx now leaves that state unchanged. The existing Worker finalizer
+therefore commits the full pre-authorized reservation rather than releasing it.
+
+This is the required conservative rule:
+
+- one native Messages call only;
+- zero automatic retry;
+- validated local fallback;
+- charge status `conservative`;
+- `actual_microusd = 201280`;
+- D1 `spent_microusd` rises by 201,280 and `reserved_microusd` returns to zero;
+- no provider error body, key, prompt or raw content reaches result, audit or D1.
+
+No status-code allow-list claims an upstream request was free. Construction,
+model/key validation, D1 guard and budget-reservation failures still occur before
+dispatch and therefore make zero provider calls.
+
+### 23.2 Independent hostile retest
+
+Command:
+
+```text
+node --test tests/m1b1_anthropic_safety_regression.test.mjs
+```
+
+Result: **PASS, 11/11**.
+
+| Probe | Native calls | Fallback / action | Charge | D1 spent | Leak markers | Result |
+| --- | ---: | --- | --- | ---: | ---: | --- |
+| Structured refusal | 1 | `provider_refusal` | measured | 200 | 0 | **PASS** |
+| Structured `max_tokens` | 1 | `provider_output_truncated` | measured | 200 | 0 | **PASS** |
+| HTTP 200 with missing usage | 1 | `invalid_provider_usage` | conservative | 201,280 | 0 | **PASS** |
+| Wrong served model | 1 | `provider_model_mismatch` | measured | 200 | 0 | **PASS** |
+| HTTP 429 | 1 | `provider_rate_limited` | conservative | 201,280 | 0 | **PASS** |
+| HTTP 500 | 1 | `backend_unavailable` | conservative | 201,280 | 0 | **PASS** |
+| HTTP 504 | 1 | `provider_timeout` | conservative | 201,280 | 0 | **PASS** |
+| HTTP 529 | 1 | `backend_unavailable` | conservative | 201,280 | 0 | **PASS** |
+| Actual cost above reservation | 0 in direct ledger probe | lock lifetime budget | reservation retained | no release | n/a | **PASS** |
+
+The marker oracle inspected the complete client result, captured structured
+audit lines, D1 request-result JSON and provider-charge rows. Unique fake API-key
+and raw-provider-body markers were absent in every path.
+
+### 23.3 Full server regression and scans
+
+Command:
+
+```text
+node --test tests/weapon_interpreter.test.mjs \
+  tests/durable_request_guard.test.mjs \
+  tests/anthropic_weapon_adapter.test.mjs \
+  tests/provider_budget_guard.test.mjs \
+  tests/static_worker.test.mjs \
+  tests/wasm_chunk_loader.test.mjs
+```
+
+Result: **PASS, 111/111**.
+
+This includes the implementation-owned end-to-end 429/500/504/529 D1 tests.
+Each records one attempt, a valid fallback, `conservative` charge, 201,280
+micro-USD spent and no remaining reservation. Existing 48-case compiler,
+Schema/allow-list/PowerBudget, request-boundary, idempotency, cross-binding D1,
+timeout/no-double-charge, static Worker and WASM loader checks remain green.
+
+Post-fix tracked-source scans:
+
+| Scan | Result |
+| --- | --- |
+| Key-shaped value outside tests/docs/artifacts | **PASS, 0 matches** |
+| Sensitive console logging of API key, Description, provider body or `x-api-key` | **PASS, 0 matches** |
+| Direct Anthropic endpoint in client/game/script/Schema paths | **PASS, 0 matches** |
+
+The Node D1 harness emits the expected experimental SQLite warning. No assertion
+failed. This retest did not execute Godot, browser, deployment or a real provider
+request; those gates belong to the integrator's complete candidate run.
+
+### 23.4 Finding disposition
+
+| Finding | Status after `fc9820f` |
+| --- | --- |
+| M1B1-ANTH-REG-001 non-2xx unknown spend released | **CLOSED — independently reproduced before and passed after repair** |
+| Exact native Messages/Structured Outputs request | **PASS offline fixture** |
+| Fixed Haiku snapshot / no model fallback | **PASS offline fixture** |
+| Anthropic zero automatic retry | **PASS offline fixture** |
+| Worker + D1 5 USD / 201,280 reservation | **PASS local SQLite/D1 parity** |
+| Refusal, truncation and malformed usage accounting | **PASS offline fixture** |
+| Secret/raw output boundary | **PASS injected markers + source scan** |
+| Explicit upstream response byte limit | **OPEN P2 hardening; no leak or memory failure reproduced** |
+| Deployed Sites migration and cross-isolate D1 | **TO VALIDATE** |
+| Provider-side spend ceiling | **TO VALIDATE before paid public traffic** |
+| Real Claude accuracy, latency and cost | **NOT RUN / TO VALIDATE** |
+
+### 23.5 QA recommendation
+
+**PASS — `fc9820f` closes the offline P1 safety blocker and may proceed to the
+deployment preflight gate.** Do not skip that gate: verify exact Sites runtime
+variable/secret presence without revealing values, apply both D1 migrations,
+confirm the deployed budget row starts at the approved lifetime cap, verify the
+independent Anthropic workspace/account spend ceiling, and scan newly built
+public assets before authorizing one paid canary.
+
+This is not a public-release, real-provider-quality, mobile, or physical-iPhone
+acceptance. QA made zero real Anthropic calls and spent USD 0 during this retest.
