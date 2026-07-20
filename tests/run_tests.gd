@@ -14,6 +14,7 @@ func _init() -> void:
 	_test_weapon_semantics()
 	_test_schema_runtime_parity()
 	_test_drawing_summary()
+	_test_stroke_fit()
 	_test_attack_pattern_touch_selector()
 	_test_mobile_layout_policy()
 	await _test_forge_reset_state()
@@ -178,6 +179,80 @@ func _test_drawing_summary() -> void:
 	var summary := DrawingCanvas.summarize_strokes(strokes, Vector2(400, 200))
 	_expect(summary.point_count == 5 and summary.stroke_count == 2, "drawing summary counts points and strokes")
 	_expect(float(summary.aspect_ratio) > 2.0 and float(summary.coverage) > 0.0, "drawing summary captures shape")
+	var canvas := DrawingCanvas.new()
+	canvas.strokes = StrokeFit.duplicate_strokes(strokes)
+	var snapshot := canvas.get_strokes_snapshot()
+	snapshot[0][0] = Vector2(999, 999)
+	_expect(canvas.strokes[0][0] == Vector2(10, 20), "stroke snapshot does not mutate original canvas data")
+	canvas.queue_free()
+
+
+func _test_stroke_fit() -> void:
+	var shapes := {
+		"wide bow": PackedVector2Array([Vector2(120, 140), Vector2(300, 100), Vector2(480, 140), Vector2(300, 180), Vector2(120, 140)]),
+		"long spear": PackedVector2Array([Vector2(40, 300), Vector2(520, 330), Vector2(40, 360)]),
+		"long blade": PackedVector2Array([Vector2(90, 70), Vector2(450, 115), Vector2(90, 160)]),
+		"round grenade": PackedVector2Array([Vector2(180, 80), Vector2(260, 160), Vector2(180, 240), Vector2(100, 160), Vector2(180, 80)]),
+		"square shield": PackedVector2Array([Vector2(70, 90), Vector2(290, 90), Vector2(290, 310), Vector2(70, 310), Vector2(70, 90)]),
+	}
+	var targets := [
+		WeaponVisual.DEFAULT_TARGET_RECT,
+		Rect2(Vector2.ZERO, Vector2(240, 90)),
+		Rect2(Vector2(-50, -50), Vector2(100, 100)),
+		Rect2(Vector2.ZERO, Vector2(72, 160)),
+	]
+	for shape_name: String in shapes:
+		var source: Array[PackedVector2Array] = [shapes[shape_name]]
+		var original := StrokeFit.duplicate_strokes(source)
+		var source_aspect := StrokeFit.aspect_ratio(source)
+		for target: Rect2 in targets:
+			var transform := StrokeFit.fit_transform(source, target)
+			var mapped := StrokeFit.map_strokes(source, target)
+			var rendered_aspect := StrokeFit.aspect_ratio(mapped)
+			var relative_error := absf(rendered_aspect / source_aspect - 1.0)
+			_expect(relative_error <= 0.02, "%s aspect error %.4f is within 2%%" % [shape_name, relative_error])
+			var fitted: Rect2 = transform.fitted_rect
+			var limiting_padding := minf(
+				(target.size.x - fitted.size.x) / (target.size.x * 2.0),
+				(target.size.y - fitted.size.y) / (target.size.y * 2.0),
+			)
+			_expect(limiting_padding >= 0.079 and limiting_padding <= 0.121, "%s limiting padding stays at 8-12%%" % shape_name)
+		_expect(source == original, "%s source strokes remain byte-for-byte unchanged" % shape_name)
+		var translated: Array[PackedVector2Array] = []
+		var shifted := PackedVector2Array()
+		for point: Vector2 in source[0]: shifted.append(point + Vector2(600, 400))
+		translated.append(shifted)
+		var original_fit := StrokeFit.actual_bounds(StrokeFit.map_strokes(source, targets[0]))
+		var translated_fit := StrokeFit.actual_bounds(StrokeFit.map_strokes(translated, targets[0]))
+		_expect(original_fit.size.is_equal_approx(translated_fit.size), "%s ignores canvas blank-space offset" % shape_name)
+
+	var origin_dot: Array[PackedVector2Array] = [PackedVector2Array([Vector2.ZERO])]
+	var horizontal: Array[PackedVector2Array] = [PackedVector2Array([Vector2(10, 20), Vector2(210, 20)])]
+	var vertical: Array[PackedVector2Array] = [PackedVector2Array([Vector2(30, 5), Vector2(30, 205)])]
+	for edge_case: Array[PackedVector2Array] in [origin_dot, horizontal, vertical]:
+		var edge_transform := StrokeFit.fit_transform(edge_case, targets[0])
+		var edge_mapped := StrokeFit.map_strokes(edge_case, targets[0])
+		_expect(bool(edge_transform.valid) and not edge_mapped.is_empty(), "single-axis stroke remains renderable")
+		_expect(StrokeFit.actual_bounds(edge_mapped).position.x >= targets[0].position.x, "single-axis stroke remains inside target")
+
+	var projectile_cases := [
+		["straight projectile", "a wooden bow firing arrows", shapes["wide bow"]],
+		["boomerang", "a boomerang that returns", shapes["wide bow"]],
+		["piercing", "a spear that pierces shields", shapes["long spear"]],
+		["grenade", "a thrown grenade that explodes after landing", shapes["round grenade"]],
+	]
+	for projectile_case: Array in projectile_cases:
+		var projectile_spec := WeaponCompiler.new().compile(str(projectile_case[1]))
+		var projectile_strokes: Array[PackedVector2Array] = [projectile_case[2]]
+		var projectile := ForgeProjectile.new()
+		projectile.configure(projectile_spec, projectile_strokes, Vector2.RIGHT)
+		projectile._ready()
+		var visual_transform := projectile._visual.global_transform
+		_expect(is_equal_approx(visual_transform.x.length(), visual_transform.y.length()), "%s actual projectile transform is uniform" % projectile_case[0])
+		var visual_aspect := StrokeFit.aspect_ratio(projectile._visual.fitted_strokes())
+		var source_aspect := StrokeFit.aspect_ratio(projectile_strokes)
+		_expect(absf(visual_aspect / source_aspect - 1.0) <= 0.02, "%s projectile aspect error is within 2%%" % projectile_case[0])
+		projectile.free()
 
 
 func _test_attack_pattern_touch_selector() -> void:

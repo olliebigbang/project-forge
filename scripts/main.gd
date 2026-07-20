@@ -35,6 +35,8 @@ var review_panel: PanelContainer
 var review_layout: VBoxContainer
 var review_summary: Label
 var review_details: Label
+var review_visual_host: Control
+var review_weapon_visual: WeaponVisual
 var review_action_row: HBoxContainer
 var confirm_button: Button
 var modify_button: Button
@@ -70,6 +72,10 @@ var _last_stable_landscape_css_size := Vector2.ZERO
 var _status_revision := 0
 var _qa_attack_count := 0
 var _qa_last_attack_pattern := ""
+var _qa_projectile_origin := Vector2.ZERO
+var _qa_area_impact_position := Vector2.ZERO
+var _qa_has_projectile_origin := false
+var _qa_has_area_impact := false
 var _qa_feedback_count := 0
 var _last_try_again_msec := -10000
 var _review_ui_ready := false
@@ -308,6 +314,17 @@ func _build_forge_overlay() -> void:
 	review_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	review_summary.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	review_layout.add_child(review_summary)
+	review_visual_host = Control.new()
+	review_visual_host.name = "WeaponStrokePreview"
+	review_visual_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	review_visual_host.clip_contents = true
+	review_visual_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	review_visual_host.resized.connect(_layout_review_weapon_visual)
+	review_layout.add_child(review_visual_host)
+	review_weapon_visual = WeaponVisual.new()
+	review_weapon_visual.name = "FittedWeaponVisual"
+	review_weapon_visual.scale = Vector2.ONE
+	review_visual_host.add_child(review_weapon_visual)
 	review_details = Label.new()
 	review_details.name = "InterpretationDetails"
 	review_details.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -475,6 +492,7 @@ func _apply_compact_forge_layout(css_size: Vector2, browser_metrics: Dictionary)
 	review_action_row.custom_minimum_size.y = float(metrics.touch_height)
 	review_action_row.add_theme_constant_override("separation", maxi(2, int(metrics.separation * 2.0)))
 	review_summary.add_theme_font_size_override("font_size", int(metrics.body_font))
+	review_visual_host.custom_minimum_size.y = 104.0
 	review_details.add_theme_font_size_override("font_size", int(metrics.status_font) + 2)
 	for button in [confirm_button, modify_button, try_again_button, feedback_button]:
 		button.custom_minimum_size.y = float(metrics.touch_height)
@@ -515,6 +533,7 @@ func _apply_regular_forge_layout() -> void:
 	review_action_row.custom_minimum_size.y = 64.0
 	review_action_row.add_theme_constant_override("separation", 8)
 	review_summary.add_theme_font_size_override("font_size", 18)
+	review_visual_host.custom_minimum_size.y = 118.0
 	review_details.add_theme_font_size_override("font_size", 17)
 	for button in [confirm_button, modify_button, try_again_button, feedback_button]:
 		button.custom_minimum_size.y = 64.0
@@ -688,7 +707,7 @@ func _generate_weapon() -> void:
 		_snapshot_in_progress = false
 		_apply_manual_correction()
 		return
-	request_strokes = drawing_canvas.get_normalized_strokes()
+	request_strokes = drawing_canvas.get_strokes_snapshot()
 	_request_drawing_summary = drawing_canvas.drawing_summary().duplicate(true)
 	var request_id := interpreter.start_interpretation(
 		str(description_snapshot.get("value", "")),
@@ -773,6 +792,7 @@ func _show_interpretation_review() -> void:
 	pattern_selector.hide()
 	forge_action_row.hide()
 	review_panel.show()
+	review_visual_host.show()
 	confirm_button.show()
 	modify_button.show()
 	modify_button.text = "MODIFY INTERPRETATION"
@@ -798,6 +818,7 @@ func _show_interpretation_error() -> void:
 	pattern_selector.hide()
 	forge_action_row.hide()
 	review_panel.show()
+	review_visual_host.hide()
 	confirm_button.hide()
 	modify_button.show()
 	modify_button.text = "EDIT INPUT"
@@ -856,6 +877,8 @@ func _request_snapshot_line(prefix: String) -> String:
 func _update_review_copy() -> void:
 	if pending_spec == null:
 		return
+	review_weapon_visual.configure(request_strokes, pending_spec)
+	_layout_review_weapon_visual()
 	review_summary.add_theme_color_override("font_color", Color("#b9eaff"))
 	var fallback_reason := str(pending_result.get("fallback_reason", ""))
 	var summary := str(pending_result.get("interpretation_summary", "Weapon interpretation ready."))
@@ -897,6 +920,15 @@ func _update_review_copy() -> void:
 		int(pending_result.get("latency_ms", 0)),
 		cost_text,
 	]
+
+
+func _layout_review_weapon_visual() -> void:
+	if review_visual_host == null or review_weapon_visual == null:
+		return
+	review_weapon_visual.position = Vector2(
+		maxf((review_visual_host.size.x - WeaponVisual.DEFAULT_TARGET_RECT.size.x) * 0.5, 0.0),
+		review_visual_host.size.y * 0.5,
+	)
 
 
 func _show_forge_form(correction: bool) -> void:
@@ -1144,6 +1176,8 @@ func _on_pattern_selected(_index: int, pattern: String) -> void:
 
 
 func _clear_transient_combat() -> void:
+	_qa_has_projectile_origin = false
+	_qa_has_area_impact = false
 	for node: Node in get_tree().get_nodes_in_group("forge_transient_attack"):
 		if is_instance_valid(node):
 			var parent := node.get_parent()
@@ -1201,11 +1235,16 @@ func _launch_area(spec: WeaponSpec, origin: Vector2, direction: Vector2) -> void
 
 
 func _launch_projectile(spec: WeaponSpec, origin: Vector2, direction: Vector2, strokes: Array[PackedVector2Array]) -> void:
+	_qa_projectile_origin = origin
+	_qa_has_projectile_origin = true
+	_qa_has_area_impact = false
 	var projectile := ForgeProjectile.new()
 	projectile.configure(spec, strokes, direction, player)
 	projectile.global_position = origin
 	projectile.hit_target.connect(func(label_text: String, amount: int): combat_status.text = "%s hit %s for %d." % [spec.attack_label(), label_text, amount])
 	projectile.area_impact.connect(func(impact_position: Vector2, impact_direction: Vector2):
+		_qa_area_impact_position = impact_position
+		_qa_has_area_impact = true
 		_launch_area(spec, impact_position, impact_direction)
 		combat_status.text = "Thrown %s exploded at its landing point." % spec.weapon_form
 	)
@@ -1354,6 +1393,13 @@ func _update_qa_bridge() -> void:
 	var selector_visible := pattern_selector.visible
 	if developer_mode and not modify_mode:
 		selector_visible = selector_visible and _developer_ui_ready
+	var active_projectiles := 0
+	var active_area_blasts := 0
+	for transient: Node in get_tree().get_nodes_in_group("forge_transient_attack"):
+		if transient is ForgeProjectile:
+			active_projectiles += 1
+		elif transient is ForgeAreaBlast:
+			active_area_blasts += 1
 	var state := {
 		"screen": screen,
 		"phase": phase,
@@ -1386,6 +1432,14 @@ func _update_qa_bridge() -> void:
 		"feedback_count": _qa_feedback_count,
 		"attack_count": _qa_attack_count,
 		"last_attack_pattern": _qa_last_attack_pattern,
+		"combat_message": combat_status.text,
+		"active_projectiles": active_projectiles,
+		"active_area_blasts": active_area_blasts,
+		"projectile_origin": _vector_dictionary(_qa_projectile_origin) if _qa_has_projectile_origin else {},
+		"area_impact_position": _vector_dictionary(_qa_area_impact_position) if _qa_has_area_impact else {},
+		"area_impact_distance": _qa_projectile_origin.distance_to(_qa_area_impact_position) if _qa_has_projectile_origin and _qa_has_area_impact else 0.0,
+		"stroke_geometry": _stroke_fit_evidence(),
+		"visual_transforms": _visual_transform_evidence(),
 	}
 	var pattern_rects: Array[Dictionary] = []
 	for button: Button in pattern_selector.buttons():
@@ -1402,9 +1456,74 @@ func _update_qa_bridge() -> void:
 		"attack": _rect_dictionary(attack_button),
 		"reforge": _rect_dictionary(reforge_button),
 		"back": _rect_dictionary(back_button),
+		"stroke_preview": _rect_dictionary(review_visual_host),
 		"pattern_buttons": pattern_rects,
 	}
 	web_mobile_bridge.update_qa_state(state, controls, size)
+
+
+func _stroke_fit_evidence() -> Dictionary:
+	var source: Array[PackedVector2Array] = request_strokes
+	if source.is_empty():
+		source = current_strokes
+	if source.is_empty():
+		return {}
+	var transform := StrokeFit.fit_transform(source, WeaponVisual.DEFAULT_TARGET_RECT)
+	if not bool(transform.get("valid", false)):
+		return {}
+	var source_aspect := StrokeFit.aspect_ratio(source)
+	var fitted := StrokeFit.map_strokes(source, WeaponVisual.DEFAULT_TARGET_RECT)
+	var rendered_aspect := StrokeFit.aspect_ratio(fitted)
+	return {
+		"source_bounds": _vector_rect_dictionary(transform.source_bounds),
+		"fitted_bounds": _vector_rect_dictionary(transform.fitted_rect),
+		"source_aspect": source_aspect,
+		"rendered_aspect": rendered_aspect,
+		"relative_aspect_error": absf(rendered_aspect / maxf(source_aspect, 0.001) - 1.0),
+		"scale_x": float(transform.scale),
+		"scale_y": float(transform.scale),
+		"padding_fraction": float(transform.padding_fraction),
+	}
+
+
+func _vector_rect_dictionary(rect: Rect2) -> Dictionary:
+	return {
+		"x": rect.position.x,
+		"y": rect.position.y,
+		"width": rect.size.x,
+		"height": rect.size.y,
+	}
+
+
+func _vector_dictionary(value: Vector2) -> Dictionary:
+	return {"x": value.x, "y": value.y}
+
+
+func _visual_transform_evidence() -> Dictionary:
+	var projectiles: Array[Dictionary] = []
+	for transient: Node in get_tree().get_nodes_in_group("forge_transient_attack"):
+		if transient is ForgeProjectile:
+			var projectile_visual: Variant = transient.get("_visual")
+			if projectile_visual is CanvasItem:
+				projectiles.append(_canvas_transform_scale(projectile_visual))
+	return {
+		"review": _canvas_transform_scale(review_weapon_visual),
+		"held": _canvas_transform_scale(player.weapon_visual if is_instance_valid(player) else null),
+		"projectiles": projectiles,
+	}
+
+
+func _canvas_transform_scale(item: CanvasItem) -> Dictionary:
+	if not is_instance_valid(item):
+		return {}
+	var item_transform: Transform2D = item.global_transform
+	var scale_x: float = item_transform.x.length()
+	var scale_y: float = item_transform.y.length()
+	return {
+		"scale_x": scale_x,
+		"scale_y": scale_y,
+		"absolute_delta": absf(scale_x - scale_y),
+	}
 
 
 func _mark_review_ui_ready() -> void:

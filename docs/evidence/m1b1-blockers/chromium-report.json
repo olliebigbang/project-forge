@@ -1,0 +1,184 @@
+{
+  "suite": "M1B1 P0/P1 blocker regression",
+  "browser": "chromium",
+  "target": "http://127.0.0.1:8063/",
+  "captured_at": "2026-07-20T08:37:06.981Z",
+  "provider_claim": "SIMULATED RESPONSE - real provider is tested separately",
+  "cases": [
+    {
+      "kind": "bow",
+      "description": "a wooden bow firing arrows",
+      "request_id": "m1b1-aafe67533bfb59fb83cd3bbc57325deb",
+      "request_snapshot": {
+        "description": "a wooden bow firing arrows",
+        "description_revision": 2,
+        "drawing_summary": {
+          "aspect_ratio": 6.19528114508692,
+          "coverage": 0.343359492064571,
+          "dominant_direction": "horizontal",
+          "point_count": 19,
+          "stroke_count": 1
+        },
+        "request_id": "m1b1-aafe67533bfb59fb83cd3bbc57325deb",
+        "stroke_count": 1
+      },
+      "provider_metadata": {
+        "attempts": 1,
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic"
+      },
+      "latency_ms": 41,
+      "spec": {
+        "area_effect": "none",
+        "area_radius": 120,
+        "attack_pattern": "straight_projectile",
+        "attack_speed": 1.3,
+        "damage": 26,
+        "delivery": "projectile",
+        "drawback": "low_impact",
+        "element": "normal",
+        "impact": "contact",
+        "name": "Ink Longbow",
+        "pierce_count": 1,
+        "power_score": 49,
+        "projectile_speed": 620,
+        "range": 675,
+        "return_speed": 680,
+        "special_ability": "none",
+        "status_effect": "none",
+        "trajectory": "direct",
+        "visual_material": "forged_metal",
+        "weapon_class": "ranged",
+        "weapon_form": "bow"
+      },
+      "stroke_geometry": {
+        "fitted_bounds": {
+          "height": 15.2374048233032,
+          "width": 94.4000015258789,
+          "x": 13.8000001907349,
+          "y": -7.61870193481445
+        },
+        "padding_fraction": 0.1,
+        "relative_aspect_error": 1.36709551123992e-7,
+        "rendered_aspect": 6.19528029813281,
+        "scale_x": 0.0790649848234453,
+        "scale_y": 0.0790649848234453,
+        "source_aspect": 6.19528114508692,
+        "source_bounds": {
+          "height": 192.720001220703,
+          "width": 1193.95458984375,
+          "x": 152.445495605469,
+          "y": 122.639984130859
+        }
+      },
+      "visual_transforms": {
+        "held": {
+          "absolute_delta": 0,
+          "scale_x": 1,
+          "scale_y": 1
+        },
+        "projectiles": [],
+        "review": {
+          "absolute_delta": 0,
+          "scale_x": 1,
+          "scale_y": 1
+        }
+      },
+      "attack": {
+        "attack_pattern": "straight_projectile",
+        "delivery": "projectile",
+        "trajectory": "direct",
+        "impact": "contact",
+        "area_effect": "none"
+      }
+    },
+    {
+      "kind": "grenade",
+      "description": "a thrown grenade that explodes after landing",
+      "request_id": "m1b1-1b9d0b35db5f3a362b270f9111e08711",
+      "request_snapshot": {
+        "description": "a thrown grenade that explodes after landing",
+        "description_revision": 2,
+        "drawing_summary": {
+          "aspect_ratio": 0.999901100430287,
+          "coverage": 0.0834693726313169,
+          "dominant_direction": "mixed",
+          "point_count": 97,
+          "stroke_count": 1
+        },
+        "request_id": "m1b1-1b9d0b35db5f3a362b270f9111e08711",
+        "stroke_count": 1
+      },
+      "provider_metadata": {
+        "attempts": 1,
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic"
+      },
+      "latency_ms": 41,
+      "spec": {
+        "area_effect": "explosion",
+        "area_radius": 120,
+        "attack_pattern": "area_blast",
+        "attack_speed": 1,
+        "damage": 36,
+        "delivery": "thrown",
+        "drawback": "slow_recovery",
+        "element": "normal",
+        "impact": "delayed_or_contact",
+        "name": "Ink Arc Grenade",
+        "pierce_count": 1,
+        "power_score": 76,
+        "projectile_speed": 560,
+        "range": 132,
+        "return_speed": 680,
+        "special_ability": "knockback_burst",
+        "status_effect": "knockback",
+        "trajectory": "arc",
+        "visual_material": "forged_metal",
+        "weapon_class": "ranged",
+        "weapon_form": "grenade"
+      },
+      "stroke_geometry": {
+        "fitted_bounds": {
+          "height": 73.5999984741211,
+          "width": 73.5927200317383,
+          "x": 24.2036399841309,
+          "y": -36.7999992370605
+        },
+        "padding_fraction": 0.1,
+        "relative_aspect_error": 2.15019004601302e-7,
+        "rendered_aspect": 0.999901315428027,
+        "scale_x": 0.311178786745496,
+        "scale_y": 0.311178786745496,
+        "source_aspect": 0.999901100430287,
+        "source_bounds": {
+          "height": 236.519973754883,
+          "width": 236.49658203125,
+          "x": 723.251647949219,
+          "y": 109.499984741211
+        }
+      },
+      "visual_transforms": {
+        "held": {
+          "absolute_delta": 0,
+          "scale_x": 1,
+          "scale_y": 1
+        },
+        "projectiles": [],
+        "review": {
+          "absolute_delta": 0,
+          "scale_x": 1,
+          "scale_y": 1
+        }
+      },
+      "attack": {
+        "attack_pattern": "area_blast",
+        "delivery": "thrown",
+        "trajectory": "arc",
+        "impact": "delayed_or_contact",
+        "area_effect": "explosion"
+      }
+    }
+  ],
+  "console_errors": []
+}

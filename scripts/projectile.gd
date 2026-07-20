@@ -37,7 +37,10 @@ func _ready() -> void:
 	add_child(collider)
 	body_entered.connect(_on_body_entered)
 	_visual = WeaponVisual.new()
-	_visual.scale = Vector2(0.52, 0.52) if _spec.attack_pattern != "piercing" else Vector2(0.68, 0.32)
+	# Size may differ by module, but X/Y always share one scalar so the player's
+	# drawing cannot be stretched by a projectile parent transform.
+	var visual_scale := 0.60 if _spec.attack_pattern == "piercing" else 0.52
+	_visual.scale = Vector2.ONE * visual_scale
 	_visual.rotation = 0.0 if _direction.x >= 0.0 else PI
 	_visual.configure(_strokes, _spec)
 	add_child(_visual)

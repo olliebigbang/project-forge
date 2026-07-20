@@ -58,14 +58,11 @@ func is_empty() -> bool:
 
 
 func get_normalized_strokes() -> Array[PackedVector2Array]:
-	var normalized: Array[PackedVector2Array] = []
-	var safe_size := Vector2(maxf(size.x, 1.0), maxf(size.y, 1.0))
-	for stroke in strokes:
-		var output := PackedVector2Array()
-		for point in stroke:
-			output.append(Vector2(point.x / safe_size.x, point.y / safe_size.y))
-		normalized.append(output)
-	return normalized
+	return StrokeFit.normalize_preserving_aspect(strokes)
+
+
+func get_strokes_snapshot() -> Array[PackedVector2Array]:
+	return StrokeFit.duplicate_strokes(strokes)
 
 
 func drawing_summary() -> Dictionary:
