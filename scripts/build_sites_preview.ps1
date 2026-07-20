@@ -31,6 +31,9 @@ Copy-Item -LiteralPath (Join-Path $repoRoot "hosting\static_worker.mjs") -Destin
 Copy-Item -LiteralPath (Join-Path $repoRoot "hosting\weapon_contract.mjs") -Destination (Join-Path $distServer "weapon_contract.mjs") -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "hosting\weapon_schema.mjs") -Destination (Join-Path $distServer "weapon_schema.mjs") -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "hosting\durable_request_guard.mjs") -Destination (Join-Path $distServer "durable_request_guard.mjs") -Force
+Copy-Item -LiteralPath (Join-Path $repoRoot "hosting\interpreter_error.mjs") -Destination (Join-Path $distServer "interpreter_error.mjs") -Force
+Copy-Item -LiteralPath (Join-Path $repoRoot "hosting\anthropic_weapon_adapter.mjs") -Destination (Join-Path $distServer "anthropic_weapon_adapter.mjs") -Force
+Copy-Item -LiteralPath (Join-Path $repoRoot "hosting\provider_budget_guard.mjs") -Destination (Join-Path $distServer "provider_budget_guard.mjs") -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "hosting\weapon_interpreter.mjs") -Destination (Join-Path $distServer "weapon_interpreter.mjs") -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "hosting\wasm_chunk_loader.js") -Destination (Join-Path $distClient "wasm_chunk_loader.js") -Force
 
@@ -85,6 +88,9 @@ $required = @(
     "dist\server\weapon_contract.mjs",
     "dist\server\weapon_schema.mjs",
     "dist\server\durable_request_guard.mjs",
+    "dist\server\interpreter_error.mjs",
+    "dist\server\anthropic_weapon_adapter.mjs",
+    "dist\server\provider_budget_guard.mjs",
     "dist\server\weapon_interpreter.mjs",
     "dist\client\index.html",
     "dist\client\index.js",

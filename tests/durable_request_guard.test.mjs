@@ -11,6 +11,7 @@ import {
   releaseDurableRequest,
   waitForDurableResult,
 } from "../hosting/durable_request_guard.mjs";
+import { ensureProviderBudgetGuard } from "../hosting/provider_budget_guard.mjs";
 import { ALLOW_LISTS, MAX_POWER } from "../hosting/weapon_contract.mjs";
 import {
   INGRESS_LIMITS,
@@ -115,23 +116,31 @@ function interpreterRequest(payload, session = "0123456789abcdef0123456789abcdef
   });
 }
 
-test("runtime D1 schema and checked-in migration create the durable guard tables", async (context) => {
+test("runtime D1 schema and checked-in migrations create all durable guard tables", async (context) => {
   const runtimeStore = new SharedD1Store();
   context.after(() => runtimeStore.close());
   await ensureDurableRequestGuard(runtimeStore.binding());
+  await ensureProviderBudgetGuard(runtimeStore.binding());
   const runtimeTables = runtimeStore.database.prepare(
     "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name",
   ).all().map((row) => row.name);
-  assert.deepEqual(runtimeTables, ["forge_rate_windows", "forge_request_ledger"]);
+  assert.deepEqual(runtimeTables, [
+    "forge_provider_budget",
+    "forge_provider_charges",
+    "forge_rate_windows",
+    "forge_request_ledger",
+  ]);
 
   const migrationStore = new SharedD1Store();
   context.after(() => migrationStore.close());
-  const migration = await readFile(
-    new URL("../drizzle/0000_m1b1_request_guard.sql", import.meta.url),
-    "utf8",
-  );
-  for (const statement of migration.split("--> statement-breakpoint")) {
-    if (statement.trim()) migrationStore.database.exec(statement);
+  for (const relativePath of [
+    "../drizzle/0000_m1b1_request_guard.sql",
+    "../drizzle/0001_m1b1_provider_budget.sql",
+  ]) {
+    const migration = await readFile(new URL(relativePath, import.meta.url), "utf8");
+    for (const statement of migration.split("--> statement-breakpoint")) {
+      if (statement.trim()) migrationStore.database.exec(statement);
+    }
   }
   const migrationTables = migrationStore.database.prepare(
     "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name",

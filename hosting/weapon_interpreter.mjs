@@ -18,6 +18,22 @@ import {
   releaseDurableRequest,
   waitForDurableResult,
 } from "./durable_request_guard.mjs";
+import { InterpreterError } from "./interpreter_error.mjs";
+import {
+  ANTHROPIC_MODEL,
+  ANTHROPIC_PROVIDER,
+  createAnthropicAdapter,
+} from "./anthropic_weapon_adapter.mjs";
+import {
+  commitConservativeProviderBudget,
+  lockProviderBudget,
+  providerBudgetConfig,
+  releaseProviderBudget,
+  reserveProviderBudget,
+  settleProviderBudget,
+} from "./provider_budget_guard.mjs";
+
+export { InterpreterError } from "./interpreter_error.mjs";
 
 export const REQUEST_LIMITS = Object.freeze({
   body_bytes: 8192,
@@ -256,16 +272,6 @@ function normalizeSupportedList(value, serverAllowed) {
   const supported = [...new Set(value.map((item) => String(item).trim().toLowerCase()))]
     .filter((item) => serverAllowed.includes(item));
   return supported.length > 0 ? supported : [...serverAllowed];
-}
-
-export class InterpreterError extends Error {
-  constructor(code, message, status = 502, retrySafe = false) {
-    super(message);
-    this.name = "InterpreterError";
-    this.code = code;
-    this.status = status;
-    this.retrySafe = retrySafe;
-  }
 }
 
 function abortableDelay(delayMs, signal) {
@@ -521,7 +527,7 @@ function safeFallbackResponse(request, reason, startedAt, details = {}) {
     },
     latency: { total_ms: latencyMs, provider_ms: details.providerMs ?? 0, attempts: details.attempts ?? 0 },
     latency_ms: latencyMs,
-    estimated_cost: "UNKNOWN",
+    estimated_cost: sanitizeEstimatedCost(details.estimatedCost),
     power_budget: balanced.after,
     schema_valid: schemaValidationErrors(balanced.values).length === 0,
     allow_list_valid: runtimeAllowListErrors(balanced.values).length === 0,
@@ -574,13 +580,17 @@ export async function compileWeapon(requestInput, options = {}) {
 
   const adapter = options.adapter ?? new DeterministicWeaponAdapter();
   const timeoutMs = boundedNumber(options.timeoutMs, REQUEST_LIMITS.timeout_ms, 50, 15000, true);
-  const maximumAttempts = boundedNumber(
+  const configuredMaximumAttempts = boundedNumber(
     options.maximumAttempts,
     REQUEST_LIMITS.maximum_attempts,
     1,
     REQUEST_LIMITS.maximum_attempts,
     true,
   );
+  const adapterMaximumAttempts = Number.isSafeInteger(adapter.maximumAttempts)
+    ? boundedNumber(adapter.maximumAttempts, 1, 1, REQUEST_LIMITS.maximum_attempts, true)
+    : REQUEST_LIMITS.maximum_attempts;
+  const maximumAttempts = Math.min(configuredMaximumAttempts, adapterMaximumAttempts);
   let attempts = 0;
   let providerStartedAt = Date.now();
   let adapterResult;
@@ -609,11 +619,18 @@ export async function compileWeapon(requestInput, options = {}) {
   }
   const providerMs = Math.max(0, Date.now() - providerStartedAt);
   if (terminalError || !adapterResult || typeof adapterResult !== "object") {
+    const billing = typeof adapter.billingSnapshot === "function"
+      ? adapter.billingSnapshot()
+      : null;
+    const estimatedCost = billing?.disposition === "measured"
+      ? { amount: billing.actualMicroUsd / 1_000_000, currency: "USD" }
+      : "UNKNOWN";
     return safeFallbackResponse(request, terminalError?.code ?? "invalid_provider_response", startedAt, {
       provider: adapter.provider ?? "unknown",
       model: adapter.model ?? "unknown",
       attempts,
       providerMs,
+      estimatedCost,
     });
   }
 
@@ -665,10 +682,20 @@ export async function compileWeapon(requestInput, options = {}) {
   };
 }
 
-export function resolveAdapter(env = {}) {
+export function resolveAdapter(env = {}, options = {}) {
   const provider = String(env.WEAPON_AI_PROVIDER ?? "deterministic").trim().toLowerCase();
   if (!provider || provider === "deterministic" || provider === "mock" || provider === "local") {
     return new DeterministicWeaponAdapter();
+  }
+  if (provider === ANTHROPIC_PROVIDER) {
+    if (String(env.WEAPON_AI_MODEL ?? "").trim() !== ANTHROPIC_MODEL) {
+      throw new InterpreterError(
+        "provider_model_mismatch",
+        `Anthropic model must be pinned to '${ANTHROPIC_MODEL}'.`,
+        503,
+      );
+    }
+    return createAnthropicAdapter(env, { fetchImpl: options.fetchImpl });
   }
   throw new InterpreterError(
     "provider_unconfigured",
@@ -691,7 +718,7 @@ function requiresDurableRequestGuard(env, options) {
   return Boolean(options.adapter) && options.allowMemoryGuardForTests !== true;
 }
 
-function minimalAudit(result, requestLength) {
+function minimalAudit(result, requestLength, providerBudget = { state: "not_required" }) {
   const safeCost = sanitizeEstimatedCost(result.estimated_cost);
   return {
     event: "weapon_interpretation",
@@ -706,7 +733,78 @@ function minimalAudit(result, requestLength) {
     estimated_cost: safeCost === "UNKNOWN"
       ? "UNKNOWN"
       : { amount: safeCost.amount, currency: safeCost.currency },
+    provider_budget: {
+      state: safeIdentifier(providerBudget.state, "unknown", 48),
+      actual_microusd: boundedNumber(
+        providerBudget.actualMicroUsd,
+        0,
+        0,
+        5_000_000,
+        true,
+      ),
+    },
     runtime_valid: result.runtime_valid,
+  };
+}
+
+function billingEstimatedCost(billing) {
+  return billing?.disposition === "measured" && Number.isSafeInteger(billing.actualMicroUsd)
+    ? { amount: billing.actualMicroUsd / 1_000_000, currency: "USD" }
+    : "UNKNOWN";
+}
+
+async function finalizeProviderBudget(
+  db,
+  config,
+  namespace,
+  requestId,
+  adapter,
+) {
+  let billing;
+  try {
+    billing = typeof adapter.billingSnapshot === "function"
+      ? adapter.billingSnapshot()
+      : { disposition: "unknown", actualMicroUsd: 0, usage: null };
+  } catch {
+    billing = { disposition: "unknown", actualMicroUsd: 0, usage: null };
+  }
+
+  let outcome;
+  if (billing.disposition === "measured") {
+    outcome = await settleProviderBudget(
+      db,
+      config,
+      namespace,
+      requestId,
+      billing.actualMicroUsd,
+      billing.usage,
+    );
+  } else if (billing.disposition === "not_billed" || billing.disposition === "not_invoked") {
+    outcome = await releaseProviderBudget(db, config, namespace, requestId);
+  } else {
+    // A timeout, aborted transport, invalid 200 response or crashed worker may
+    // already have incurred spend. Commit the full pre-authorized reservation;
+    // it is never released later by a timer.
+    outcome = await commitConservativeProviderBudget(db, config, namespace, requestId);
+  }
+
+  const successfulStates = new Set(["settled", "released", "conservative"]);
+  if (!successfulStates.has(outcome?.state)) {
+    try {
+      await lockProviderBudget(db, config);
+    } catch {
+      // D1 failure already means the next paid request fails before invocation.
+    }
+    return {
+      state: "settlement_failed",
+      actualMicroUsd: billing.disposition === "measured" ? billing.actualMicroUsd : 0,
+      estimatedCost: billingEstimatedCost(billing),
+    };
+  }
+  return {
+    state: outcome.state,
+    actualMicroUsd: Number(outcome.actualMicroUsd ?? 0),
+    estimatedCost: billingEstimatedCost(billing),
   };
 }
 
@@ -885,12 +983,68 @@ export async function handleCompileWeapon(request, env = {}, options = {}) {
   const operation = (async () => {
     let adapter;
     let result;
-    try {
-      adapter = options.adapter ?? resolveAdapter(env);
-    } catch (error) {
-      result = safeFallbackResponse(safeRequest, error.code ?? "provider_unconfigured", Date.now());
-      console.info(`[WeaponInterpreter] ${JSON.stringify(minimalAudit(result, safeRequest.description.length))}`);
+    let budgetConfig = null;
+    let budgetAudit = { state: "not_required", actualMicroUsd: 0 };
+    const startedAt = Date.now();
+
+    // Reject unsafe text before constructing a paid adapter or reserving any
+    // provider spend. compileWeapon repeats this check as a defense in depth.
+    const safetyReason = classifyInput(safeRequest.description);
+    if (safetyReason) {
+      result = safeFallbackResponse(safeRequest, safetyReason, startedAt);
+      console.info(`[WeaponInterpreter] ${JSON.stringify(minimalAudit(
+        result,
+        safeRequest.description.length,
+        budgetAudit,
+      ))}`);
       return result;
+    }
+
+    try {
+      adapter = options.adapter ?? resolveAdapter(env, { fetchImpl: options.fetchImpl });
+    } catch (error) {
+      result = safeFallbackResponse(safeRequest, error.code ?? "provider_unconfigured", startedAt);
+      console.info(`[WeaponInterpreter] ${JSON.stringify(minimalAudit(
+        result,
+        safeRequest.description.length,
+        budgetAudit,
+      ))}`);
+      return result;
+    }
+
+    if (adapter.requiresProviderBudget === true) {
+      let reservation;
+      try {
+        if (!durableGuard) throw new Error("Durable D1 guard is required.");
+        budgetConfig = providerBudgetConfig(env, adapter.provider, adapter.model);
+        reservation = await reserveProviderBudget(
+          env.DB,
+          budgetConfig,
+          clientNamespace,
+          safeRequest.request_id,
+        );
+      } catch {
+        reservation = { state: "unavailable" };
+      }
+      if (reservation.state !== "reserved") {
+        const reason = reservation.state === "exhausted"
+          ? "provider_budget_exhausted"
+          : reservation.state === "previous_attempt"
+            ? "provider_budget_previous_attempt"
+            : "provider_budget_unavailable";
+        budgetAudit = { state: reservation.state ?? "unavailable", actualMicroUsd: 0 };
+        result = safeFallbackResponse(safeRequest, reason, startedAt, {
+          provider: adapter.provider,
+          model: adapter.model,
+        });
+        console.info(`[WeaponInterpreter] ${JSON.stringify(minimalAudit(
+          result,
+          safeRequest.description.length,
+          budgetAudit,
+        ))}`);
+        return result;
+      }
+      budgetAudit = { state: "reserved", actualMicroUsd: 0 };
     }
 
     try {
@@ -901,12 +1055,50 @@ export async function handleCompileWeapon(request, env = {}, options = {}) {
         maximumAttempts: options.maximumAttempts,
       });
     } catch {
-      result = safeFallbackResponse(safeRequest, "internal_error", Date.now(), {
+      result = safeFallbackResponse(safeRequest, "internal_error", startedAt, {
         provider: adapter.provider ?? "unknown",
         model: adapter.model ?? "unknown",
       });
     }
-    console.info(`[WeaponInterpreter] ${JSON.stringify(minimalAudit(result, safeRequest.description.length))}`);
+
+    if (budgetConfig) {
+      let settlement;
+      try {
+        settlement = await finalizeProviderBudget(
+          env.DB,
+          budgetConfig,
+          clientNamespace,
+          safeRequest.request_id,
+          adapter,
+        );
+      } catch {
+        try {
+          await lockProviderBudget(env.DB, budgetConfig);
+        } catch {
+          // The current operation still fails closed and keeps its reservation.
+        }
+        settlement = {
+          state: "settlement_failed",
+          actualMicroUsd: 0,
+          estimatedCost: "UNKNOWN",
+        };
+      }
+      budgetAudit = settlement;
+      if (settlement.state === "settlement_failed") {
+        result = safeFallbackResponse(safeRequest, "provider_budget_settlement_failed", startedAt, {
+          provider: adapter.provider,
+          model: adapter.model,
+          attempts: result.provider_metadata?.attempts ?? 0,
+          providerMs: result.latency?.provider_ms ?? 0,
+          estimatedCost: settlement.estimatedCost,
+        });
+      }
+    }
+    console.info(`[WeaponInterpreter] ${JSON.stringify(minimalAudit(
+      result,
+      safeRequest.description.length,
+      budgetAudit,
+    ))}`);
     return result;
   })();
   if (!durableGuard) {
