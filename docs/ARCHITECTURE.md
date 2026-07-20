@@ -79,8 +79,9 @@ flowchart LR
 - **CONFIRMED** A second D1 ledger enforces the lifetime USD 5 application cap.
   The immutable key includes milestone, provider, exact model and pricing
   revision. A transaction reserves 201,280 micro-USD before provider invocation;
-  measured usage settles the charge, proven non-billed failures release it, and
-  ambiguous outcomes commit the full reservation. Exhaustion, mismatch, lock,
+  measured usage settles the charge; every sent non-2xx or ambiguous outcome
+  commits the full reservation. Only a proven pre-invocation failure releases.
+  Exhaustion, mismatch, lock,
   settlement uncertainty or missing D1 fails closed.
 - **CONFIRMED** Every provider call receives an `AbortSignal`. A wrapper timeout
   aborts cooperative transports but is never automatically retried because the

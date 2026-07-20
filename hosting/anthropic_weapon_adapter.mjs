@@ -295,7 +295,9 @@ export class AnthropicWeaponAdapter {
       throw new InterpreterError("network_unavailable", "Anthropic network request failed.", 503, false);
     }
     if (!response?.ok) {
-      this.billing.disposition = "not_billed";
+      // A transport-level response proves that the request reached Anthropic,
+      // but a non-2xx status is not authoritative zero-cost evidence. Keep the
+      // billing state unknown so Worker + D1 commit the full reservation.
       throw mapHttpFailure(Number(response?.status ?? 503));
     }
 

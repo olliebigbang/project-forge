@@ -382,3 +382,48 @@ test("unknown provider outcome is conservatively charged through the HTTP bounda
   assert.equal(snapshot.spentMicroUsd, PROVIDER_REQUEST_RESERVATION_MICRO_USD);
   assert.equal(snapshot.reservedMicroUsd, 0);
 });
+
+test("every sent Anthropic non-2xx is conservatively charged and never retried", async (t) => {
+  for (const status of [429, 500, 504, 529]) {
+    await t.test(`HTTP ${status}`, async (context) => {
+      const store = new SharedD1Store();
+      context.after(() => store.close());
+      let calls = 0;
+      const response = await handleCompileWeapon(
+        interpreterRequest(interpreterPayload(`http-${status}`)),
+        {
+          DB: store.binding(),
+          WEAPON_AI_PROVIDER: PROVIDER,
+          WEAPON_AI_MODEL: MODEL,
+          WEAPON_INTERPRETER_REQUIRE_DURABLE_GUARD: "true",
+          M1B1_PROVIDER_BUDGET_USD: "5",
+          ANTHROPIC_API_KEY: "sk-ant-test-budget-boundary",
+        },
+        {
+          async fetchImpl() {
+            calls += 1;
+            return new Response(JSON.stringify({ type: "error" }), {
+              status,
+              headers: { "content-type": "application/json" },
+            });
+          },
+        },
+      );
+      const result = await response.json();
+      assert.equal(response.status, 200);
+      assert.equal(calls, 1);
+      assert.notEqual(result.fallback_reason, "");
+      assert.equal(result.provider_metadata.attempts, 1);
+      const snapshot = await providerBudgetSnapshot(store.binding(), budgetConfig());
+      assert.equal(snapshot.spentMicroUsd, PROVIDER_REQUEST_RESERVATION_MICRO_USD);
+      assert.equal(snapshot.reservedMicroUsd, 0);
+      const charge = store.database.prepare(
+        "SELECT status, actual_microusd FROM forge_provider_charges",
+      ).get();
+      assert.deepEqual({ ...charge }, {
+        status: "conservative",
+        actual_microusd: PROVIDER_REQUEST_RESERVATION_MICRO_USD,
+      });
+    });
+  }
+});

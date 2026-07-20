@@ -191,7 +191,7 @@ test("HTTP, network and wrapper-retry paths make exactly one native provider cal
     assert.equal(calls, 1);
     assert.equal(result.provider_metadata.attempts, 1);
     assert.equal(result.fallback_reason, "provider_rate_limited");
-    assert.equal(adapter.billingSnapshot().disposition, "not_billed");
+    assert.equal(adapter.billingSnapshot().disposition, "unknown");
     assert.equal(JSON.stringify(result).includes(TEST_KEY), false);
   });
 

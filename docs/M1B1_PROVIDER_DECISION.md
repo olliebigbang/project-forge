@@ -51,9 +51,10 @@ ANTHROPIC_API_KEY=<Sites Secret>
 - **CONFIRMED** Each request atomically reserves 201,280 micro-USD before calling
   Anthropic: the 200,000-token model input ceiling at USD $1/M plus the fixed
   256-token output ceiling at USD $5/M.
-- **CONFIRMED** Verified usage settles to its measured amount. A proven non-billed
-  HTTP failure releases the reservation. Timeout, abort, malformed successful
-  response or unknown billing state commits the full reservation conservatively.
+- **CONFIRMED** Verified usage settles to its measured amount. Once an Anthropic
+  request is sent, every non-2xx, timeout, abort, malformed successful response
+  or other unknown billing state commits the full reservation conservatively.
+  Only a failure proven to occur before provider invocation may release it.
 - **CONFIRMED** Missing D1, a partial guard, configuration mismatch, lock,
   duplicate charge identity, exhaustion, projected cap exceed, settlement error
   or reservation breach fails closed. No provider call occurs after that decision.
