@@ -229,7 +229,10 @@
 
     input.addEventListener(
       "pointerdown",
-      () => window.__forgeViewportController?.beginTextEntry(),
+      // Capture the stable landscape geometry without moving the input. On
+      // iOS Safari, relocating a touched element before pointerup can cancel
+      // that very first focus gesture and leave the keyboard closed.
+      () => window.__forgeViewportController?.armTextEntry(),
       { passive: true },
     );
     input.addEventListener("focus", () => {
@@ -264,7 +267,7 @@
       event.stopPropagation();
       input.value = "";
       emitDescription("clear", true);
-      window.__forgeViewportController?.beginTextEntry();
+      window.__forgeViewportController?.armTextEntry();
       input.focus({ preventScroll: true });
     });
     done.addEventListener("click", (event) => {
@@ -324,7 +327,7 @@
         focused: document.activeElement === input,
       }),
       focus: () => {
-        window.__forgeViewportController?.beginTextEntry();
+        window.__forgeViewportController?.armTextEntry();
         input.focus({ preventScroll: true });
       },
       blur: () => input.blur(),

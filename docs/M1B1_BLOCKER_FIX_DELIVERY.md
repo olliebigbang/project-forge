@@ -99,7 +99,7 @@ Before/after evidence:
 **CONFIRMED** Full local verification passed:
 
 - Godot import/typed parse and scene smoke;
-- 32 Godot matrix cases, 615 assertions, zero failures;
+- 32 Godot matrix cases, 629 assertions, zero failures;
 - Worker 4/4, WASM loader 1/1, interpreter 76/76, D1 request guard 9/9,
   Anthropic adapter 17/17, D1 budget guard 14/14, and hostile safety 11/11;
 - Web export and Sites package build;
@@ -124,7 +124,7 @@ Public integrity probe:
 | Resource | Public SHA-256 | Result |
 | --- | --- | --- |
 | `index.js` | `68586d6daafc93c6e697b3fb258976874aa7459b8931165ebb1dc3c9614cc42c` | exact local match |
-| `index.pck` | `f3e9a664d6d5bb980412b5a0fb70853589c0b288b2044f68b8859037976024cf` | stable local candidate; exact public match required after final deploy |
+| `index.pck` | `a8ccb39bb0667f988f9ef5f65ecb8fbc3f3bbdd781a3e547bf3e656a049e5016` | stable local candidate; exact public match required after final deploy |
 | reconstructed `index.wasm` | `35116f68540ac41acf7d71ea457added91b5e960a9cca3e2acc72918eaf01277` | both public chunks, exact local match |
 
 The HTML and core assets return HTTP 200 with
@@ -174,7 +174,7 @@ are separately diagnosed and evidenced here:
   a deterministic held/projectile/impact bundle, including held bow plus arrow
   and centred thrown grenade plus separate explosion.
 
-Current automated candidate results: Godot 615 assertions; Worker 4/4; WASM 1/1;
+Current automated candidate results: Godot 629 assertions; Worker 4/4; WASM 1/1;
 interpreter 76/76; request D1 9/9; Anthropic adapter 17/17; budget D1 14/14;
 hostile safety 11/11; Web export PASS; Chromium and WebKit P0 regression PASS
 with zero application console errors. Physical iPhone Safari remains

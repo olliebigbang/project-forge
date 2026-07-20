@@ -6,24 +6,27 @@ preserves the original strokes as the weapon visual, and executes the result wit
 five distinct combat modules.
 
 The accepted M1A release remains the stable rollback baseline. The current M1B1
-branch adds a provider-neutral, same-origin text interpretation boundary; it does
-not yet claim real-AI accuracy, latency, or cost because the provider/model and
-server credential are still **TBD**.
+branch adds a same-origin text interpretation boundary backed by Anthropic's
+native Messages API and native Structured Outputs. The model is pinned to
+`claude-haiku-4-5-20251001`; the Sites secret is configured server-side, and the
+Worker + D1 lifetime application budget fails closed at USD 5.
 
 This repository does not reuse code, settings, art, names, or direction from Cat
 Battle or any previous game.
 
-## Stable public trial
+## Public preview and rollback
 
-[Open the accepted M1A v9 Web build](https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?release=v9-f309f28)
+[Open the current public Sites origin](https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?qa=m1b1)
 
-That deployment is the physical-iPhone-accepted M1A rollback version. It contains
-no paid AI call or API key. A separate M1B1 public preview will be deployed only
-after the real provider is selected, tested, and reviewed through CI.
+Sites exposes one mutable public origin, so a query parameter is a diagnostic
+label and does not pin an old build. The immutable M1A rollback points are Git tag
+`v0.1.0-m1a`, its release archive, and retained test evidence. The current M1B1
+preview remains a Draft-PR candidate and must not merge until the product owner
+passes the reopened physical-iPhone gate.
 
 Source: [GitHub repository](https://github.com/olliebigbang/project-forge)
 
-## M1B1 provider-neutral implementation
+## M1B1 implementation
 
 - Normal players draw and enter one free-form description without preselecting an
   attack pattern.

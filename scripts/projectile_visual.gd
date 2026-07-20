@@ -49,6 +49,17 @@ func fitted_strokes() -> Array[PackedVector2Array]:
 	return _stroke_visual.fitted_strokes() if is_instance_valid(_stroke_visual) else []
 
 
+func landing_radius() -> float:
+	# A rotating drawn projectile lands when every possible orientation remains
+	# above the floor. Measuring from the geometry-centred pivot prevents a
+	# grenade from sinking into the floor or orbiting an external anchor.
+	var radius := 0.0
+	for stroke: PackedVector2Array in fitted_strokes():
+		for point: Vector2 in stroke:
+			radius = maxf(radius, point.length())
+	return maxf(radius, 22.0)
+
+
 func _drawing_target_rect() -> Rect2:
 	match str(_bundle.get("projectile_kind", "none")):
 		"grenade": return Rect2(Vector2(-34.0, -34.0), Vector2(68.0, 68.0))

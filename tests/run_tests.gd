@@ -241,6 +241,8 @@ func _test_stroke_fit() -> void:
 		["sword", "a plain steel sword", "none", "none", false, false],
 		["boomerang", "a boomerang that returns", "boomerang", "player_strokes", true, false],
 		["spear", "a spear that pierces shields", "spear", "procedural", false, false],
+		["generic normal projectile", "a gun firing a normal projectile", "bullet", "procedural", false, false],
+		["generic elemental projectile", "a fire wand firing a projectile", "energy", "procedural", false, false],
 	]
 	for role_case: Array in visual_role_cases:
 		var role_spec := WeaponCompiler.new().compile(str(role_case[1]))
@@ -271,6 +273,8 @@ func _test_stroke_fit() -> void:
 	for procedural_case: Array in [
 		["a wooden bow firing arrows", "arrow"],
 		["a spear that pierces shields", "spear"],
+		["a gun firing a normal projectile", "bullet"],
+		["a fire wand firing a projectile", "energy"],
 	]:
 		var procedural_spec := WeaponCompiler.new().compile(str(procedural_case[0]))
 		var source_strokes: Array[PackedVector2Array] = [shapes["wide bow"]]

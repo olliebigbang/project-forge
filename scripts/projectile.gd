@@ -3,7 +3,7 @@ extends Area2D
 
 signal hit_target(target_name: String, damage: int)
 signal finished(pattern: String)
-signal area_impact(impact_position: Vector2, direction: Vector2)
+signal area_impact(impact_position: Vector2, direction: Vector2, impact_reason: String)
 
 var _spec: WeaponSpec
 var _bundle: Dictionary = {}
@@ -21,6 +21,14 @@ var _detonated := false
 var _finish_emitted := false
 var _path_samples: Array[Dictionary] = []
 var _last_path_sample_elapsed := -1.0
+var _landing_surface_y := INF
+var _landing_center_y := INF
+var _landing_radius := 0.0
+var _landed_on_ground := false
+var _impact_reason := "none"
+
+const ARC_GRAVITY := 920.0
+const ARC_MAX_LIFETIME := 1.5
 
 
 func configure(
@@ -29,12 +37,14 @@ func configure(
 	direction: Vector2,
 	player: ForgePlayer = null,
 	bundle: Dictionary = {},
+	landing_surface_y: float = INF,
 ) -> void:
 	_spec = spec
 	_bundle = bundle.duplicate(true) if not bundle.is_empty() else WeaponVisualBundle.from_spec(spec)
 	_direction = direction.normalized()
 	_player = player
 	_strokes = StrokeFit.duplicate_strokes(strokes)
+	_landing_surface_y = landing_surface_y
 
 
 func _ready() -> void:
@@ -52,7 +62,16 @@ func _ready() -> void:
 	_visual.configure(_bundle, _spec, _strokes)
 	add_child(_visual)
 	if _spec.delivery == "thrown" and _spec.trajectory == "arc":
-		_velocity = _direction * maxf(_spec.projectile_speed * 0.56, 180.0) + Vector2.UP * minf(_spec.projectile_speed * 0.48, 330.0)
+		_landing_radius = _visual.landing_radius()
+		if not is_finite(_landing_surface_y):
+			_landing_surface_y = global_position.y + 80.0
+		_landing_center_y = _landing_surface_y - _landing_radius
+		var upward_speed := minf(_spec.projectile_speed * 0.48, 330.0)
+		var vertical_distance := maxf(_landing_center_y - global_position.y, 8.0)
+		var flight_time := (upward_speed + sqrt(upward_speed * upward_speed + 2.0 * ARC_GRAVITY * vertical_distance)) / ARC_GRAVITY
+		var horizontal_distance := clampf(_spec.attack_range * 0.50, 64.0, 180.0)
+		var horizontal_speed := horizontal_distance / maxf(flight_time, 0.20)
+		_velocity = _direction * horizontal_speed + Vector2.UP * upward_speed
 	_apply_facing_rotation()
 	_record_path_sample(true)
 
@@ -62,14 +81,24 @@ func _physics_process(delta: float) -> void:
 		return
 	_elapsed += delta
 	if _spec.delivery == "thrown" and _spec.trajectory == "arc":
-		_velocity.y += 920.0 * delta
+		_velocity.y += ARC_GRAVITY * delta
 		var arc_step := _velocity * delta
 		position += arc_step
 		_distance_travelled += absf(arc_step.x)
 		_apply_rotation(delta)
 		_record_path_sample()
-		if _elapsed >= 0.72 or _distance_travelled >= _spec.attack_range:
-			_detonate()
+		if _velocity.y >= 0.0 and global_position.y >= _landing_center_y:
+			global_position.y = _landing_center_y
+			_landed_on_ground = true
+			_record_path_sample(true)
+			_detonate("ground")
+		elif _elapsed >= ARC_MAX_LIFETIME:
+			# Fail visibly at the declared landing surface rather than exploding in
+			# mid-air if an extreme repaired spec produces unexpected timing.
+			global_position.y = _landing_center_y
+			_landed_on_ground = true
+			_record_path_sample(true)
+			_detonate("ground")
 		return
 
 	var speed := _spec.projectile_speed
@@ -111,7 +140,7 @@ func _on_body_entered(body: Node) -> void:
 	if not body.has_method("take_damage") or _spec == null:
 		return
 	if _spec.delivery == "thrown" and _spec.area_effect == "explosion":
-		_detonate()
+		_detonate("contact")
 		return
 	var phase := "return" if _returning else "out"
 	var key := "%d:%s" % [body.get_instance_id(), phase]
@@ -127,11 +156,12 @@ func _on_body_entered(body: Node) -> void:
 		_finish_and_free()
 
 
-func _detonate() -> void:
+func _detonate(reason: String) -> void:
 	if _detonated:
 		return
 	_detonated = true
-	area_impact.emit(global_position, _direction)
+	_impact_reason = reason
+	area_impact.emit(global_position, _direction, reason)
 	_finish_and_free()
 
 
@@ -157,6 +187,12 @@ func qa_visual_state() -> Dictionary:
 		"returning": _returning,
 		"elapsed": _elapsed,
 		"path_samples": _path_samples.duplicate(true),
+		"impact_reason": _impact_reason,
+		"landed_on_ground": _landed_on_ground,
+		"landing_surface_y": _landing_surface_y,
+		"landing_center_y": _landing_center_y,
+		"landing_radius": _landing_radius,
+		"landing_error": absf(global_position.y - _landing_center_y) if _landed_on_ground else -1.0,
 	}, true)
 	return visual_state
 

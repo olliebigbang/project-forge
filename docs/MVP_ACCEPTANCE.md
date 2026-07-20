@@ -51,7 +51,7 @@ physical-device acceptance remain separate gates.
 | Area | Status | Evidence / remaining gate |
 | --- | --- | --- |
 | Same-origin `WeaponInterpreter` client/server contract | **CONFIRMED** | Godot calls only `/api/compile-weapon`; static worker and local server route it |
-| Schema, allow-list, semantic compatibility, and PowerBudget enforcement | **CONFIRMED (offline + live)** | Godot 615 assertions; Node interpreter 76/76; 48-case main matrix; 60-case red-team corpus; real-provider matrix 42/42 plus live grenade/bow blocker cases |
+| Schema, allow-list, semantic compatibility, and PowerBudget enforcement | **CONFIRMED (offline + live)** | Godot 629 assertions; Node interpreter 76/76; 48-case main matrix; 60-case red-team corpus; real-provider matrix 42/42 plus live grenade/bow blocker cases |
 | Anthropic native Messages/Structured Outputs, exact model and one-attempt policy | **CONFIRMED (offline + live)** | 17/17 adapter tests and public one-call canary; exact `claude-haiku-4-5-20251001`; refusal/truncation/usage/16 KiB response tests |
 | Worker + D1 lifetime USD 5 reservation and settlement guard | **CONFIRMED (offline + deployed)** | 14/14 budget tests plus 11/11 hostile safety tests; public reserve/settle audit; cap/exhaustion/concurrency/non-2xx/unknown-billing probes |
 | Loading, duplicate lock, aborting timeout, cancel, stale rejection, D1 idempotency, and explicit non-equipable errors | **CONFIRMED (simulated + deployed D1)** | D1 request guard 9/9, no-`weapon_spec` failure regression, live two-request duplicate gate, settled D1 audits, and final Chromium/WebKit regression |

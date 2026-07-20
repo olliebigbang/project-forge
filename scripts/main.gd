@@ -1272,7 +1272,7 @@ func _launch_projectile(spec: WeaponSpec, origin: Vector2, direction: Vector2, s
 	if bool(visual_bundle.hide_held_during_attack):
 		player.begin_detached_weapon_attack()
 	var projectile := ForgeProjectile.new()
-	projectile.configure(spec, strokes, direction, player, visual_bundle)
+	projectile.configure(spec, strokes, direction, player, visual_bundle, size.y * 0.69)
 	projectile.global_position = origin
 	projectile.hit_target.connect(func(label_text: String, amount: int): combat_status.text = "%s hit %s for %d." % [spec.attack_label(), label_text, amount])
 	projectile.finished.connect(func(pattern: String):
@@ -1283,11 +1283,12 @@ func _launch_projectile(spec: WeaponSpec, origin: Vector2, direction: Vector2, s
 			player.complete_detached_weapon_attack()
 		_update_qa_bridge()
 	)
-	projectile.area_impact.connect(func(impact_position: Vector2, impact_direction: Vector2):
+	projectile.area_impact.connect(func(impact_position: Vector2, impact_direction: Vector2, impact_reason: String):
 		_qa_area_impact_position = impact_position
 		_qa_has_area_impact = true
+		_record_attack_event("grenade_detonate", {"impact_reason": impact_reason, "x": impact_position.x, "y": impact_position.y})
 		_launch_area(spec, impact_position, impact_direction)
-		combat_status.text = "Thrown %s exploded at its landing point." % spec.weapon_form
+		combat_status.text = "Thrown %s exploded on target contact." % spec.weapon_form if impact_reason == "contact" else "Thrown %s landed and exploded." % spec.weapon_form
 	)
 	world.add_child(projectile)
 	projectile.add_to_group("forge_transient_attack")

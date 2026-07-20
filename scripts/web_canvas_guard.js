@@ -131,11 +131,15 @@
     state.frame = requestAnimationFrame(refresh);
   };
 
-  const beginTextEntry = () => {
+  const armTextEntry = () => {
     const current = viewport();
     if (isLandscape(current) && !keyboardDrop(current)) state.stable = { ...current };
-    state.textEntryArmed = true;
     state.closing = false;
+  };
+
+  const beginTextEntry = () => {
+    armTextEntry();
+    state.textEntryArmed = true;
     schedule();
   };
 
@@ -181,6 +185,7 @@
   };
 
   window.__forgeViewportController = {
+    armTextEntry,
     beginTextEntry,
     endTextEntry,
     metrics,

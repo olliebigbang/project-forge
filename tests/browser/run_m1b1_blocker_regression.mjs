@@ -372,12 +372,16 @@ async function runCase(kind) {
     assert(arcPositions.every((value, index) => index === 0 || value.x >= arcPositions[index - 1].x), "grenade: arc did not move forward");
     const middleMinY = Math.min(...arcPositions.slice(1, -1).map((value) => value.y));
     assert(middleMinY < Math.min(arcPositions[0].y, arcPositions.at(-1).y) - 3, `grenade: sampled path is not parabolic ${JSON.stringify(arcPositions)}`);
+    assert(impact.last_finished_projectile.impact_reason === "ground", `grenade: controlled case did not reach the floor ${JSON.stringify(impact.last_finished_projectile)}`);
+    assert(impact.last_finished_projectile.landed_on_ground === true, "grenade: ground landing was not recorded");
+    assert(impact.last_finished_projectile.landing_error <= 1.0, `grenade: final centre missed landing line by ${impact.last_finished_projectile.landing_error}px`);
+    assert(arcPositions.at(-1).y > arcPositions[0].y + 10, `grenade: exploded before descending to the floor ${JSON.stringify(arcPositions)}`);
     assert(impact.area_impact_distance > 24, `grenade: explosion did not move away from throw origin (${impact.area_impact_distance})`);
     assert(impact.held_visual.visible === false && impact.held_visual.cooldown > 0, "grenade returned before cooldown completed");
-    // Capture the independent blast during its bright opening frames. Waiting
-    // near the end of its 0.55 s lifetime leaves a valid-but-nearly-transparent
-    // effect and produces misleading visual evidence.
-    await sleep(25);
+    // Allow at least one fully rendered post-spawn frame, then capture while the
+    // independent blast ring is still bright. A 25 ms lifecycle-only sample
+    // could pass before Chromium visibly painted the effect.
+    await sleep(110);
     assert((await state()).active_area_blasts > 0, "grenade: explosion visual ended before capture");
     await page.screenshot({ path: join(destination, `${browserName}-grenade-landing-explosion.png`) });
     const restored = await waitFor(
@@ -390,6 +394,10 @@ async function runCase(kind) {
     assert(spawnEventIndex >= 0 && impactEventIndex >= 0, `grenade: missing lifecycle event ${JSON.stringify(events)}`);
     assert(spawnEventIndex < impactEventIndex, "grenade: impact preceded flight");
     attackEvidence.arc_positions = arcPositions;
+    attackEvidence.impact_reason = impact.last_finished_projectile.impact_reason;
+    attackEvidence.landing_surface_y = impact.last_finished_projectile.landing_surface_y;
+    attackEvidence.landing_center_y = impact.last_finished_projectile.landing_center_y;
+    attackEvidence.landing_error = impact.last_finished_projectile.landing_error;
     attackEvidence.restored_after_cooldown = true;
   } else if (kind === "sword") {
     const beforeAttack = combat.attack_count;
@@ -420,6 +428,7 @@ async function runCase(kind) {
       (value) => value.projectiles[0]?.instance_id === instanceId && value.projectiles[0]?.returning === true,
       "boomerang return phase",
     );
+    assert(returning.held_visual.visible === false, "boomerang reappeared in the hand before returning");
     assert(returning.impact_spawn_count === beforeImpact, "boomerang created an explosion");
     await page.screenshot({ path: join(destination, `${browserName}-boomerang-returning.png`) });
     await waitFor(
@@ -511,6 +520,17 @@ async function runKeyboardCase() {
   const done = page.locator("#forge-description-done");
   const baseline = await mobile();
   assert(baseline.metrics.canvasBackingWidth > 0 && baseline.metrics.canvasBackingHeight > 0, "keyboard: Canvas backing store was not initialized before Godot");
+  assert(baseline.inputRect?.width > 0 && baseline.inputRect?.height > 0, "keyboard: native Description input has no initial touch target");
+  const firstTapPoint = {
+    x: baseline.inputRect.x + baseline.inputRect.width / 2,
+    y: baseline.inputRect.y + baseline.inputRect.height / 2,
+  };
+  await page.touchscreen.tap(firstTapPoint.x, firstTapPoint.y);
+  const firstTap = await waitForMobile(
+    (value) => value.metrics?.inputFocused && value.metrics?.textEntryActive && value.doneVisible,
+    "first physical-style touch focus",
+  );
+  assert(firstTap.inputRect?.y <= baseline.inputRect.y, "keyboard: first touch did not enter compact text mode");
   await input.fill("keyboard text remains visible");
   await waitForState((value) => value.description === "keyboard text remains visible", "description sync");
 
@@ -594,6 +614,11 @@ async function runKeyboardCase() {
   evidence.keyboard = {
     mode: "synthetic Visual Viewport; physical iPhone remains TO VALIDATE",
     baseline,
+    first_touch_focus: {
+      point: firstTapPoint,
+      focused: firstTap.metrics.inputFocused,
+      compact_entry_visible: firstTap.doneVisible,
+    },
     opened,
     closed,
     toolbar_height: toolbar.metrics.canvasRect.height,

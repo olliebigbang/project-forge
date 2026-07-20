@@ -29,6 +29,10 @@ This cause is independent of AI interpretation and weapon rendering.
   store remain frozen; the game world is not rescaled to keyboard height.
 - The page shell is fixed with overflow and overscroll disabled, and focus uses
   `preventScroll` where supported so Safari cannot scroll the canvas away.
+- The first touch only snapshots stable geometry on `pointerdown`; it does not
+  move the native input until Safari has delivered `focus`. This prevents the
+  touched element moving before `pointerup` and cancelling the first keyboard
+  gesture.
 - A compact native input dock is placed inside the current Visual Viewport and
   all four safe-area insets. It keeps Description visible and provides explicit
   44px `x` and 64x44px `DONE` controls.
@@ -47,6 +51,7 @@ cannot model.
 | --- | ---: | ---: |
 | Canvas CSS rect before/open/after | 844x390 | 844x390 |
 | Canvas backing store before/open/after | 2532x1170 | 2532x1170 |
+| First touchscreen tap focuses and exposes compact dock | PASS | PASS |
 | Synthetic keyboard Visual Viewport | 844x190 at y=92 | 844x190 at y=92 |
 | Input / clear / Done inside Visual Viewport | PASS | PASS |
 | Input font | 16px | 16px |
@@ -59,16 +64,16 @@ cannot model.
 
 Machine reports:
 
-- [Chromium report](evidence/m1b1-p0-v19/chromium-report.json)
-- [WebKit report](evidence/m1b1-p0-v19/webkit-report.json)
+- [Chromium report](evidence/m1b1-p0-v20/chromium-report.json)
+- [WebKit report](evidence/m1b1-p0-v20/webkit-report.json)
 
 Visual evidence (synthetic keyboard geometry, not a claim that Windows displayed
 the physical iOS keyboard):
 
-- [WebKit text-entry mode open](evidence/m1b1-p0-v19/webkit-keyboard-open.png)
-- [WebKit layout restored after Done](evidence/m1b1-p0-v19/webkit-keyboard-closed.png)
-- [Chromium text-entry mode open](evidence/m1b1-p0-v19/chromium-keyboard-open.png)
-- [Chromium layout restored after Done](evidence/m1b1-p0-v19/chromium-keyboard-closed.png)
+- [WebKit text-entry mode open](evidence/m1b1-p0-v20/webkit-keyboard-open.png)
+- [WebKit layout restored after Done](evidence/m1b1-p0-v20/webkit-keyboard-closed.png)
+- [Chromium text-entry mode open](evidence/m1b1-p0-v20/chromium-keyboard-open.png)
+- [Chromium layout restored after Done](evidence/m1b1-p0-v20/chromium-keyboard-closed.png)
 
 ## Modified files
 

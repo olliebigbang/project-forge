@@ -45,32 +45,35 @@ strokes remain deep-copied and unchanged.
 | Maximum simultaneous arrows | 1 | 1 |
 | Arrow heading error | 0 rad | 0 rad |
 | Held-bow position drift | 0 px | 0 px |
-| Grenade physics samples | 8 | 8 |
+| Grenade physics samples | 13 | 13 |
 | Grenade rendered aspect error | 0.0000215% | 0.00000695% |
 | Grenade self-centred pivot | <=1px | <=1px |
+| Explicit `ground` impact reason | PASS | PASS |
+| Landing-centre error | 0.0000069px | 0.0000031px |
 | Grenade landing explosion and cooldown restore | PASS | PASS |
 | Sword projectile count delta | 0 | 0 |
 | Same boomerang instance returned | PASS | PASS |
 | New application console errors | 0 | 0 |
 
-The grenade samples move monotonically forward, rise above the start/end chord,
-then descend before the independent `impact_spawn` event. Event order is
-`projectile_spawn -> impact_spawn -> projectile_finish`, and the held grenade
-returns only after cooldown reaches zero.
+The grenade samples move monotonically forward, rise and then descend to the
+explicit floor line minus the fitted drawing radius. The controlled case must
+record `impact_reason=ground`; horizontal distance can no longer end the flight.
+Event order is `projectile_spawn -> impact_spawn -> projectile_finish`, and the
+held grenade returns only after cooldown reaches zero.
 
 Machine reports:
 
-- [Chromium report](evidence/m1b1-p0-v19/chromium-report.json)
-- [WebKit report](evidence/m1b1-p0-v19/webkit-report.json)
+- [Chromium report](evidence/m1b1-p0-v20/chromium-report.json)
+- [WebKit report](evidence/m1b1-p0-v20/webkit-report.json)
 
 Visual evidence:
 
-- [WebKit bow held while one arrow flies](evidence/m1b1-p0-v19/webkit-bow-held-arrow-flight.png)
-- [WebKit centred grenade in arc flight](evidence/m1b1-p0-v19/webkit-grenade-arc-flight.png)
-- [WebKit independent landing explosion](evidence/m1b1-p0-v19/webkit-grenade-landing-explosion.png)
-- [Chromium bow held while one arrow flies](evidence/m1b1-p0-v19/chromium-bow-held-arrow-flight.png)
-- [Chromium centred grenade in arc flight](evidence/m1b1-p0-v19/chromium-grenade-arc-flight.png)
-- [Chromium independent landing explosion](evidence/m1b1-p0-v19/chromium-grenade-landing-explosion.png)
+- [WebKit bow held while one arrow flies](evidence/m1b1-p0-v20/webkit-bow-held-arrow-flight.png)
+- [WebKit centred grenade in arc flight](evidence/m1b1-p0-v20/webkit-grenade-arc-flight.png)
+- [WebKit independent landing explosion](evidence/m1b1-p0-v20/webkit-grenade-landing-explosion.png)
+- [Chromium bow held while one arrow flies](evidence/m1b1-p0-v20/chromium-bow-held-arrow-flight.png)
+- [Chromium centred grenade in arc flight](evidence/m1b1-p0-v20/chromium-grenade-arc-flight.png)
+- [Chromium independent landing explosion](evidence/m1b1-p0-v20/chromium-grenade-landing-explosion.png)
 
 ## Modified files
 
