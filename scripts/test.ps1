@@ -24,7 +24,12 @@ function Invoke-GodotCheck {
         [string[]]$Arguments
     )
     Write-Host "`n== $Label ==" -ForegroundColor Cyan
-    $output = @(& $script:Godot @Arguments 2>&1)
+    $logDirectory = Join-Path $repoRoot "output\godot-test-logs"
+    New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
+    $safeLabel = $Label -replace "[^A-Za-z0-9]+", "-"
+    $logFile = Join-Path $logDirectory ("{0}-{1}.log" -f $safeLabel, [guid]::NewGuid().ToString("N"))
+    $effectiveArguments = @($Arguments) + @("--log-file", $logFile)
+    $output = @(& $script:Godot @effectiveArguments 2>&1)
     $exitCode = $LASTEXITCODE
     $output | ForEach-Object { Write-Host $_ }
     if ($exitCode -ne 0) {

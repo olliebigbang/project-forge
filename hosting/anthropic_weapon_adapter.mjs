@@ -329,7 +329,11 @@ export class AnthropicWeaponAdapter {
     this.billing = { disposition: "unknown", actualMicroUsd: 0, usage: null };
     let response;
     try {
-      response = await this.fetchImpl(ANTHROPIC_MESSAGES_URL, {
+      // Cloudflare's global fetch is a host function. Calling a stored reference
+      // as an adapter method can bind the adapter as `this` and fail with an
+      // "Illegal invocation" before any HTTP response exists.
+      const fetchImpl = this.fetchImpl;
+      response = await fetchImpl(ANTHROPIC_MESSAGES_URL, {
         method: "POST",
         headers: {
           "content-type": "application/json",

@@ -75,6 +75,7 @@ function median(values) {
 }
 
 const rows = [];
+let abortReason = "";
 for (const entry of matrix) {
   const payload = requestPayload(entry);
   const startedAt = performance.now();
@@ -107,6 +108,7 @@ for (const entry of matrix) {
     ? Number(result.estimated_cost.amount)
     : null;
   const expectedFallback = entry.expected_fallback_reason ?? "";
+  const expectedProviderCall = !expectedFallback;
   const fallbackMatches = expectedFallback
     ? result?.fallback_reason === expectedFallback
     : result?.fallback_reason === "";
@@ -118,9 +120,10 @@ for (const entry of matrix) {
     Number.isFinite(cost) && cost >= 0 && cost <= 5 && result.estimated_cost.currency === "USD"
   );
   const providerValid = !providerInvoked || model === EXPECTED_MODEL;
+  const providerExpectationMatches = expectedProviderCall ? providerInvoked : !providerInvoked;
   const passed = status === 200 && !transportError && schemaErrors.length === 0 &&
     allowListErrors.length === 0 && runtimeValid && fallbackMatches && costValid && providerValid &&
-    patternCorrect && elementCorrect;
+    providerExpectationMatches && patternCorrect && elementCorrect;
   rows.push({
     id: entry.id,
     category: entry.category,
@@ -145,6 +148,24 @@ for (const entry of matrix) {
     element_correct: elementCorrect,
     passed,
   });
+
+  const paidPathAnomaly = expectedProviderCall && (
+    transportError ||
+    status !== 200 ||
+    !providerInvoked ||
+    model !== EXPECTED_MODEL ||
+    Number(result?.provider_metadata?.attempts ?? 0) !== 1 ||
+    result?.fallback_reason !== "" ||
+    !costValid ||
+    schemaErrors.length > 0 ||
+    allowListErrors.length > 0 ||
+    !runtimeValid
+  );
+  const safetyPathAnomaly = !expectedProviderCall && providerInvoked;
+  if (paidPathAnomaly || safetyPathAnomaly) {
+    abortReason = `${entry.id}: ${paidPathAnomaly ? "paid_path_anomaly" : "safety_filter_invoked_provider"}`;
+    break;
+  }
 }
 
 const eligible = rows.filter((row) => row.accuracy_eligible);
@@ -160,7 +181,10 @@ const summary = {
   base_origin: origin,
   provider: EXPECTED_PROVIDER,
   model: EXPECTED_MODEL,
-  case_count: rows.length,
+  planned_case_count: matrix.length,
+  executed_case_count: rows.length,
+  aborted: Boolean(abortReason),
+  abort_reason: abortReason,
   passed: rows.filter((row) => row.passed).length,
   failed: rows.filter((row) => !row.passed).length,
   eligible_accuracy_cases: eligible.length,
@@ -183,6 +207,8 @@ console.log(JSON.stringify(summary, null, 2));
 console.log(`Evidence: ${outputPath}`);
 
 const gatePassed =
+  !summary.aborted &&
+  summary.executed_case_count === summary.planned_case_count &&
   summary.failed === 0 &&
   summary.schema_pass_rate === 1 &&
   summary.allow_list_pass_rate === 1 &&

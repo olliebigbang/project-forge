@@ -122,6 +122,26 @@ test("native Messages request pins Haiku 4.5 and Anthropic Structured Outputs", 
   });
 });
 
+test("provider fetch is invoked as a function without binding the adapter as this", async () => {
+  let invocationThis = "not-called";
+  async function strictFetch() {
+    invocationThis = this;
+    if (this !== undefined) throw new TypeError("Illegal invocation");
+    return jsonResponse(providerMessage());
+  }
+  const adapter = new AnthropicWeaponAdapter({
+    apiKey: TEST_KEY,
+    model: ANTHROPIC_MODEL,
+    fetchImpl: strictFetch,
+  });
+
+  const result = await adapter.interpret(interpreterPayload());
+
+  assert.equal(invocationThis, undefined);
+  assert.equal(result.intent.attack_pattern, "boomerang");
+  assert.equal(adapter.billingSnapshot().disposition, "measured");
+});
+
 test("usage pricing is exact, rounded up in the durable micro-USD ledger", () => {
   const priced = calculateAnthropicUsageCost({
     input_tokens: 10,
