@@ -60,7 +60,7 @@ passing tests.
 **CONFIRMED** `scripts/test.ps1` passed after the change:
 
 - Godot import and typed-script parse: pass.
-- Godot deterministic suite: 32 matrix cases, 520 assertions, 0 failures.
+- Godot deterministic suite: 32 matrix cases, 589 assertions, 0 failures.
 - Main-scene headless smoke: pass.
 - Static Worker, WASM loader, interpreter, D1 idempotency/quota, Anthropic
   adapter, $5 budget guard, and Anthropic safety suites: pass.
@@ -90,11 +90,36 @@ console errors. Evidence: `output/playwright/p0-fixed-webkit.json`.
 - `deterministic_local`, Sonnet/Opus, missing model, attempts 0, provider not
   invoked, and confidence 0 cannot pass the client confirmation gate.
 
-## Remaining P0 delivery evidence
+## Deployed real-provider evidence
 
-- **TO VALIDATE** Run one budget-guarded real Claude request for grenade and one
-  for bow after both P0 and P1 are integrated, then record the redacted request
-  snapshot, request ID, fixed provider/model, response semantics, latency, and
-  cost.
+**CONFIRMED** The integrated public build submitted exactly two compile POSTs,
+blocked zero duplicates, and the server reported exactly one provider attempt
+for each case. Both responses used
+`anthropic / claude-haiku-4-5-20251001`, passed every Schema/allow-list/
+PowerBudget/runtime gate, and then executed the matching attack in combat.
+
+| Input | Request ID | Final semantics | Provider latency | Cost |
+| --- | --- | --- | ---: | ---: |
+| grenade | `m1b1-14c6f2d1bd9a25edac09aa52a7c34b45` | `grenade / thrown / arc / delayed_or_contact / explosion / area_blast` | 3,383 ms | USD 0.001797 |
+| bow | `m1b1-275938d440292dec4be7a96a0b6963f7` | `bow / projectile / direct / contact / none / straight_projectile` | 1,390 ms | USD 0.001778 |
+
+The measured two-call total was USD 0.003575, below the USD 5 lifetime
+application cap. Correlated Sites Worker audit events recorded
+`provider_budget.state=settled` with 1,797 and 1,778 micro-USD respectively;
+neither event had a fallback reason. The script itself allowed at most one POST
+per case and at most two for the whole run, with no automatic retry.
+
+Durable evidence:
+
+- [complete request/response/combat record](evidence/m1b1-blockers/real-provider-grenade-bow.json)
+- [D1 settlement correlation](evidence/m1b1-blockers/real-provider-worker-log-summary.json)
+- [grenade confirmation](evidence/m1b1-blockers/real-grenade-confirmation.png)
+- [grenade visible arc](evidence/m1b1-blockers/real-grenade-arc-flight.png)
+- [grenade landing explosion](evidence/m1b1-blockers/real-grenade-landing-explosion.png)
+- [bow confirmation](evidence/m1b1-blockers/real-bow-confirmation.png)
+- [bow straight projectile](evidence/m1b1-blockers/real-bow-projectile.png)
+
+## Remaining P0 gate
+
 - **TO VALIDATE** Re-run the deployed build on physical iPhone Safari. No merge
   is authorized before the product owner accepts both P0 and P1.

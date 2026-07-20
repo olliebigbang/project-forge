@@ -1,7 +1,7 @@
 # Project Forge — Game Design Document
 
 Version: 0.1 (organized from the supplied GDD)  
-Current delivery milestone: **M1B1 real text-to-weapon interpreter — public v15 and real-provider automated gates CONFIRMED; physical iPhone M1B1 acceptance TO VALIDATE**
+Current delivery milestone: **M1B1 real text-to-weapon interpreter — public blocker-fix candidate and real-provider automated gates CONFIRMED; physical iPhone M1B1 acceptance TO VALIDATE**
 Stable mobile acceptance: **CONFIRMED on physical iPhone Safari with v9**
 
 ## 1. Product identity
@@ -132,6 +132,11 @@ Voice is an input method, not a separate weapon system.
 {
   "name": "极寒回旋伞",
   "weapon_class": "ranged",
+  "weapon_form": "boomerang",
+  "delivery": "thrown",
+  "trajectory": "returning",
+  "impact": "contact",
+  "area_effect": "none",
   "attack_pattern": "boomerang",
   "element": "ice",
   "damage": 32,
@@ -147,6 +152,10 @@ Voice is an input method, not a separate weapon system.
 
 - **CONFIRMED** Runtime data must pass schema validation and numeric clamping.
 - **CONFIRMED** The checked-in schema is `schema/weapon_spec.schema.json`.
+- **CONFIRMED (M1B1)** Weapon form and delivery semantics are independent from
+  the executable attack/effect module. In particular, a grenade is thrown on an
+  arc before `area_blast` creates the landing explosion; `area_blast` alone is
+  not a delivery mechanism.
 - **TO VALIDATE** `front_shield` in the product-intent example is not in the
   current executable M1A allow-list. M1B1 repairs/omits it instead of inventing a
   new module; adding a shield ability requires separate gameplay and budget work.
@@ -174,6 +183,9 @@ Voice is an input method, not a separate weapon system.
 - **CONFIRMED** A polished asynchronous card image may not block combat.
 - **CONFIRMED (M0)** The spike directly reuses normalized player strokes and adds
   only a simple color/glow treatment; grip inference and smoothing are later work.
+- **CONFIRMED (M1B1 blocker fix)** Confirmation, held, attack, and projectile
+  visuals use the actual stroke bounding box, 10% padding, and one uniform scale;
+  canvas whitespace is ignored and original strokes are not rewritten.
 
 ## 7. Enemies and levels
 
@@ -199,14 +211,16 @@ Target data flow:
 
 - **CONFIRMED** No AI key in the client; all real AI requests go through a backend.
 - **CONFIRMED** Validate input and output; require JSON Schema; clamp numeric
-  bounds; provide a fallback; log latency, errors, and estimated cost; cache
+  bounds; provide an explicit non-equipable error on failure; log latency,
+  errors, and estimated cost; cache
   equivalent input; never call AI during combat; do not retain raw voice by
   default.
 - **CONFIRMED (M0)** `MockAIService` runs locally and implements the same data
   boundary without network access.
 - **CONFIRMED (M1B1)** Godot Web calls `POST /api/compile-weapon` on its own
   origin. The Sites server worker owns request limits, safety checks, provider
-  invocation, schema/allow-list/budget enforcement, fallback, and privacy-safe
+  invocation, schema/allow-list/budget enforcement, non-equipable failure
+  envelopes, and privacy-safe
   audit metadata. Secrets exist only as server environment variables.
 - **CONFIRMED (M1B1)** Random client/request IDs, SHA-256 privacy namespaces,
   strict response-ID matching, and privacy-safe logs are programmatically
@@ -283,13 +297,16 @@ rolling for a higher damage value.
   and physical iPhone Safari acceptance.
 - **M1B1 — real text-to-weapon interpreter (acceptance candidate):** Anthropic
   Haiku 4.5 is configured server-side through the native Messages API and native
-  Structured Outputs. Public v15 confirms the same-origin contract, safe
-  fallback, confirmation/correction UI, deployed D1 USD 5 hard limit, and exact
+  Structured Outputs. The public blocker-fix candidate confirms the same-origin
+  contract, explicit non-equipable failure flow, atomic request snapshots,
+  confirmation/correction UI, deployed D1 USD 5 hard limit, and exact
   model. The real-provider matrix passed 42/42 cases with 100% labelled pattern
   and element accuracy, 100% Schema/allow-list/runtime validity, 1.318 s median
   provider latency, 4.846 s P95, and USD 0.033588 measured matrix cost. Chromium
   and version-matched WebKit public regression passed with zero application
-  console errors. Physical iPhone Safari M1B1 acceptance remains **TO VALIDATE**.
+  console errors. Two additional live blocker cases confirmed grenade
+  thrown/arc/landing-explosion and bow direct-projectile semantics for USD
+  0.003575 total. Physical iPhone Safari M1B1 acceptance remains **TO VALIDATE**.
 - **M1B2 — drawing semantic understanding (not started):** image/vision meaning
   is explicitly outside M1B1; only bounded `drawing_summary` metadata is sent.
 - **M2 — vertical slice:** production combat character, three normal monsters, one

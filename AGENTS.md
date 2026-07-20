@@ -61,7 +61,14 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
 - `ANTHROPIC_API_KEY` is a Sites Secret only. Never read, print, copy, persist, or
   inject it into tests, Godot, browser assets, Git, screenshots, or logs.
 - Drawing input is numeric `drawing_summary` only; visual semantics are M1B2.
-- Preserve drawing/text across cancellation, timeout, retry and fallback.
+- Preserve drawing/text across cancellation, timeout, retry and explicit error
+  recovery. Provider failure must never create an equipable fallback weapon.
+- Keep `weapon_form`, `delivery`, `trajectory`, `impact`, and `area_effect`
+  independent from `attack_pattern`; `area_blast` never substitutes for a
+  grenade's thrown/arc delivery.
+- Fit visuals from actual raw-stroke bounds with 8%-12% padding and one uniform
+  scale shared by confirmation, held, attack, and projectile paths. Never
+  destructively rewrite the source strokes.
 - No M1B2, voice, production art, accounts, sharing, monetization or multiplayer.
 
 ## Engineering rules

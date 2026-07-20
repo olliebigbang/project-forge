@@ -70,7 +70,7 @@ ANTHROPIC_API_KEY=<Sites Secret>
 - **CONFIRMED** The response must have the exact configured model, one text block,
   `end_turn`, valid usage, at most 16 KiB and only the required semantic fields. Refusal,
   truncation, wrong model, wrong shape, unsupported enums and missing usage all
-  produce a schema-valid safe fallback.
+  produce a bounded non-equipable error. They cannot expose CONFIRM or combat.
 - **CONFIRMED** Provider prose, names, corrections, metadata, IDs and nested costs
   never cross the trust boundary. Player-facing text is generated from validated
   labels; cost is `UNKNOWN` or one bounded USD object derived from usage.
@@ -80,7 +80,7 @@ ANTHROPIC_API_KEY=<Sites Secret>
 - **CONFIRMED** 17 Anthropic adapter, 14 provider-budget and 11 hostile safety
   tests pass alongside the existing interpreter, D1, Godot and Web suites.
 - **CONFIRMED (public browser)** Final Chromium and version-matched WebKit mobile
-  flows pass on public v15 at all target viewports with zero application console
+  flows pass on the public blocker-fix candidate with zero application console
   errors.
 - **CONFIRMED (offline)** The paid 42-case runner is hard-disabled unless an
   explicit authorization environment value is present; it calls only the same-
@@ -89,7 +89,12 @@ ANTHROPIC_API_KEY=<Sites Secret>
   resource hashes, and 42-case real-provider matrix passed. The matrix achieved
   42/42 cases, 100% labelled pattern and element accuracy, 100% final validity,
   1.318 s median, 4.846 s P95, and USD 0.033588 measured cost.
-- **TO VALIDATE** Physical iPhone Safari acceptance of public v15.
+- **CONFIRMED** The guarded blocker run added exactly one live grenade and one
+  live bow request. Both used the fixed provider/model, passed every gate, settled
+  in D1, and executed the required thrown-arc-explosion/direct-projectile combat
+  semantics for USD 0.003575 total.
+- **TO VALIDATE** Physical iPhone Safari acceptance of the public blocker-fix
+  candidate.
 
 Official implementation references checked on 2026-07-20:
 

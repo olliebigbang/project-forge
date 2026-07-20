@@ -44,7 +44,7 @@ mapped = source_point * scale + centered_offset
 
 ## Automated geometry evidence
 
-**CONFIRMED** Godot completed 32 matrix cases and 585 assertions with zero
+**CONFIRMED** Godot completed 32 matrix cases and 589 assertions with zero
 failures. The focused geometry matrix covers wide bow, long spear, long blade,
 round grenade, and square shield across four target rectangles. Every case:
 
@@ -72,6 +72,18 @@ mouse-drag samples; the test remains valid because it compares the captured
 source bounding box with its rendered result. The fixed 4.5:1 synthetic wide-bow
 case is also covered by the Godot geometry matrix.
 
+**CONFIRMED** The deployed real-Claude run independently exercised the same
+shared transform after a genuine provider response and through combat:
+
+| Shape | Source ratio | Rendered ratio | Relative error | Padding | Review / held / attack / projectile scale delta |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| wide bow | 6.195281 | 6.195280 | 0.000000137 | 10% | 0 / 0 / 0.000000060 / 0 |
+| round grenade | 0.999901 | 0.999901 | 0.000000215 | 10% | 0 / 0 / 0.000000060 / 0 |
+
+Both relative errors are far below the 2% limit. The grenade additionally kept
+the same uniform drawing transform while held and during visible arc flight,
+then created its area effect 230.05 logical pixels from the throw origin.
+
 ## Retained visual and machine-readable evidence
 
 Failure baseline (not passing evidence):
@@ -90,6 +102,11 @@ Fixed build:
 - [grenade landing explosion frame](evidence/m1b1-blockers/grenade-landing-explosion.png)
 - [Chromium machine report](evidence/m1b1-blockers/chromium-report.json)
 - [WebKit machine report](evidence/m1b1-blockers/webkit-report.json)
+- [real Claude grenade/bow machine report](evidence/m1b1-blockers/real-provider-grenade-bow.json)
+- [real wide-bow confirmation](evidence/m1b1-blockers/real-bow-confirmation.png)
+- [real wide-bow projectile](evidence/m1b1-blockers/real-bow-projectile.png)
+- [real round-grenade confirmation](evidence/m1b1-blockers/real-grenade-confirmation.png)
+- [real round-grenade arc flight](evidence/m1b1-blockers/real-grenade-arc-flight.png)
 
 The browser fixture deliberately identifies itself as simulated. It is valid
 for client rendering/input/attack behavior only and is not claimed as real

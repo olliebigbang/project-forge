@@ -1,0 +1,52 @@
+{
+  "evidence_type": "Sites Worker and D1 provider-budget settlement correlation",
+  "captured_at": "2026-07-20T09:25:00Z",
+  "site": "project-forge-weapon-lab",
+  "worker_script_version": "4618ec45-5f52-4fed-9937-357b149e27d6",
+  "contains_raw_description": false,
+  "contains_provider_response": false,
+  "contains_secret": false,
+  "events": [
+    {
+      "request_id": "m1b1-14c6f2d1bd9a25edac09aa52a7c34b45",
+      "worker_request_id": "a1e0e7f7ff41f0dc",
+      "route": "POST /api/compile-weapon",
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "attempts": 1,
+      "latency_ms": 3383,
+      "estimated_cost": {
+        "amount": 0.001797,
+        "currency": "USD"
+      },
+      "provider_budget": {
+        "state": "settled",
+        "actual_microusd": 1797
+      },
+      "fallback_reason": "",
+      "runtime_valid": true
+    },
+    {
+      "request_id": "m1b1-275938d440292dec4be7a96a0b6963f7",
+      "worker_request_id": "a1e0e86a9ad0b62e",
+      "route": "POST /api/compile-weapon",
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "attempts": 1,
+      "latency_ms": 1390,
+      "estimated_cost": {
+        "amount": 0.001778,
+        "currency": "USD"
+      },
+      "provider_budget": {
+        "state": "settled",
+        "actual_microusd": 1778
+      },
+      "fallback_reason": "",
+      "runtime_valid": true
+    }
+  ],
+  "measured_total_usd": 0.003575,
+  "application_lifetime_cap_usd": 5,
+  "result": "CONFIRMED"
+}

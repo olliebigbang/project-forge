@@ -11,6 +11,9 @@
 - **CONFIRMED** Gameplay consumes only a repaired, runtime-valid `WeaponSpec` whose
   calculated power does not exceed 100.
 - **CONFIRMED** The generated visual preserves the player's stroke geometry.
+  `StrokeFit` computes actual ink bounds, ignores canvas whitespace, applies 10%
+  padding, and returns one uniform scale shared by review, held, attack, and all
+  projectile paths. Source strokes are deep-copied and never destructively fit.
 
 ## M1A runtime flow
 
@@ -93,8 +96,13 @@ flowchart LR
   aborts cooperative transports but is never automatically retried because the
   backend cannot prove that an upstream request was unbilled. One retry is allowed
   only when an adapter explicitly classifies a transient failure as retry-safe.
-- **CONFIRMED** Cancellation invalidates late responses, and every terminal
-  failure returns a fully validated fallback without discarding strokes or text.
+- **CONFIRMED** Cancellation invalidates late responses. Every terminal failure
+  returns a bounded non-equipable error without discarding strokes or text; it
+  cannot expose confirmation or combat as if a provider had succeeded.
+- **CONFIRMED** FORGE freezes one revisioned input snapshot containing the
+  Description, numeric drawing summary, raw-stroke deep copy, and random request
+  ID. Only numeric drawing metadata crosses the Worker boundary; raw strokes stay
+  client-side for review and combat rendering.
 - **CONFIRMED** Normal players never preselect an attack mode. Five buttons exist
   only in Developer/Test Mode or the explicit MODIFY flow, where every change is
   recompiled and revalidated before confirmation.
@@ -105,7 +113,8 @@ flowchart LR
 
 `schema/weapon_spec.schema.json` is the portable Draft 2020-12 contract.
 `WeaponSpec.repair_dict()` is the runtime boundary. Automated parity tests require
-the same 16 fields, five attack enums, and four element enums in both layers.
+the same 21 fields, including form/delivery/trajectory/impact/area semantics,
+five attack enums, and four element enums in both layers.
 
 Runtime repair handles missing values, wrong types, unsupported enums, non-finite
 numbers, numeric bounds, class/pattern mismatches, overlong names, and unknown

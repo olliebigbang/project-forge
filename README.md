@@ -37,8 +37,9 @@ Source: [GitHub repository](https://github.com/olliebigbang/project-forge)
 - The five M1A pattern buttons are hidden in the normal flow and appear only in
   Developer/Test Mode or `MODIFY INTERPRETATION`; corrections are revalidated.
 - Loading, duplicate-request locking, cancellation, one explicitly safe retry,
-  stale-response rejection, aborting timeout, and validated fallback preserve
-  text and strokes. Wrapper timeouts are not automatically retried.
+  stale-response rejection, aborting timeout, and explicit non-equipable error
+  recovery preserve text and strokes. Wrapper timeouts are not automatically
+  retried, and a failed/non-invoked provider cannot enter confirmation or combat.
 - Random client/request IDs, D1 cross-isolate idempotency/quota, strict response-ID
   matching, SHA-256 namespaces, and provider-metadata stripping close duplicate
   charge, stale-response, collision, and response/log disclosure paths.
@@ -46,9 +47,15 @@ Source: [GitHub repository](https://github.com/olliebigbang/project-forge)
   explicitly deferred to M1B2.
 - Five attack patterns, four elements, and stationary, moving, shielded, and
   grouped targets continue to use the accepted M1A runtime.
+- WeaponSpec v2 separates form, delivery, trajectory, impact, and area effect;
+  grenades visibly travel on an arc before the landing blast.
+- Review, held, attack, and projectile visuals share actual stroke bounds, 10%
+  padding, and one uniform scale without rewriting the player's ink.
 
-Until a real provider is configured, local and preview builds use the deterministic
-adapter to exercise the complete contract and failure paths without a secret.
+Production Sites uses Anthropic's native Messages/Structured Outputs API with
+the fixed `claude-haiku-4-5-20251001` snapshot and a Worker + D1 lifetime USD 5
+hard cap. Local/offline regression uses the deterministic adapter and never
+requires a provider secret.
 
 ## Run locally
 

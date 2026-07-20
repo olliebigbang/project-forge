@@ -33,7 +33,7 @@ does not claim visual understanding; image semantics remain M1B2.
    review → confirm. Hide the five M1A buttons unless Developer/Test Mode or
    MODIFY INTERPRETATION is active.
 6. **CONFIRMED** Add request locking, cancellation, aborting timeout, at most one
-   explicitly safe retry, validated fallback, and state preservation. Sites D1
+   explicitly safe retry, explicit non-equipable error recovery, and state preservation. Sites D1
    owns cross-isolate quotas and request leases/results; local maps are dev-only.
 7. **CONFIRMED** Run at least 40 annotated cases plus M1A, mobile, WebKit, build,
    schema, budget, worker, and public-resource regression.
@@ -44,6 +44,9 @@ does not claim visual understanding; image semantics remain M1B2.
 9. **CONFIRMED** Draft PR #3, successful CI, and uncached public Sites v15 were
    created after real-provider tests passed. **TO VALIDATE:** physical iPhone
    acceptance. Do not merge or clean M1B1 branches before that acceptance.
+10. **CONFIRMED** The later P0/P1 blocker fixes are isolated on
+    `codex/fix/m1b1-input-aspect` in draft PR #4. Their current evidence and
+    physical-iPhone acceptance gate are in `docs/M1B1_BLOCKER_FIX_DELIVERY.md`.
 
 ## Architecture boundary
 

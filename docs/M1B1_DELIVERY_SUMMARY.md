@@ -1,5 +1,9 @@
 # M1B1 delivery summary
 
+> Historical v15 delivery record. The current unmerged blocker-fix candidate,
+> separate P0/P1 diagnoses, PR #4, real grenade/bow evidence, and physical-iPhone
+> gate are recorded in [`M1B1_BLOCKER_FIX_DELIVERY.md`](M1B1_BLOCKER_FIX_DELIVERY.md).
+
 Date: 2026-07-20 (Australia/Sydney)
 
 Status: **TO VALIDATE — automated/provider gates passed; physical iPhone Safari
