@@ -11,8 +11,9 @@
 
 Date: 2026-07-20 (Australia/Sydney)
 
-Status: **TO VALIDATE — automated/provider gates passed; physical iPhone Safari
-acceptance remains open**
+Historical status at Sites v15: **automated/provider gates passed; physical
+iPhone Safari acceptance had not yet occurred**. The later accepted result is in
+[`M1B1_HANDOFF.md`](M1B1_HANDOFF.md).
 
 ## Delivered candidate
 
@@ -24,7 +25,8 @@ acceptance remains open**
   `https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/`
 - Stable rollback remains `main` at tag `v0.1.0-m1a`.
 
-The M1B1 branch is not merged or cleaned, and M1B2 has not started.
+At the time of this v15 snapshot, the M1B1 branch had not been merged or cleaned.
+M1B2 has still not started.
 
 ## What M1B1 delivers
 
@@ -101,7 +103,7 @@ on the public deployment.
   inject one `styleMedia` deprecation warning. The application emitted no new
   errors or warnings in the final runs.
 
-## Shortest physical-iPhone acceptance path
+## Historical physical-iPhone acceptance checklist
 
 1. Open the public URL in iPhone Safari in portrait and confirm the bilingual
    rotate gate; rotate to landscape without refreshing.
@@ -115,5 +117,7 @@ on the public deployment.
 6. Expand/collapse Safari toolbars and background/resume once. Confirm no lock,
    clipping, duplicate request, lost input or stale result.
 
-Only an explicit successful product-owner report closes M1B1. Until then, keep
-the PR draft, preserve this branch/evidence, do not merge, and do not start M1B2.
+This was the v15 checklist. The product owner later supplied the required
+successful physical-iPhone report for Sites v19/runtime `6d5ba3a`; PR #4 release
+closure supersedes the old Draft hold. Branches/evidence remain preserved and
+M1B2 remains paused.

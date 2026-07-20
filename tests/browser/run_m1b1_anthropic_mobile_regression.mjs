@@ -421,6 +421,42 @@ try {
       "idle forge",
     );
   };
+  const waitForViewportLayout = async (viewport, timeout = 15000) => {
+    const started = Date.now();
+    let latest = null;
+    while (Date.now() - started < timeout) {
+      const current = await state();
+      const currentControls = await controls();
+      const metrics = await page.evaluate(() => ({
+        innerWidth,
+        innerHeight,
+        visualWidth: window.visualViewport?.width ?? innerWidth,
+        visualHeight: window.visualViewport?.height ?? innerHeight,
+      }));
+      latest = { current, currentControls, metrics };
+      const canvas = currentControls.canvas;
+      const mobile = current.mobile_input || {};
+      if (
+        current.screen === "forge" &&
+        current.phase === "idle" &&
+        Math.abs(metrics.innerWidth - viewport.width) < 1 &&
+        Math.abs(metrics.innerHeight - viewport.height) < 1 &&
+        Math.abs(metrics.visualWidth - viewport.width) < 1 &&
+        Math.abs(metrics.visualHeight - viewport.height) < 1 &&
+        Math.abs(Number(mobile.width) - viewport.width) < 1 &&
+        Math.abs(Number(mobile.height) - viewport.height) < 1 &&
+        canvas &&
+        canvas.x >= -0.5 &&
+        canvas.y >= -0.5 &&
+        canvas.x + canvas.width <= viewport.width + 0.5 &&
+        canvas.y + canvas.height <= viewport.height + 0.5
+      ) {
+        return currentControls;
+      }
+      await sleep(40);
+    }
+    throw new Error(`Timed out waiting for ${viewport.width}x${viewport.height} layout: ${JSON.stringify(latest)}`);
+  };
   const assertInside = (rect, viewport, label) => {
     assert(rect && rect.width > 0 && rect.height > 0, `${label} is hidden`);
     assert(
@@ -510,9 +546,7 @@ try {
   const layouts = [];
   for (const viewport of MOBILE_VIEWPORTS) {
     await page.setViewportSize(viewport);
-    await sleep(240);
-    await waitForForge();
-    const currentControls = await controls();
+    const currentControls = await waitForViewportLayout(viewport);
     const inputBox = await input.boundingBox();
     const clearBox = await clearDescription.boundingBox();
     for (const [label, rect] of Object.entries({

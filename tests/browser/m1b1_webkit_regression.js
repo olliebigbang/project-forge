@@ -1,3 +1,10 @@
+/*
+ * HISTORICAL / NOT EXECUTED.
+ * Retained only to audit the pre-Anthropic expression runner. The supported
+ * run_m1b1_regression.mjs entry point now delegates to the canonical Anthropic
+ * mobile suite. Current provider failures are explicit non-equipable errors
+ * with weapon_spec=null; this old file's local-fallback assertions are obsolete.
+ */
 async (page) => {
   const messages = [];
   page.on("console", (message) => messages.push({ type: message.type(), text: message.text() }));
