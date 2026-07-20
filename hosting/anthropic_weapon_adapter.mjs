@@ -6,6 +6,7 @@ export const ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
 export const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 export const ANTHROPIC_VERSION = "2023-06-01";
 export const ANTHROPIC_MAX_OUTPUT_TOKENS = 256;
+export const ANTHROPIC_MAX_RESPONSE_BYTES = 16 * 1024;
 
 // The provider selects semantic labels only. Executable values remain owned by
 // WeaponSpec repair and PowerBudget. The schema intentionally uses only the
@@ -207,6 +208,57 @@ function mapHttpFailure(status) {
   return new InterpreterError(code, `Anthropic request failed with HTTP ${status}.`, mappedStatus, false);
 }
 
+async function readBoundedJson(response) {
+  const declaredLength = Number(response.headers?.get?.("content-length") ?? 0);
+  if (Number.isFinite(declaredLength) && declaredLength > ANTHROPIC_MAX_RESPONSE_BYTES) {
+    throw new InterpreterError(
+      "provider_response_too_large",
+      "Anthropic response exceeds the configured byte limit.",
+      502,
+    );
+  }
+  const reader = response.body?.getReader?.();
+  if (!reader) {
+    const text = await response.text();
+    if (new TextEncoder().encode(text).byteLength > ANTHROPIC_MAX_RESPONSE_BYTES) {
+      throw new InterpreterError(
+        "provider_response_too_large",
+        "Anthropic response exceeds the configured byte limit.",
+        502,
+      );
+    }
+    return JSON.parse(text);
+  }
+  const chunks = [];
+  let totalBytes = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = value instanceof Uint8Array ? value : new Uint8Array(value);
+    totalBytes += chunk.byteLength;
+    if (totalBytes > ANTHROPIC_MAX_RESPONSE_BYTES) {
+      try {
+        await reader.cancel("response byte limit exceeded");
+      } catch {
+        // The local limit is already decisive even if upstream cancellation fails.
+      }
+      throw new InterpreterError(
+        "provider_response_too_large",
+        "Anthropic response exceeds the configured byte limit.",
+        502,
+      );
+    }
+    chunks.push(chunk);
+  }
+  const combined = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    combined.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(combined));
+}
+
 function requestPayload(request, model) {
   const untrustedInput = {
     task: "classify_fictional_game_weapon",
@@ -303,8 +355,9 @@ export class AnthropicWeaponAdapter {
 
     let message;
     try {
-      message = await response.json();
-    } catch {
+      message = await readBoundedJson(response);
+    } catch (error) {
+      if (error instanceof InterpreterError) throw error;
       throw new InterpreterError(
         "invalid_provider_response",
         "Anthropic returned invalid JSON.",

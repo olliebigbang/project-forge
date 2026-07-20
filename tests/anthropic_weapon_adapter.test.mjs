@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   ANTHROPIC_INTENT_SCHEMA,
   ANTHROPIC_MAX_OUTPUT_TOKENS,
+  ANTHROPIC_MAX_RESPONSE_BYTES,
   ANTHROPIC_MESSAGES_URL,
   ANTHROPIC_MODEL,
   ANTHROPIC_VERSION,
@@ -244,6 +245,27 @@ test("malformed successful responses fail closed after authoritative usage captu
       assert.equal(adapter.billingSnapshot().disposition, disposition);
     });
   }
+});
+
+test("successful provider responses are streamed through an explicit byte ceiling", async () => {
+  let calls = 0;
+  const adapter = new AnthropicWeaponAdapter({
+    apiKey: TEST_KEY,
+    model: ANTHROPIC_MODEL,
+    fetchImpl: async () => {
+      calls += 1;
+      return new Response("x".repeat(ANTHROPIC_MAX_RESPONSE_BYTES + 1), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    },
+  });
+  await assert.rejects(
+    adapter.interpret(interpreterPayload()),
+    (error) => error.code === "provider_response_too_large",
+  );
+  assert.equal(calls, 1);
+  assert.equal(adapter.billingSnapshot().disposition, "unknown");
 });
 
 test("provider resolution allows only the configured Anthropic snapshot", () => {

@@ -61,6 +61,7 @@ jobs:
           node --test tests/durable_request_guard.test.mjs
           node --test tests/anthropic_weapon_adapter.test.mjs
           node --test tests/provider_budget_guard.test.mjs
+          node --test tests/m1b1_anthropic_safety_regression.test.mjs
 
       - name: Export Web release
         run: |

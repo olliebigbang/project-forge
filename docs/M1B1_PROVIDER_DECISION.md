@@ -67,7 +67,7 @@ ANTHROPIC_API_KEY=<Sites Secret>
   Anthropic 429, 5xx, network errors, aborts and wrapper timeouts do not
   automatically retry.
 - **CONFIRMED** The response must have the exact configured model, one text block,
-  `end_turn`, valid usage and only the required semantic fields. Refusal,
+  `end_turn`, valid usage, at most 16 KiB and only the required semantic fields. Refusal,
   truncation, wrong model, wrong shape, unsupported enums and missing usage all
   produce a schema-valid safe fallback.
 - **CONFIRMED** Provider prose, names, corrections, metadata, IDs and nested costs

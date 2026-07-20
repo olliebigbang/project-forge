@@ -1219,3 +1219,31 @@ public assets before authorizing one paid canary.
 
 This is not a public-release, real-provider-quality, mobile, or physical-iPhone
 acceptance. QA made zero real Anthropic calls and spent USD 0 during this retest.
+
+## 24. Integrator follow-up: bounded provider response (`TO VALIDATE` live)
+
+Prepared: 2026-07-20
+
+The main integrator closed the remaining response-size P2 after the independent
+`fc9820f` review:
+
+- `ANTHROPIC_MAX_RESPONSE_BYTES` is fixed at 16 KiB.
+- `content-length` above the ceiling is rejected before parsing.
+- streamed response bytes are counted before allocation/JSON parsing; an
+  oversized body is cancelled and becomes `provider_response_too_large`.
+- malformed UTF-8/JSON and oversized successful responses retain billing state
+  `unknown`, so D1 commits the conservative 201,280 micro-USD reservation.
+- the error never includes the body, provider error text or secret.
+
+The new adapter test sends 16 KiB + 1 byte, observes one call, a bounded error and
+unknown billing. The combined Anthropic adapter, D1 budget and hostile safety
+selection passes 41/41 offline assertions.
+
+| Finding | Updated disposition |
+| --- | --- |
+| Explicit upstream response byte limit | **CLOSED OFFLINE — implementation + regression pass** |
+| Public/Sites behavior under an oversized upstream body | **TO VALIDATE only if a safe provider fixture can reproduce it without paid risk** |
+
+No P0/P1/P2 implementation finding remains open in the offline Anthropic path.
+The provider-account spend backstop, deployed migrations, live matrix, public
+assets, current WebKit run and physical iPhone remain separate gates.
