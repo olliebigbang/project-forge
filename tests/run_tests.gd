@@ -235,24 +235,53 @@ func _test_stroke_fit() -> void:
 		_expect(bool(edge_transform.valid) and not edge_mapped.is_empty(), "single-axis stroke remains renderable")
 		_expect(StrokeFit.actual_bounds(edge_mapped).position.x >= targets[0].position.x, "single-axis stroke remains inside target")
 
-	var projectile_cases := [
-		["straight projectile", "a wooden bow firing arrows", shapes["wide bow"]],
+	var visual_role_cases := [
+		["bow", "a wooden bow firing arrows", "arrow", "procedural", false, false],
+		["grenade", "a thrown grenade that explodes after landing", "grenade", "player_strokes", true, true],
+		["sword", "a plain steel sword", "none", "none", false, false],
+		["boomerang", "a boomerang that returns", "boomerang", "player_strokes", true, false],
+		["spear", "a spear that pierces shields", "spear", "procedural", false, false],
+	]
+	for role_case: Array in visual_role_cases:
+		var role_spec := WeaponCompiler.new().compile(str(role_case[1]))
+		var bundle := WeaponVisualBundle.from_spec(role_spec)
+		_expect(str(bundle.projectile_kind) == str(role_case[2]), "%s selects projectile kind %s" % [role_case[0], role_case[2]])
+		_expect(str(bundle.projectile_source) == str(role_case[3]), "%s selects projectile source %s" % [role_case[0], role_case[3]])
+		_expect(bool(bundle.hide_held_during_attack) == bool(role_case[4]), "%s held visibility lifecycle is explicit" % role_case[0])
+		_expect((str(bundle.impact_visual) == "explosion") == bool(role_case[5]), "%s impact visual is independent" % role_case[0])
+
+	var drawn_projectile_cases := [
 		["boomerang", "a boomerang that returns", shapes["wide bow"]],
-		["piercing", "a spear that pierces shields", shapes["long spear"]],
 		["grenade", "a thrown grenade that explodes after landing", shapes["round grenade"]],
 	]
-	for projectile_case: Array in projectile_cases:
+	for projectile_case: Array in drawn_projectile_cases:
 		var projectile_spec := WeaponCompiler.new().compile(str(projectile_case[1]))
 		var projectile_strokes: Array[PackedVector2Array] = [projectile_case[2]]
 		var projectile := ForgeProjectile.new()
 		projectile.configure(projectile_spec, projectile_strokes, Vector2.RIGHT)
 		projectile._ready()
 		var visual_transform := projectile._visual.global_transform
-		_expect(is_equal_approx(visual_transform.x.length(), visual_transform.y.length()), "%s actual projectile transform is uniform" % projectile_case[0])
-		var visual_aspect := StrokeFit.aspect_ratio(projectile._visual.fitted_strokes())
-		var source_aspect := StrokeFit.aspect_ratio(projectile_strokes)
-		_expect(absf(visual_aspect / source_aspect - 1.0) <= 0.02, "%s projectile aspect error is within 2%%" % projectile_case[0])
+		_expect(is_equal_approx(visual_transform.x.length(), visual_transform.y.length()), "%s drawn projectile transform is uniform" % projectile_case[0])
+		var visual_state := projectile._visual.qa_state()
+		_expect(bool(visual_state.uses_player_strokes), "%s intentionally uses the player drawing" % projectile_case[0])
+		_expect(float(visual_state.relative_aspect_error) <= 0.02, "%s projectile aspect error is within 2%%" % projectile_case[0])
+		_expect(float(visual_state.pivot_error) <= 1.0, "%s rotates around its fitted stroke center" % projectile_case[0])
 		projectile.free()
+
+	for procedural_case: Array in [
+		["a wooden bow firing arrows", "arrow"],
+		["a spear that pierces shields", "spear"],
+	]:
+		var procedural_spec := WeaponCompiler.new().compile(str(procedural_case[0]))
+		var source_strokes: Array[PackedVector2Array] = [shapes["wide bow"]]
+		var procedural := ForgeProjectile.new()
+		procedural.configure(procedural_spec, source_strokes, Vector2.RIGHT)
+		procedural._ready()
+		var procedural_state := procedural.qa_visual_state()
+		_expect(str(procedural_state.kind) == str(procedural_case[1]), "%s uses its deterministic projectile graphic" % procedural_case[1])
+		_expect(str(procedural_state.source) == "procedural" and not bool(procedural_state.uses_player_strokes), "%s never copies the held drawing" % procedural_case[1])
+		_expect(str(procedural_state.rotation_mode) == "face_velocity" and float(procedural_state.heading_error) <= 0.001, "%s faces velocity without tumbling" % procedural_case[1])
+		procedural.free()
 
 
 func _test_attack_pattern_touch_selector() -> void:

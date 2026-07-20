@@ -77,6 +77,14 @@ var _qa_area_impact_position := Vector2.ZERO
 var _qa_has_projectile_origin := false
 var _qa_has_area_impact := false
 var _qa_feedback_count := 0
+var _qa_projectile_spawn_count := 0
+var _qa_projectile_finish_count := 0
+var _qa_impact_spawn_count := 0
+var _qa_peak_active_projectiles := 0
+var _qa_last_visual_bundle: Dictionary = {}
+var _qa_last_finished_projectile: Dictionary = {}
+var _qa_attack_events: Array[Dictionary] = []
+var _qa_attack_event_sequence := 0
 var _last_try_again_msec := -10000
 var _review_ui_ready := false
 var _combat_ui_ready := false
@@ -442,14 +450,17 @@ func _apply_forge_layout() -> void:
 		float(browser_metrics.get("width", size.x)),
 		float(browser_metrics.get("height", size.y)),
 	)
-	var input_focused := bool(browser_metrics.get("inputFocused", false))
-	if css_size.x > css_size.y and not input_focused and css_size.y >= 250.0:
+	var layout_css_size := Vector2(
+		float(browser_metrics.get("layoutWidth", css_size.x)),
+		float(browser_metrics.get("layoutHeight", css_size.y)),
+	)
+	var text_entry_active := bool(browser_metrics.get("textEntryActive", false))
+	if css_size.x > css_size.y and not text_entry_active and css_size.y >= 250.0:
 		_last_stable_landscape_css_size = css_size
-	var layout_css_size := css_size
-	if input_focused and css_size.y < 250.0 and _last_stable_landscape_css_size != Vector2.ZERO:
-		# iOS shrinks visualViewport while the software keyboard is visible. Keep
-		# the last stable landscape geometry so the Godot canvas does not adopt a
-		# permanent keyboard-sized layout; the next viewport event restores it.
+	if text_entry_active and _last_stable_landscape_css_size != Vector2.ZERO:
+		# The Web viewport controller owns the Canvas during iOS text entry. Keep
+		# Godot on the last stable landscape geometry while the native Description
+		# dock follows the temporary Visual Viewport.
 		layout_css_size = _last_stable_landscape_css_size
 	var compact := MobileLayoutPolicy.should_use_compact(layout_css_size)
 	if compact:
@@ -586,7 +597,9 @@ func _on_web_description_event(kind: String, value: String, revision: int, compo
 		"blur":
 			description_input.release_focus()
 			call_deferred("_apply_forge_layout")
-		"focus": _show_forge_toast("Description ready for editing", Color("#b9eaff"), 1.0)
+		"focus":
+			_show_forge_toast("Description ready for editing", Color("#b9eaff"), 1.0)
+			call_deferred("_apply_forge_layout")
 
 
 func _set_description(value: String) -> void:
@@ -1179,6 +1192,7 @@ func _on_pattern_selected(_index: int, pattern: String) -> void:
 func _clear_transient_combat() -> void:
 	_qa_has_projectile_origin = false
 	_qa_has_area_impact = false
+	_qa_last_finished_projectile = {}
 	for node: Node in get_tree().get_nodes_in_group("forge_transient_attack"):
 		if is_instance_valid(node):
 			var parent := node.get_parent()
@@ -1187,6 +1201,8 @@ func _clear_transient_combat() -> void:
 			node.queue_free()
 	for target in targets:
 		target.clear_transient_status()
+	if is_instance_valid(player):
+		player.restore_held_weapon_now()
 
 
 func _on_player_attack(spec: WeaponSpec, origin: Vector2, direction: Vector2, strokes: Array[PackedVector2Array]) -> void:
@@ -1226,6 +1242,8 @@ func _launch_melee(spec: WeaponSpec, origin: Vector2, direction: Vector2) -> voi
 
 
 func _launch_area(spec: WeaponSpec, origin: Vector2, direction: Vector2) -> void:
+	_qa_impact_spawn_count += 1
+	_record_attack_event("impact_spawn", {"impact_kind": "explosion", "x": origin.x, "y": origin.y})
 	var blast := ForgeAreaBlast.new()
 	blast.configure(spec, direction)
 	blast.global_position = origin
@@ -1236,13 +1254,35 @@ func _launch_area(spec: WeaponSpec, origin: Vector2, direction: Vector2) -> void
 
 
 func _launch_projectile(spec: WeaponSpec, origin: Vector2, direction: Vector2, strokes: Array[PackedVector2Array]) -> void:
+	var visual_bundle := WeaponVisualBundle.from_spec(spec)
+	if str(visual_bundle.get("projectile_kind", "none")) == "none":
+		combat_status.text = "No projectile visual is valid for this held weapon."
+		return
 	_qa_projectile_origin = origin
 	_qa_has_projectile_origin = true
 	_qa_has_area_impact = false
+	_qa_last_finished_projectile = {}
+	_qa_projectile_spawn_count += 1
+	_qa_last_visual_bundle = visual_bundle.duplicate(true)
+	_record_attack_event("projectile_spawn", {
+		"projectile_kind": str(visual_bundle.projectile_kind),
+		"source": str(visual_bundle.projectile_source),
+		"hide_held": bool(visual_bundle.hide_held_during_attack),
+	})
+	if bool(visual_bundle.hide_held_during_attack):
+		player.begin_detached_weapon_attack()
 	var projectile := ForgeProjectile.new()
-	projectile.configure(spec, strokes, direction, player)
+	projectile.configure(spec, strokes, direction, player, visual_bundle)
 	projectile.global_position = origin
 	projectile.hit_target.connect(func(label_text: String, amount: int): combat_status.text = "%s hit %s for %d." % [spec.attack_label(), label_text, amount])
+	projectile.finished.connect(func(pattern: String):
+		_qa_last_finished_projectile = projectile.qa_visual_state()
+		_qa_projectile_finish_count += 1
+		_record_attack_event("projectile_finish", {"pattern": pattern, "projectile_kind": str(visual_bundle.projectile_kind)})
+		if bool(visual_bundle.hide_held_during_attack):
+			player.complete_detached_weapon_attack()
+		_update_qa_bridge()
+	)
 	projectile.area_impact.connect(func(impact_position: Vector2, impact_direction: Vector2):
 		_qa_area_impact_position = impact_position
 		_qa_has_area_impact = true
@@ -1251,6 +1291,7 @@ func _launch_projectile(spec: WeaponSpec, origin: Vector2, direction: Vector2, s
 	)
 	world.add_child(projectile)
 	projectile.add_to_group("forge_transient_attack")
+	_qa_peak_active_projectiles = maxi(_qa_peak_active_projectiles, get_tree().get_nodes_in_group("forge_transient_attack").filter(func(node: Node): return node is ForgeProjectile).size())
 	combat_status.text = "Grenade thrown on a visible arc; explosion follows at impact." if spec.delivery == "thrown" and spec.trajectory == "arc" else {"straight_projectile": "Straight projectile launched; stops on first target.", "boomerang": "Boomerang outbound; it can strike again on return.", "piercing": "Piercing lance launched; shield bypass active."}.get(spec.attack_pattern, "Attack launched.")
 
 
@@ -1396,9 +1437,11 @@ func _update_qa_bridge() -> void:
 		selector_visible = selector_visible and _developer_ui_ready
 	var active_projectiles := 0
 	var active_area_blasts := 0
+	var projectile_states: Array[Dictionary] = []
 	for transient: Node in get_tree().get_nodes_in_group("forge_transient_attack"):
 		if transient is ForgeProjectile:
 			active_projectiles += 1
+			projectile_states.append((transient as ForgeProjectile).qa_visual_state())
 		elif transient is ForgeAreaBlast:
 			active_area_blasts += 1
 	var state := {
@@ -1436,11 +1479,21 @@ func _update_qa_bridge() -> void:
 		"combat_message": combat_status.text,
 		"active_projectiles": active_projectiles,
 		"active_area_blasts": active_area_blasts,
+		"projectile_spawn_count": _qa_projectile_spawn_count,
+		"projectile_finish_count": _qa_projectile_finish_count,
+		"impact_spawn_count": _qa_impact_spawn_count,
+		"peak_active_projectiles": _qa_peak_active_projectiles,
+		"visual_bundle": _qa_last_visual_bundle,
+		"held_visual": player.held_visual_state() if is_instance_valid(player) else {},
+		"projectiles": projectile_states,
+		"last_finished_projectile": _qa_last_finished_projectile,
+		"attack_events": _qa_attack_events.duplicate(true),
 		"projectile_origin": _vector_dictionary(_qa_projectile_origin) if _qa_has_projectile_origin else {},
 		"area_impact_position": _vector_dictionary(_qa_area_impact_position) if _qa_has_area_impact else {},
 		"area_impact_distance": _qa_projectile_origin.distance_to(_qa_area_impact_position) if _qa_has_projectile_origin and _qa_has_area_impact else 0.0,
 		"stroke_geometry": _stroke_fit_evidence(),
 		"visual_transforms": _visual_transform_evidence(),
+		"mobile_input": web_mobile_bridge.metrics(),
 	}
 	var pattern_rects: Array[Dictionary] = []
 	for button: Button in pattern_selector.buttons():
@@ -1498,6 +1551,19 @@ func _vector_rect_dictionary(rect: Rect2) -> Dictionary:
 
 func _vector_dictionary(value: Vector2) -> Dictionary:
 	return {"x": value.x, "y": value.y}
+
+
+func _record_attack_event(kind: String, detail: Dictionary = {}) -> void:
+	_qa_attack_event_sequence += 1
+	var entry := {
+		"sequence": _qa_attack_event_sequence,
+		"kind": kind,
+		"time_msec": Time.get_ticks_msec(),
+	}
+	entry.merge(detail, true)
+	_qa_attack_events.append(entry)
+	if _qa_attack_events.size() > 64:
+		_qa_attack_events.pop_front()
 
 
 func _visual_transform_evidence() -> Dictionary:

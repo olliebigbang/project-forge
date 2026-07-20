@@ -4,6 +4,7 @@ extends CharacterBody2D
 signal attack_requested(spec: WeaponSpec, origin: Vector2, direction: Vector2, strokes: Array[PackedVector2Array])
 
 const MOVE_SPEED := 310.0
+const WEAPON_REST_POSITION := Vector2(18.0, -12.0)
 
 var touch_axis := 0.0
 var facing := 1.0
@@ -14,6 +15,8 @@ var combat_enabled := true
 var movement_bounds := Vector2(80.0, 1200.0)
 var weapon_visual: WeaponVisual
 var _attack_tween: Tween
+var _detached_visual_count := 0
+var _detached_generation := 0
 
 
 func _ready() -> void:
@@ -26,7 +29,8 @@ func _ready() -> void:
 	shape.shape = body_shape
 	add_child(shape)
 	weapon_visual = WeaponVisual.new()
-	weapon_visual.position = Vector2(18, -12)
+	weapon_visual.show_gameplay_markers = false
+	weapon_visual.position = WEAPON_REST_POSITION
 	weapon_visual.z_index = 2
 	add_child(weapon_visual)
 	queue_redraw()
@@ -41,7 +45,7 @@ func _physics_process(delta: float) -> void:
 		facing = signf(axis)
 	move_and_slide()
 	global_position.x = clampf(global_position.x, movement_bounds.x, movement_bounds.y)
-	weapon_visual.scale.x = facing
+	weapon_visual.scale = Vector2(facing, 1.0)
 	if combat_enabled and Input.is_action_just_pressed("attack"):
 		attack()
 
@@ -53,6 +57,7 @@ func equip(spec: WeaponSpec, strokes: Array[PackedVector2Array]) -> void:
 	for stroke in strokes:
 		current_strokes.append(stroke.duplicate())
 	weapon_visual.configure(current_strokes, spec)
+	restore_held_weapon_now()
 
 
 func set_touch_axis(value: float) -> void:
@@ -74,16 +79,76 @@ func attack() -> void:
 	attack_cooldown = (1.0 / maxf(current_spec.attack_speed, 0.2)) * float(drawback_multiplier)
 	_play_attack_motion()
 	var direction := Vector2(facing, 0.0)
-	attack_requested.emit(current_spec, global_position + Vector2(28.0 * facing, -14.0), direction, current_strokes)
+	var bundle := WeaponVisualBundle.from_spec(current_spec)
+	var projectile_kind := str(bundle.get("projectile_kind", "none"))
+	var origin := weapon_visual.projectile_spawn_global(projectile_kind)
+	if projectile_kind == "none":
+		origin = global_position + Vector2(28.0 * facing, -14.0)
+	attack_requested.emit(current_spec, origin, direction, current_strokes)
 
 
 func _play_attack_motion() -> void:
 	if _attack_tween and _attack_tween.is_valid():
 		_attack_tween.kill()
+	_restore_weapon_pose()
+	# Ranged and detached weapons keep an exact rest pose. Their visible attack
+	# motion belongs to the projectile, not to a generic sword swing.
+	if current_spec != null and (current_spec.delivery != "held" or current_spec.weapon_form == "bow"):
+		return
 	weapon_visual.rotation = -0.32 * facing
 	_attack_tween = create_tween()
 	_attack_tween.tween_property(weapon_visual, "rotation", 0.42 * facing, 0.10)
 	_attack_tween.tween_property(weapon_visual, "rotation", 0.0, 0.13)
+	_attack_tween.tween_callback(_restore_weapon_pose)
+
+
+func begin_detached_weapon_attack() -> void:
+	_detached_visual_count += 1
+	_detached_generation += 1
+	weapon_visual.visible = false
+
+
+func complete_detached_weapon_attack() -> void:
+	_detached_visual_count = maxi(_detached_visual_count - 1, 0)
+	var generation := _detached_generation
+	while is_inside_tree() and (_detached_visual_count > 0 or attack_cooldown > 0.0):
+		await get_tree().physics_frame
+		if generation != _detached_generation:
+			return
+	if generation == _detached_generation and _detached_visual_count == 0:
+		weapon_visual.visible = true
+		_restore_weapon_pose()
+
+
+func restore_held_weapon_now() -> void:
+	_detached_generation += 1
+	_detached_visual_count = 0
+	if is_instance_valid(weapon_visual):
+		weapon_visual.visible = true
+		_restore_weapon_pose()
+
+
+func held_visual_state() -> Dictionary:
+	if not is_instance_valid(weapon_visual):
+		return {}
+	return {
+		"visible": weapon_visual.visible,
+		"local_position": {"x": weapon_visual.position.x, "y": weapon_visual.position.y},
+		"global_position": {"x": weapon_visual.global_position.x, "y": weapon_visual.global_position.y},
+		"rest_position": {"x": WEAPON_REST_POSITION.x, "y": WEAPON_REST_POSITION.y},
+		"position_drift": weapon_visual.position.distance_to(WEAPON_REST_POSITION),
+		"rotation": weapon_visual.rotation,
+		"detached_count": _detached_visual_count,
+		"cooldown": attack_cooldown,
+	}
+
+
+func _restore_weapon_pose() -> void:
+	if not is_instance_valid(weapon_visual):
+		return
+	weapon_visual.position = WEAPON_REST_POSITION
+	weapon_visual.rotation = 0.0
+	weapon_visual.scale = Vector2(facing, 1.0)
 
 
 func _draw() -> void:

@@ -10,6 +10,7 @@ var _main_color := Color("#f8f2df")
 var _configured := false
 var fit_target_rect := DEFAULT_TARGET_RECT
 var fit_padding := StrokeFit.DEFAULT_PADDING
+var show_gameplay_markers := true
 
 
 func configure(strokes: Array[PackedVector2Array], spec: WeaponSpec) -> void:
@@ -33,6 +34,20 @@ func fitted_strokes() -> Array[PackedVector2Array]:
 	return StrokeFit.map_strokes(_strokes, fit_target_rect, fit_padding)
 
 
+func fitted_bounds() -> Rect2:
+	return StrokeFit.actual_bounds(fitted_strokes())
+
+
+func projectile_spawn_global(projectile_kind: String) -> Vector2:
+	var bounds := fitted_bounds()
+	if bounds == Rect2():
+		return to_global(Vector2(58.0, 0.0))
+	var local_origin := bounds.get_center()
+	if projectile_kind in ["arrow", "bullet", "energy", "spear"]:
+		local_origin.x += bounds.size.x * 0.34 + 8.0
+	return to_global(local_origin)
+
+
 func _draw() -> void:
 	if not _configured:
 		return
@@ -51,8 +66,10 @@ func _draw() -> void:
 			draw_polyline(points, glow, 11.0, true)
 			draw_polyline(points, _main_color, 4.0, true)
 
-	var fitted_bounds := StrokeFit.actual_bounds(fitted)
-	var tip := Vector2(108.0, 0.0) if fitted_bounds == Rect2() else Vector2(fitted_bounds.position.x + fitted_bounds.size.x, fitted_bounds.get_center().y)
+	if not show_gameplay_markers:
+		return
+	var fitted_bounds_value := StrokeFit.actual_bounds(fitted)
+	var tip := Vector2(108.0, 0.0) if fitted_bounds_value == Rect2() else Vector2(fitted_bounds_value.position.x + fitted_bounds_value.size.x, fitted_bounds_value.get_center().y)
 	draw_circle(Vector2.ZERO, 8.0, Color("#152238"))
 	draw_circle(Vector2.ZERO, 5.0, _main_color)
 	if _attack_pattern == "straight_projectile":
