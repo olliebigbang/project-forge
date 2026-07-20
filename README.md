@@ -49,8 +49,9 @@ Source: [GitHub repository](https://github.com/olliebigbang/project-forge)
   grouped targets continue to use the accepted M1A runtime.
 - WeaponSpec v2 separates form, delivery, trajectory, impact, and area effect;
   grenades visibly travel on an arc before the landing blast.
-- Review, held, attack, and projectile visuals share actual stroke bounds, 10%
-  padding, and one uniform scale without rewriting the player's ink.
+- Review and held visuals preserve actual stroke bounds with 10% padding and one
+  uniform scale. Only semantically thrown objects reuse player ink in flight;
+  bows fire procedural arrows and other ranged forms use deterministic projectiles.
 
 Production Sites uses Anthropic's native Messages/Structured Outputs API with
 the fixed `claude-haiku-4-5-20251001` snapshot and a Worker + D1 lifetime USD 5
@@ -102,6 +103,8 @@ regressions documented in `artifacts/M1B1_TEST_RESULTS.md`.
 - Product scope: `docs/GDD.md`
 - Milestone traceability: `docs/MVP_ACCEPTANCE.md`
 - M1B1 executable acceptance: `docs/M1B1_ACCEPTANCE.md`
+- Reopened iOS keyboard P0 evidence: `docs/M1B1_IOS_KEYBOARD_P0_EVIDENCE.md`
+- Reopened weapon visual-role P0 evidence: `docs/M1B1_WEAPON_VISUAL_ROLES_P0_EVIDENCE.md`
 - M1B1 implementation plan: `docs/M1B1_IMPLEMENTATION_PLAN.md`
 - Real-provider options and required decision: `docs/M1B1_PROVIDER_DECISION.md`
 - Technical boundaries: `docs/ARCHITECTURE.md`

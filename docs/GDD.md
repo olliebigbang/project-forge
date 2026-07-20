@@ -183,9 +183,12 @@ Voice is an input method, not a separate weapon system.
 - **CONFIRMED** A polished asynchronous card image may not block combat.
 - **CONFIRMED (M0)** The spike directly reuses normalized player strokes and adds
   only a simple color/glow treatment; grip inference and smoothing are later work.
-- **CONFIRMED (M1B1 blocker fix)** Confirmation, held, attack, and projectile
-  visuals use the actual stroke bounding box, 10% padding, and one uniform scale;
-  canvas whitespace is ignored and original strokes are not rewritten.
+- **CONFIRMED (M1B1 P0 visual-role fix)** Confirmation and held visuals use the
+  actual stroke bounding box, 10% padding, and one uniform scale; canvas
+  whitespace is ignored and original strokes are not rewritten. A projectile
+  reuses player ink only when the validated form is itself thrown (grenade or
+  boomerang). Bow, bullet, energy and piercing projectiles are deterministic
+  program graphics, separate from the held weapon and impact effect.
 
 ## 7. Enemies and levels
 
@@ -307,6 +310,11 @@ rolling for a higher damage value.
   console errors. Two additional live blocker cases confirmed grenade
   thrown/arc/landing-explosion and bow direct-projectile semantics for USD
   0.003575 total. Physical iPhone Safari M1B1 acceptance remains **TO VALIDATE**.
+  A later physical-iPhone pass reopened two P0 gates: keyboard focus/Canvas
+  stability and held/projectile/impact visual separation. The replacement keeps
+  a stable Canvas with compact text entry, keeps bows held while arrows fly, and
+  gives grenades a centred drawn flight copy plus independent explosion. These
+  are **CONFIRMED in Chromium/WebKit and TO VALIDATE on physical iPhone**.
 - **M1B2 — drawing semantic understanding (not started):** image/vision meaning
   is explicitly outside M1B1; only bounded `drawing_summary` metadata is sent.
 - **M2 — vertical slice:** production combat character, three normal monsters, one

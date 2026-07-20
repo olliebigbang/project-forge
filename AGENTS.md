@@ -66,9 +66,13 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
 - Keep `weapon_form`, `delivery`, `trajectory`, `impact`, and `area_effect`
   independent from `attack_pattern`; `area_blast` never substitutes for a
   grenade's thrown/arc delivery.
-- Fit visuals from actual raw-stroke bounds with 8%-12% padding and one uniform
-  scale shared by confirmation, held, attack, and projectile paths. Never
-  destructively rewrite the source strokes.
+- Fit player-ink visuals from actual raw-stroke bounds with 8%-12% padding and
+  one uniform scale. Never destructively rewrite source strokes. Only a semantic
+  thrown object may reuse ink as a projectile; bows, guns, energy and piercing
+  attacks use deterministic projectile visuals selected by `WeaponVisualBundle`.
+- Web keyboard entry owns a stable landscape Canvas. Never resize the game world
+  from the temporary keyboard-reduced Visual Viewport; keep Description, clear
+  and Done inside the visible safe area and restore normal layout after blur.
 - No M1B2, voice, production art, accounts, sharing, monetization or multiplayer.
 
 ## Engineering rules

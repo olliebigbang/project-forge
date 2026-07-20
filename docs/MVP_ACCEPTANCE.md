@@ -43,14 +43,15 @@ CI, and the physical-device result together close this gate.
 ## M1B1 current gate
 
 The detailed, executable criteria are in `docs/M1B1_ACCEPTANCE.md`. Provider,
-deployed D1, controlled paid evidence, the public blocker-fix candidate, PR CI,
-and desktop browser
-automation are complete. Physical-device acceptance remains a separate gate.
+deployed D1 and controlled paid evidence remain valid. The previous public
+candidate was reopened for keyboard/Canvas and weapon-visual-role P0 failures.
+The replacement passes desktop browser automation; its final deployment, CI and
+physical-device acceptance remain separate gates.
 
 | Area | Status | Evidence / remaining gate |
 | --- | --- | --- |
 | Same-origin `WeaponInterpreter` client/server contract | **CONFIRMED** | Godot calls only `/api/compile-weapon`; static worker and local server route it |
-| Schema, allow-list, semantic compatibility, and PowerBudget enforcement | **CONFIRMED (offline + live)** | Godot 589 assertions; Node interpreter 76/76; 48-case main matrix; 60-case red-team corpus; real-provider matrix 42/42 plus live grenade/bow blocker cases |
+| Schema, allow-list, semantic compatibility, and PowerBudget enforcement | **CONFIRMED (offline + live)** | Godot 615 assertions; Node interpreter 76/76; 48-case main matrix; 60-case red-team corpus; real-provider matrix 42/42 plus live grenade/bow blocker cases |
 | Anthropic native Messages/Structured Outputs, exact model and one-attempt policy | **CONFIRMED (offline + live)** | 17/17 adapter tests and public one-call canary; exact `claude-haiku-4-5-20251001`; refusal/truncation/usage/16 KiB response tests |
 | Worker + D1 lifetime USD 5 reservation and settlement guard | **CONFIRMED (offline + deployed)** | 14/14 budget tests plus 11/11 hostile safety tests; public reserve/settle audit; cap/exhaustion/concurrency/non-2xx/unknown-billing probes |
 | Loading, duplicate lock, aborting timeout, cancel, stale rejection, D1 idempotency, and explicit non-equipable errors | **CONFIRMED (simulated + deployed D1)** | D1 request guard 9/9, no-`weapon_spec` failure regression, live two-request duplicate gate, settled D1 audits, and final Chromium/WebKit regression |
@@ -59,7 +60,9 @@ automation are complete. Physical-device acceptance remains a separate gate.
 | AI provider, model, and deployment secret | **CONFIRMED (configuration)** | Anthropic, fixed Haiku 4.5 snapshot, Sites secret present; secret value never read back |
 | Anthropic workspace spend limit | **CONFIRMED** | Provider-account backstop at or below USD 5 was configured before controlled paid traffic |
 | Real-provider 40+ case accuracy, latency, P95, cost, and fallback evidence | **CONFIRMED** | 42/42 pass; pattern and element accuracy 100%; validity 100%; median 1.318 s; P95 4.846 s; matrix cost USD 0.033588 |
-| Public M1B1 blocker preview and CI/PR | **CONFIRMED** | Public Sites JS/PCK/reconstructed-WASM hashes match the blocker-fix build; draft PR #4 checks pass; final evidence commit is rechecked before handoff |
+| iOS compact text-entry Canvas stability | **CONFIRMED (synthetic Chromium + WebKit); TO VALIDATE physically** | Stable 844x390 Canvas/backing store under 844x190 Visual Viewport at offsetTop 92; 16px Description, clear and Done visible; edit/delete/restore/toolbars/three rotations pass |
+| Held/projectile/impact visual separation | **CONFIRMED (Godot + Chromium + WebKit); TO VALIDATE physically** | Bow held through 10 arrows; grenade centred arc copy, separate blast and restore; sword projectile delta 0; boomerang returns same instance |
+| Public M1B1 blocker preview and CI/PR | **TO VALIDATE for reopened P0 candidate** | Draft PR #4 stays open and unmerged; final CI, fresh Sites version and public resource hashes are required before handoff |
 | Physical iPhone Safari M1B1 acceptance | **TO VALIDATE** | Do not merge, clean the branch, or start M1B2 before product-owner acceptance |
 
 ## Status vocabulary

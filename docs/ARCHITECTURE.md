@@ -10,10 +10,11 @@
   browser assets, repository, or logs.
 - **CONFIRMED** Gameplay consumes only a repaired, runtime-valid `WeaponSpec` whose
   calculated power does not exceed 100.
-- **CONFIRMED** The generated visual preserves the player's stroke geometry.
-  `StrokeFit` computes actual ink bounds, ignores canvas whitespace, applies 10%
-  padding, and returns one uniform scale shared by review, held, attack, and all
-  projectile paths. Source strokes are deep-copied and never destructively fit.
+- **CONFIRMED** Player-ink visuals preserve stroke geometry. `StrokeFit` computes
+  actual ink bounds, ignores canvas whitespace, applies 10% padding, and returns
+  one uniform scale. Source strokes are deep-copied and never destructively fit.
+  `WeaponVisualBundle` separately selects held, projectile and impact roles; only
+  a validated thrown object may reuse player ink as its flying visual.
 
 ## M1A runtime flow
 
@@ -152,6 +153,17 @@ statistics and module geometry.
 | `area_blast` | Expanding double ring; damages every target in radius |
 | `piercing` | Narrow lance; continues through bodies up to `pierce_count`; bypasses shields |
 
+### Weapon visual roles
+
+`WeaponVisualBundle.from_spec()` is an internal deterministic view of validated
+WeaponSpec semantics. It is not provider-authored gameplay code and does not
+expand the public schema. Bow maps to held ink plus a procedural velocity-facing
+arrow; grenade maps to a temporarily hidden held drawing, a centred drawn flight
+copy on an arc, and a separate explosion; melee has no projectile; boomerang is
+the one whole-drawing outbound/return path; piercing and generic ranged attacks
+use procedural spear, bullet or energy bodies. `ProjectileVisual` owns these
+program shapes and their geometry-centred pivot.
+
 | Element | Palette | Runtime behavior |
 | --- | --- | --- |
 | `normal` | Ink/ivory | No elemental modifier |
@@ -167,6 +179,8 @@ scripts/weapon_interpreter.gd same-origin async client, cancellation, fallback
 scripts/weapon_spec.gd      contract repair, runtime validation, display
 scripts/power_budget.gd     explicit calculator and deterministic balancing
 scripts/main.gd             UI, target lab, attack dispatch
+scripts/weapon_visual_bundle.gd deterministic held/projectile/impact role mapping
+scripts/projectile_visual.gd procedural arrow/bullet/energy/spear and drawn copies
 scripts/projectile.gd       straight, boomerang, and piercing behaviors
 scripts/area_blast.gd       radius-based multi-target attack
 scripts/slash_effect.gd     melee attack feedback
@@ -219,6 +233,13 @@ COOP/COEP/CORP and cache headers and owns `POST /api/compile-weapon`.
 - **CONFIRMED** `WebMobileBridge` owns exactly one bounded DOM text-input overlay
   aligned to the Godot Description row. It never covers the drawing canvas,
   attack-mode buttons, action buttons, combat screen, or portrait rotation gate.
+- **CONFIRMED (automated)** Web export uses JavaScript-managed canvas policy `0`.
+  `web_canvas_guard.js` distinguishes the stable Layout Viewport from the
+  keyboard-reduced Visual Viewport and freezes Canvas CSS/backing dimensions
+  during text entry instead of rescaling the game world.
+- **CONFIRMED (automated)** Keyboard entry becomes a safe-area-aware compact dock
+  with a 16px input and explicit 44px clear and Done actions. Visual Viewport
+  offsets position the dock while the stable game Canvas remains visible.
 - **CONFIRMED** DOM `input`, focus, blur, and clear events synchronize into the
   Godot `LineEdit`; Godot `LOAD IDEA`, RESET, re-forge, and compile synchronize
   back to the DOM value. Compilation always pulls the latest DOM value first.

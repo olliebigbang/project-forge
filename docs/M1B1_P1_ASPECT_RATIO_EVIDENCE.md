@@ -1,5 +1,10 @@
 # M1B1 P1 — Stroke Aspect-Ratio Evidence
 
+> Historical geometry evidence only. The old projectile screenshots and pass
+> conclusion are superseded by `M1B1_WEAPON_VISUAL_ROLES_P0_EVIDENCE.md` because
+> they did not detect the complete held bow being copied as a projectile. The
+> actual-bounds/uniform-scale measurements remain valid for player-ink visuals.
+
 Status: **TO VALIDATE on physical iPhone Safari**. This report covers the P1
 display-transform blocker independently from the P0 interpreter/input blocker.
 

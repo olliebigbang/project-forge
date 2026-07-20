@@ -49,11 +49,13 @@ P1 implementation commit: `3723abd`.
 - Grenade is `thrown / arc`; it visibly travels before an explosion is created
   at contact or bounded-flight completion. `area_blast` describes the landing
   effect only.
-- Bow is `projectile / direct / contact / straight_projectile`.
-- Actual stroke bounds ignore canvas whitespace. Every review, held, attack,
-  straight, boomerang, piercing, and grenade visual uses 10% padding and one
-  uniform `min(width scale, height scale)` scalar without rewriting source
-  points.
+- Bow is `projectile / direct / contact / straight_projectile`; its drawn bow
+  remains held while a separate procedural arrow travels.
+- Actual stroke bounds ignore canvas whitespace. Every player-ink review, held,
+  melee-animation, grenade-copy and boomerang-copy visual uses 10% padding and
+  one uniform `min(width scale, height scale)` scalar without rewriting source
+  points. Arrow, bullet, energy and spear projectiles are separate deterministic
+  program shapes.
 
 ## Real Claude evidence
 
@@ -80,8 +82,10 @@ provider output.
 | real wide bow | 6.195281 | 6.195280 | 0.000000137 | 10% |
 | real round grenade | 0.999901 | 0.999901 | 0.000000215 | 10% |
 
-Both are below the required 2% error. Confirmation, held, attack, and projectile
-global-transform X/Y scale deltas were zero or at floating-point epsilon.
+Both are below the required 2% error. Confirmation, held, melee-animation, and
+semantic drawn-projectile global-transform X/Y scale deltas were zero or at
+floating-point epsilon. Procedural projectiles use their own deterministic
+geometry and never copy the held drawing.
 
 Before/after evidence:
 
@@ -95,7 +99,7 @@ Before/after evidence:
 **CONFIRMED** Full local verification passed:
 
 - Godot import/typed parse and scene smoke;
-- 32 Godot matrix cases, 589 assertions, zero failures;
+- 32 Godot matrix cases, 615 assertions, zero failures;
 - Worker 4/4, WASM loader 1/1, interpreter 76/76, D1 request guard 9/9,
   Anthropic adapter 17/17, D1 budget guard 14/14, and hostile safety 11/11;
 - Web export and Sites package build;
@@ -155,3 +159,23 @@ Shortest physical-iPhone check:
    verify Description and drawing remain, then forge again.
 5. Try a blank Description and verify an explicit error with edit/retry actions,
    no CONFIRM, and no Practice Sketchblade combat path.
+
+## Reopened physical-iPhone P0 candidate
+
+The prior candidate did not pass physical-iPhone acceptance. Two later findings
+are separately diagnosed and evidenced here:
+
+- [iOS keyboard/Canvas P0](M1B1_IOS_KEYBOARD_P0_EVIDENCE.md): export policy `2`,
+  temporary keyboard height and Safari focus scrolling competed for Canvas
+  ownership. The replacement freezes a stable Canvas and presents a safe-area
+  compact text-entry dock with Description, clear and Done.
+- [weapon visual roles P0](M1B1_WEAPON_VISUAL_ROLES_P0_EVIDENCE.md): the former
+  projectile path reused the complete held `WeaponVisual`. The replacement uses
+  a deterministic held/projectile/impact bundle, including held bow plus arrow
+  and centred thrown grenade plus separate explosion.
+
+Current automated candidate results: Godot 615 assertions; Worker 4/4; WASM 1/1;
+interpreter 76/76; request D1 9/9; Anthropic adapter 17/17; budget D1 14/14;
+hostile safety 11/11; Web export PASS; Chromium and WebKit P0 regression PASS
+with zero application console errors. Physical iPhone Safari remains
+**TO VALIDATE**, so Draft PR #4 stays unmerged and M1B2 stays paused.
