@@ -76,8 +76,10 @@ ANTHROPIC_API_KEY=<Sites Secret>
 
 ## Evidence state
 
-- **CONFIRMED (offline)** 15 Anthropic adapter tests and 9 provider-budget tests
-  pass alongside the existing interpreter, D1, Godot and Web build suites.
+- **CONFIRMED (offline)** 16 Anthropic adapter, 14 provider-budget and 11 hostile
+  safety tests pass alongside the existing interpreter, D1, Godot and Web suites.
+- **CONFIRMED (offline browser)** Final Chromium and version-matched WebKit mobile
+  flows pass at all target viewports with zero application console messages.
 - **CONFIRMED (offline)** The paid 42-case runner is hard-disabled unless an
   explicit authorization environment value is present; it calls only the same-
   origin Project Forge endpoint and never reads a provider key.

@@ -50,11 +50,11 @@ acceptance remain separate gates.
 | --- | --- | --- |
 | Same-origin `WeaponInterpreter` client/server contract | **CONFIRMED** | Godot calls only `/api/compile-weapon`; static worker and local server route it |
 | Schema, allow-list, semantic compatibility, and PowerBudget enforcement | **CONFIRMED (offline)** | Godot 458 assertions; Node interpreter 68/68; 48-case main matrix; 60-case red-team corpus |
-| Anthropic native Messages/Structured Outputs, exact model and one-attempt policy | **CONFIRMED (offline)** | 15/15 adapter tests; exact `claude-haiku-4-5-20251001`; refusal/truncation/usage tests |
-| Worker + D1 lifetime USD 5 reservation and settlement guard | **CONFIRMED (offline)** | 9/9 budget tests; 201,280 micro-USD pre-reservation; cap/exhaustion/concurrency/unknown-billing probes |
-| Loading, duplicate lock, aborting timeout, cancel, stale rejection, D1 idempotency, and validated fallback | **CONFIRMED (simulated/local D1)** | D1 request guard 9/9 plus Chromium regression; deployed Sites D1 and current WebKit rerun still to validate |
+| Anthropic native Messages/Structured Outputs, exact model and one-attempt policy | **CONFIRMED (offline)** | 16/16 adapter tests; exact `claude-haiku-4-5-20251001`; refusal/truncation/usage/16 KiB response tests |
+| Worker + D1 lifetime USD 5 reservation and settlement guard | **CONFIRMED (offline)** | 14/14 budget tests plus 11/11 hostile safety tests; cap/exhaustion/concurrency/non-2xx/unknown-billing probes |
+| Loading, duplicate lock, aborting timeout, cancel, stale rejection, D1 idempotency, and validated fallback | **CONFIRMED (simulated/local D1)** | D1 request guard 9/9 plus final Chromium and WebKit end-to-end regression; deployed Sites D1 still to validate |
 | Normal-player selector hidden; Developer/MODIFY correction remains validated | **CONFIRMED (browser automation)** | Five patterns compiled, corrected, confirmed, and attacked in Chromium and WebKit |
-| 844×390, 852×393, 915×412, keyboard-height recovery, and three rotation cycles | **CONFIRMED (emulated)** | No scrolling/cropping; real iPhone M1B1 still required |
+| 844×390, 852×393, 915×412, 844×343 toolbar stress, keyboard-height recovery, and rotation cycles | **CONFIRMED (Chromium + WebKit)** | No scrolling/cropping; app console errors/warnings 0; real iPhone M1B1 still required |
 | AI provider, model, and deployment secret | **CONFIRMED (configuration)** | Anthropic, fixed Haiku 4.5 snapshot, Sites secret present; secret value never read back |
 | Anthropic workspace spend limit | **TO VALIDATE** | Independent provider-account backstop required before paid public traffic |
 | Real-provider 40+ case accuracy, latency, P95, cost, and fallback evidence | **TO VALIDATE** | Explicitly gated 42-case runner is ready; no paid result claimed yet |

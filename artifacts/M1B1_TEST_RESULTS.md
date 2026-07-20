@@ -453,3 +453,23 @@ Automated mobile recommendation:
 Do not mark physical mobile acceptance complete until the owner validates the
 real iOS keyboard/safe areas and the remaining lifecycle actions on the deployed
 asset hashes.
+
+## Main integrator confirmation (`333758d`)
+
+After selecting QA commit `6451354` and the 16 KiB upstream-response hardening,
+the main integrator reran the finalized `simulated` suite against the fresh local
+Web build on 2026-07-20:
+
+| Engine | Result | Same-origin simulated calls | Application console messages |
+| --- | --- | ---: | ---: |
+| Chromium | **PASS** | 4 | 0 |
+| WebKit revision 2327 | **PASS** | 4 | 0 |
+
+Both retained the recorded 844×390, 852×393, 915×412 and 844×343 geometry and
+passed loading rotation, background/resume simulation, CANCEL, stale-response
+rejection, one-attempt timeout, TRY AGAIN, confirmation rotation, MODIFY plus 20
+switches, corrected boomerang combat and input preservation.
+
+`M1B1_QA_ALLOW_LIVE_PROVIDER` was not set. This confirmation made zero real
+Anthropic calls and spent USD 0. Public hashes and physical iPhone Safari remain
+**TO VALIDATE**.
