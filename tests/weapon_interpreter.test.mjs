@@ -328,6 +328,74 @@ test("HTTP boundary rejects unsafe transport shape and same-origin violations", 
   assert.equal(badJson.status, 400);
 });
 
+test("chunked request without Content-Length is cancelled at the body limit before D1 or provider work", async () => {
+  const chunkSizes = [4096, 4096, 1, 4096];
+  let chunksPulled = 0;
+  let bytesPulled = 0;
+  let cancelReason = "";
+  let providerCalls = 0;
+  let d1Writes = 0;
+  const body = new ReadableStream({
+    type: "bytes",
+    pull(controller) {
+      if (chunksPulled >= chunkSizes.length) {
+        controller.close();
+        return;
+      }
+      const size = chunkSizes[chunksPulled];
+      chunksPulled += 1;
+      bytesPulled += size;
+      controller.enqueue(new Uint8Array(size).fill(0x61));
+    },
+    cancel(reason) {
+      cancelReason = String(reason);
+    },
+  });
+  const adapter = {
+    provider: "must_not_run",
+    model: "must_not_run",
+    async interpret() {
+      providerCalls += 1;
+      throw new Error("oversized body reached provider");
+    },
+  };
+  const db = {
+    exec() {
+      d1Writes += 1;
+      throw new Error("oversized body reached D1 exec");
+    },
+    prepare() {
+      d1Writes += 1;
+      throw new Error("oversized body reached D1 prepare");
+    },
+  };
+  const request = new Request("https://forge.example/api/compile-weapon", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: "https://forge.example",
+      "x-forge-session": TEST_SESSION,
+    },
+    body,
+    duplex: "half",
+  });
+  assert.equal(request.headers.get("content-length"), null);
+
+  const response = await handleCompileWeapon(request, {
+    DB: db,
+    WEAPON_AI_PROVIDER: "anthropic",
+    WEAPON_INTERPRETER_REQUIRE_DURABLE_GUARD: "true",
+  }, { adapter });
+
+  assert.equal(response.status, 413);
+  assert.deepEqual(await response.json(), { error: "request_too_large" });
+  assert.equal(cancelReason, "request_too_large");
+  assert.equal(chunksPulled, 3);
+  assert.equal(bytesPulled, REQUEST_LIMITS.body_bytes + 1);
+  assert.equal(providerCalls, 0);
+  assert.equal(d1Writes, 0);
+});
+
 test("HTTP boundary returns a safe response and no-store policy", async () => {
   const entry = matrix.find((item) => item.id === "C01");
   const response = await handleCompileWeapon(new Request("https://forge.example/api/compile-weapon", {

@@ -158,6 +158,37 @@ function jsonResponse(body, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(body), { status, headers });
 }
 
+async function readBoundedRequestText(request, maximumBytes) {
+  if (!request.body) return { text: "", tooLarge: false };
+
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder();
+  const parts = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const bytes = value instanceof Uint8Array ? value : new Uint8Array(value);
+      if (bytes.byteLength > maximumBytes - totalBytes) {
+        try {
+          await reader.cancel("request_too_large");
+        } catch {
+          // The size decision is already final. A transport cancellation error
+          // must not turn this fail-closed 413 into a provider-reachable path.
+        }
+        return { text: "", tooLarge: true };
+      }
+      totalBytes += bytes.byteLength;
+      parts.push(decoder.decode(bytes, { stream: true }));
+    }
+    parts.push(decoder.decode());
+    return { text: parts.join(""), tooLarge: false };
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 function stableStringify(value) {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
   if (value && typeof value === "object") {
@@ -913,10 +944,11 @@ export async function handleCompileWeapon(request, env = {}, options = {}) {
   }
   const declaredLength = Number(request.headers.get("content-length") ?? 0);
   if (declaredLength > REQUEST_LIMITS.body_bytes) return jsonResponse({ error: "request_too_large" }, 413);
-  const bodyText = await request.text();
-  if (new TextEncoder().encode(bodyText).byteLength > REQUEST_LIMITS.body_bytes) {
+  const boundedBody = await readBoundedRequestText(request, REQUEST_LIMITS.body_bytes);
+  if (boundedBody.tooLarge) {
     return jsonResponse({ error: "request_too_large" }, 413);
   }
+  const bodyText = boundedBody.text;
   let payload;
   try {
     payload = JSON.parse(bodyText);
