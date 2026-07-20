@@ -756,8 +756,15 @@ export async function compileWeapon(requestInput, options = {}) {
 }
 
 export function resolveAdapter(env = {}, options = {}) {
-  const provider = String(env.WEAPON_AI_PROVIDER ?? "deterministic").trim().toLowerCase();
-  if (!provider || provider === "deterministic" || provider === "mock" || provider === "local") {
+  const provider = String(env.WEAPON_AI_PROVIDER ?? "").trim().toLowerCase();
+  if (!provider) {
+    throw new InterpreterError(
+      "provider_unconfigured",
+      "WEAPON_AI_PROVIDER must be configured explicitly.",
+      503,
+    );
+  }
+  if (provider === "deterministic" || provider === "mock" || provider === "local") {
     return new DeterministicWeaponAdapter();
   }
   if (provider === ANTHROPIC_PROVIDER) {

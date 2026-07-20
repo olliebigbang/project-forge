@@ -337,6 +337,12 @@ func _test_forge_reset_state() -> void:
 		"provider_metadata": {"provider": "anthropic", "model": "claude-haiku-4-5-20251001", "attempts": 1},
 	}
 	_expect(forge._is_confirmable_result(confirmable), "real provider result is confirmable")
+	var spoofed_provider := confirmable.duplicate(true)
+	spoofed_provider.provider_metadata = {"provider": "deterministic_local", "model": "m1b1-keyword-baseline", "attempts": 1}
+	_expect(not forge._is_confirmable_result(spoofed_provider), "deterministic local result cannot enter normal confirmation")
+	var wrong_model := confirmable.duplicate(true)
+	wrong_model.provider_metadata = {"provider": "anthropic", "model": "claude-sonnet-4-5", "attempts": 1}
+	_expect(not forge._is_confirmable_result(wrong_model), "unpinned Anthropic model cannot enter normal confirmation")
 	var explicit_error := confirmable.duplicate(true)
 	explicit_error.success = false
 	explicit_error.provider_invoked = false
@@ -370,6 +376,14 @@ func _test_weapon_interpreter_response_context() -> void:
 	}
 	var accepted: Dictionary = interpreter._validate_server_result(valid_response, "expected-request")
 	_expect(bool(accepted.get("ok", false)) and bool(accepted.result.get("success", false)), "matching successful server request passes client revalidation")
+	var deterministic_response := valid_response.duplicate(true)
+	deterministic_response.provider_metadata = {"provider": "deterministic_local", "model": "m1b1-keyword-baseline", "attempts": 1}
+	var deterministic_rejected: Dictionary = interpreter._validate_server_result(deterministic_response, "expected-request")
+	_expect(not bool(deterministic_rejected.get("ok", false)) and deterministic_rejected.reason == "provider_identity_mismatch", "client rejects deterministic provider spoof as non-AI")
+	var model_mismatch_response := valid_response.duplicate(true)
+	model_mismatch_response.provider_metadata = {"provider": "anthropic", "model": "claude-opus-4-5", "attempts": 1}
+	var model_rejected: Dictionary = interpreter._validate_server_result(model_mismatch_response, "expected-request")
+	_expect(not bool(model_rejected.get("ok", false)) and model_rejected.reason == "provider_identity_mismatch", "client rejects unpinned Anthropic model")
 	var error_response := valid_response.duplicate(true)
 	error_response.success = false
 	error_response.provider_invoked = false

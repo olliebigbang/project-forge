@@ -4,6 +4,9 @@ import worker from "../hosting/static_worker.mjs";
 
 function environment(calls) {
   return {
+    // Local deterministic interpretation is test-only and must be explicit;
+    // production Sites configuration is pinned to Anthropic.
+    WEAPON_AI_PROVIDER: "deterministic",
     ASSETS: {
       async fetch(request) {
         calls.push(new URL(request.url).pathname);

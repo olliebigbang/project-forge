@@ -8,6 +8,8 @@ signal interpretation_cancelled(request_id: String)
 const ENDPOINT_PATH := "/api/compile-weapon"
 const REQUEST_TIMEOUT_SECONDS := 10.0
 const UNKNOWN_COST := "UNKNOWN"
+const REQUIRED_PROVIDER := "anthropic"
+const REQUIRED_MODEL := "claude-haiku-4-5-20251001"
 
 var in_flight := false
 var request_count := 0
@@ -316,11 +318,12 @@ func _validate_server_result(server_result: Dictionary, expected_request_id: Str
 	var confidence := clampf(float(server_result.get("confidence", 0.0)), 0.0, 1.0)
 	if (
 		not bool(server_result.get("provider_invoked", false))
-		or str(metadata.provider) in ["", "none", "unknown"]
+		or str(metadata.provider) != REQUIRED_PROVIDER
+		or str(metadata.model) != REQUIRED_MODEL
 		or int(metadata.attempts) < 1
 		or confidence <= 0.0
 	):
-		return {"ok": false, "reason": "provider_not_invoked"}
+		return {"ok": false, "reason": "provider_identity_mismatch"}
 
 	var response := server_result.duplicate(true)
 	response.success = true

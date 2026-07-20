@@ -36,6 +36,13 @@ passing tests.
 - A normal result requires `success=true`, `provider_invoked=true`, at least one
   provider attempt, positive confidence, no fallback reason, and a valid
   WeaponSpec/PowerBudget. The client repeats this gate at both CONFIRM and equip.
+- A Red Team follow-up found and closed a second fail-open path: an absent
+  `WEAPON_AI_PROVIDER` can no longer select the local deterministic adapter by
+  default. Local/mock interpretation requires explicit test configuration.
+- Normal client confirmation now requires the exact pinned identity
+  `anthropic / claude-haiku-4-5-20251001`. A deterministic, spoofed, missing, or
+  different-model response is rejected before confirmation and again before
+  equip.
 - Error responses contain no `weapon_spec`, never display or equip Practice
   Sketchblade, hide CONFIRM, and expose only EDIT INPUT / TRY AGAIN recovery.
 - WeaponSpec v2 separates `weapon_form`, `delivery`, `trajectory`, `impact`, and
@@ -74,6 +81,14 @@ Evidence: `output/playwright/p0-fixed-chromium.json`.
 
 **CONFIRMED** the same regression passed in Playwright WebKit with 0 application
 console errors. Evidence: `output/playwright/p0-fixed-webkit.json`.
+
+**CONFIRMED** the independent provider-identity hardening regression passed:
+
+- Node interpreter + Anthropic adapter: 93 tests, 0 failures;
+- Godot client/runtime: 32 matrix cases, 589 assertions, 0 failures;
+- missing/empty provider configuration returns a non-equipable explicit error;
+- `deterministic_local`, Sonnet/Opus, missing model, attempts 0, provider not
+  invoked, and confidence 0 cannot pass the client confirmation gate.
 
 ## Remaining P0 delivery evidence
 

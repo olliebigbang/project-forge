@@ -852,7 +852,8 @@ func _is_confirmable_result(result: Dictionary) -> bool:
 		and str(result.get("fallback_reason", "")).is_empty()
 		and result.get("weapon_spec") is Dictionary
 		and bool(result.get("runtime_valid", false))
-		and str(metadata.get("provider", "none")) not in ["", "none", "unknown"]
+		and str(metadata.get("provider", "none")) == WeaponInterpreter.REQUIRED_PROVIDER
+		and str(metadata.get("model", "none")) == WeaponInterpreter.REQUIRED_MODEL
 		and int(metadata.get("attempts", 0)) >= 1
 		and float(result.get("confidence", 0.0)) > 0.0
 	)

@@ -312,6 +312,14 @@ test("provider resolution allows only the configured Anthropic snapshot", () => 
   assert.equal(adapter.model, ANTHROPIC_MODEL);
   assert.equal(adapter.maximumAttempts, 1);
   assert.throws(
+    () => resolveAdapter({}),
+    (error) => error.code === "provider_unconfigured",
+  );
+  assert.throws(
+    () => resolveAdapter({ WEAPON_AI_PROVIDER: "" }),
+    (error) => error.code === "provider_unconfigured",
+  );
+  assert.throws(
     () => resolveAdapter({
       WEAPON_AI_PROVIDER: "anthropic",
       WEAPON_AI_MODEL: "claude-sonnet-4-5",

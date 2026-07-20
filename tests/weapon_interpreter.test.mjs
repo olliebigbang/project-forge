@@ -20,6 +20,7 @@ import {
 } from "../hosting/weapon_interpreter.mjs";
 
 const TEST_SESSION = "0123456789abcdef0123456789abcdef";
+const DETERMINISTIC_ENV = { WEAPON_AI_PROVIDER: "deterministic" };
 
 const schema = JSON.parse(await readFile(new URL("../schema/weapon_spec.schema.json", import.meta.url), "utf8"));
 const matrix = JSON.parse(await readFile(new URL("./m1b1_input_matrix.json", import.meta.url), "utf8"));
@@ -337,13 +338,32 @@ test("HTTP boundary returns a safe response and no-store policy", async () => {
       "x-forge-session": "11111111111111111111111111111111",
     },
     body: JSON.stringify(requestFor(entry, "http")),
-  }), {});
+  }), DETERMINISTIC_ENV);
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "no-store");
   const body = await response.json();
   assert.equal(body.weapon_spec.attack_pattern, "boomerang");
   assert.equal(body.weapon_spec.element, "ice");
   assert.equal(body.runtime_valid, true);
+});
+
+test("HTTP boundary fails closed when the provider is not explicitly configured", async () => {
+  const entry = matrix.find((item) => item.id === "C01");
+  const response = await handleCompileWeapon(new Request("https://forge.example/api/compile-weapon", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: "https://forge.example",
+      "x-forge-session": "18181818181818181818181818181818",
+    },
+    body: JSON.stringify(requestFor(entry, "provider-missing")),
+  }), {});
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.success, false);
+  assert.equal(body.provider_invoked, false);
+  assert.equal(body.weapon_spec, null);
+  assert.equal(body.fallback_reason, "provider_unconfigured");
 });
 
 test("request_id is idempotent and cannot be reused for a different concept", async () => {
@@ -358,13 +378,13 @@ test("request_id is idempotent and cannot be reused for a different concept", as
     },
     body: JSON.stringify(body),
   });
-  const first = await handleCompileWeapon(makeRequest(payload));
+  const first = await handleCompileWeapon(makeRequest(payload), DETERMINISTIC_ENV);
   assert.equal(first.status, 200);
-  const replay = await handleCompileWeapon(makeRequest(payload));
+  const replay = await handleCompileWeapon(makeRequest(payload), DETERMINISTIC_ENV);
   assert.equal(replay.status, 200);
   assert.equal(replay.headers.get("x-forge-idempotent-replay"), "true");
   const changed = { ...payload, description: "a fire cannon" };
-  const conflict = await handleCompileWeapon(makeRequest(changed));
+  const conflict = await handleCompileWeapon(makeRequest(changed), DETERMINISTIC_ENV);
   assert.equal(conflict.status, 409);
 });
 
@@ -506,7 +526,7 @@ test("per-session ingress quota rejects provider-cost spam with 429", async () =
         "x-forge-session": session,
       },
       body: JSON.stringify(requestFor(matrix[0], `quota-${index}`)),
-    }));
+    }), DETERMINISTIC_ENV);
     statuses.push(response.status);
     if (response.status === 429) assert.ok(Number(response.headers.get("retry-after")) >= 1);
   }
