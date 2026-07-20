@@ -67,6 +67,14 @@ Machine reports:
 - [Chromium report](evidence/m1b1-p0-v20/chromium-report.json)
 - [WebKit report](evidence/m1b1-p0-v20/webkit-report.json)
 
+The exact Sites v19 deployment passed the same suite at the public URL with zero
+application console errors:
+
+- [Public Chromium report](evidence/m1b1-p0-v20-public/chromium-report.json)
+- [Public WebKit report](evidence/m1b1-p0-v20-public/webkit-report.json)
+- [Public WebKit text-entry open](evidence/m1b1-p0-v20-public/webkit-keyboard-open.png)
+- [Public WebKit layout restored](evidence/m1b1-p0-v20-public/webkit-keyboard-closed.png)
+
 Visual evidence (synthetic keyboard geometry, not a claim that Windows displayed
 the physical iOS keyboard):
 

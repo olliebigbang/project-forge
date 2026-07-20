@@ -63,7 +63,7 @@ evidence is green, but it does not close the physical-device gate.
 | M1B1-24 | All M1A compiler, five-attack, four-element and target-lab tests remain green | **CONFIRMED (629 assertions)** |
 | M1B1-25 | 844×390, 852×393, 915×412, 844×343 toolbar stress, portrait gate, keyboard and Safari-toolbar flows remain usable | **CONFIRMED (final Chromium + version-matched WebKit); TO VALIDATE on physical iPhone M1B1** |
 | M1B1-26 | Godot parse, unit, worker, both D1 guards, Web build, Chromium and WebKit regression pass without new application errors | **CONFIRMED (Godot 629, worker 4/4, WASM 1/1, interpreter 76/76, request D1 9/9, Anthropic 17/17, budget D1 14/14, hostile safety 11/11, Web bundle, Chromium/WebKit app console 0)** |
-| M1B1-27 | PR and CI pass; a new uncached public deployment is verified by HTTP and resource hash | **TO VALIDATE for reopened P0 final commit/deployment; Draft PR #4 remains unmerged** |
+| M1B1-27 | PR and CI pass; a new uncached public deployment is verified by HTTP and resource hash | **CONFIRMED for Draft PR #4 / runtime `6d5ba3a`: CI success; Sites v19 HTTP 200; JS/PCK/WASM exact public hashes; PR remains Draft and unmerged** |
 | M1B1-28 | Product owner accepts the new public build on physical iPhone Safari | **TO VALIDATE** |
 | M1B1-29 | Description and numeric drawing state are atomically frozen with a visible request ID; the POST and confirmation snapshot match | **CONFIRMED (Chromium/WebKit + two live blocker cases)** |
 | M1B1-30 | Grenade is visibly thrown on an arc before a landing explosion; bow remains held and emits a separate velocity-facing arrow | **CONFIRMED (Godot + Chromium/WebKit); TO VALIDATE on physical iPhone** |

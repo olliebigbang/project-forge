@@ -108,10 +108,10 @@ Before/after evidence:
 - mobile input/composition/cancel/retry/keyboard/rotation regression in both
   browser engines with zero application console errors.
 
-**CONFIRMED** The deployed public build passed the same P0/P1 fixture regression
-in Chromium and version-matched Playwright WebKit. The real-provider run also
-reported zero application console errors. Draft PR #4 CI was green before this
-evidence-only delivery update and is rechecked on the final pushed commit.
+**CONFIRMED** Sites version 19, sourced from runtime commit `6d5ba3a`, passed the
+same P0/P1 fixture regression in Chromium and version-matched Playwright WebKit.
+Both public runs reported zero application console errors. Draft PR #4 remains
+open and Draft; its runtime commit and evidence follow-up both pass CI.
 
 **CONFIRMED** A separate public zero-paid safety request was rejected before
 provider invocation with `success=false`, `provider_invoked=false`, attempts 0,
@@ -119,13 +119,13 @@ provider invocation with `success=false`, `provider_invoked=false`, attempts 0,
 hidden CONFIRM, visible EDIT INPUT / TRY AGAIN, HTTP 200 `no-store`, and zero
 application console errors.
 
-Public integrity probe:
+Candidate/public integrity probe:
 
-| Resource | Public SHA-256 | Result |
+| Resource | Local candidate SHA-256 | Public Sites v19 |
 | --- | --- | --- |
-| `index.js` | `68586d6daafc93c6e697b3fb258976874aa7459b8931165ebb1dc3c9614cc42c` | exact local match |
-| `index.pck` | `a8ccb39bb0667f988f9ef5f65ecb8fbc3f3bbdd781a3e547bf3e656a049e5016` | stable local candidate; exact public match required after final deploy |
-| reconstructed `index.wasm` | `35116f68540ac41acf7d71ea457added91b5e960a9cca3e2acc72918eaf01277` | both public chunks, exact local match |
+| `index.js` | `68586d6daafc93c6e697b3fb258976874aa7459b8931165ebb1dc3c9614cc42c` | exact match |
+| `index.pck` | `a8ccb39bb0667f988f9ef5f65ecb8fbc3f3bbdd781a3e547bf3e656a049e5016` | exact match |
+| reconstructed `index.wasm` | `35116f68540ac41acf7d71ea457added91b5e960a9cca3e2acc72918eaf01277` | exact match from both public chunks |
 
 The HTML and core assets return HTTP 200 with
 `Cache-Control: public, max-age=0, must-revalidate`. The Sites service exposes
@@ -140,7 +140,12 @@ so adding delivery evidence can no longer perturb the game package.
 ## Public preview and remaining gate
 
 Preview:
-<https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?qa=m1b1&build=blocker-fix>
+<https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?qa=m1b1&release=p0-v20-6d5ba3a>
+
+The `release` value is a diagnostic label; Sites version 19 and the exact public
+hashes above prove that this is a fresh deployment rather than a query-only cache
+change. Public fixture reports and screenshots are retained under
+[`evidence/m1b1-p0-v20-public/`](evidence/m1b1-p0-v20-public/).
 
 **TO VALIDATE** Playwright WebKit on Windows is a Safari-engine path, not a
 physical iPhone Safari acceptance result. The branch must not merge and M1B2

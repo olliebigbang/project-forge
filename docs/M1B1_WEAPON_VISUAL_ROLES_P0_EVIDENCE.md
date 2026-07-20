@@ -66,6 +66,14 @@ Machine reports:
 - [Chromium report](evidence/m1b1-p0-v20/chromium-report.json)
 - [WebKit report](evidence/m1b1-p0-v20/webkit-report.json)
 
+The byte-matched Sites v19 deployment also passed both browser suites:
+
+- [Public Chromium report](evidence/m1b1-p0-v20-public/chromium-report.json)
+- [Public WebKit report](evidence/m1b1-p0-v20-public/webkit-report.json)
+- [Public WebKit held bow and arrow](evidence/m1b1-p0-v20-public/webkit-bow-held-arrow-flight.png)
+- [Public WebKit grenade arc](evidence/m1b1-p0-v20-public/webkit-grenade-arc-flight.png)
+- [Public WebKit landing explosion](evidence/m1b1-p0-v20-public/webkit-grenade-landing-explosion.png)
+
 Visual evidence:
 
 - [WebKit bow held while one arrow flies](evidence/m1b1-p0-v20/webkit-bow-held-arrow-flight.png)

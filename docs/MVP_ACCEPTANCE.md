@@ -62,7 +62,7 @@ physical-device acceptance remain separate gates.
 | Real-provider 40+ case accuracy, latency, P95, cost, and fallback evidence | **CONFIRMED** | 42/42 pass; pattern and element accuracy 100%; validity 100%; median 1.318 s; P95 4.846 s; matrix cost USD 0.033588 |
 | iOS compact text-entry Canvas stability | **CONFIRMED (synthetic Chromium + WebKit); TO VALIDATE physically** | Stable 844x390 Canvas/backing store under 844x190 Visual Viewport at offsetTop 92; 16px Description, clear and Done visible; edit/delete/restore/toolbars/three rotations pass |
 | Held/projectile/impact visual separation | **CONFIRMED (Godot + Chromium + WebKit); TO VALIDATE physically** | Bow held through 10 arrows; grenade centred arc copy, separate blast and restore; sword projectile delta 0; boomerang returns same instance |
-| Public M1B1 blocker preview and CI/PR | **TO VALIDATE for reopened P0 candidate** | Draft PR #4 stays open and unmerged; final CI, fresh Sites version and public resource hashes are required before handoff |
+| Public M1B1 blocker preview and CI/PR | **CONFIRMED for automated handoff** | Draft PR #4 stays open and unmerged; runtime `6d5ba3a` CI passed, fresh Sites v19 deployed, public JS/PCK/WASM hashes matched, and public Chromium/WebKit passed; physical iPhone remains required |
 | Physical iPhone Safari M1B1 acceptance | **TO VALIDATE** | Do not merge, clean the branch, or start M1B2 before product-owner acceptance |
 
 ## Status vocabulary

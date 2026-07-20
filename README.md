@@ -16,7 +16,7 @@ Battle or any previous game.
 
 ## Public preview and rollback
 
-[Open the current public Sites origin](https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?qa=m1b1)
+[Open the M1B1 P0 v20 iPhone candidate](https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?qa=m1b1&release=p0-v20-6d5ba3a)
 
 Sites exposes one mutable public origin, so a query parameter is a diagnostic
 label and does not pin an old build. The immutable M1A rollback points are Git tag
@@ -79,8 +79,9 @@ For the same-origin Web client and deterministic backend:
 ```
 
 Open [http://localhost:8060](http://localhost:8060) on the development computer.
-`localhost` is not a phone delivery address; use the stable public link above for
-the accepted M1A phone build.
+`localhost` is not a phone delivery address; the public link above is the current
+unmerged M1B1 device candidate. Use tag `v0.1.0-m1a` and its retained archive for
+the accepted M1A rollback build.
 
 Controls:
 
