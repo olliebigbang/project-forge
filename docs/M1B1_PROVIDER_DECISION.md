@@ -1,110 +1,94 @@
 # M1B1 real-provider decision
 
-Status: **TBD — one product-owner choice required**
+Status: **CONFIRMED — Anthropic Claude Haiku 4.5 selected and Sites configuration gate passed**
 
-Prepared: 2026-07-19
+Decision date: 2026-07-20
 
-Scope: text plus bounded `drawing_summary`; no image understanding
+Scope: text plus bounded numeric `drawing_summary`; no image understanding
 
-Backend: **CONFIRMED — reuse the active Project Forge Sites Worker with logical
-D1 binding `DB`.** The 2026-07-19 environment check returned revision 0 with no
-runtime variables, so no provider, model, or credential is currently configured.
+## Selected provider contract
 
-Vendor-neutral gate: **CONFIRMED — candidate `104fddb` passed independent Safety
-and Mobile QA.** Real provider behavior, deployed D1, cost/latency/accuracy,
-public preview, and physical iPhone acceptance remain **TO VALIDATE**.
+- **CONFIRMED** Provider: Anthropic.
+- **CONFIRMED** Immutable model snapshot: `claude-haiku-4-5-20251001`.
+- **CONFIRMED** Transport: Anthropic native `POST /v1/messages` only.
+- **CONFIRMED** Structured response: native `output_config.format` JSON Schema.
+- **CONFIRMED** No OpenAI-compatible endpoint, provider fallback, model alias,
+  automatic upgrade, tools, prompt caching, extended thinking, or SDK retry.
+- **CONFIRMED** The provider selects allow-listed semantic labels only. The
+  project-owned server creates numeric values, then the full WeaponSpec JSON
+  Schema, runtime allow-lists and `PowerBudget` validate the final result again.
 
-## Recommendation
+The native response schema intentionally contains enums and required object
+fields supported by Anthropic Structured Outputs. Unsupported numeric JSON
+Schema constraints are not delegated to the provider; the existing full local
+schema and runtime validator remain authoritative.
 
-**Recommended: OpenAI `gpt-5.6-luna` through the Responses API with Structured
-Outputs.** It is a stable, cost-sensitive model with native structured-output
-support. Its current list price is USD $1.00 per million input tokens and $6.00
-per million output tokens. This is a good first balance between multilingual
-creative classification, strict JSON, and a small interactive-game budget.
+## Sites configuration
 
-The recommendation is provisional until the labelled 48-case matrix runs against
-the real endpoint. If it misses the 90% pattern/element target, the project should
-compare one stronger model using the exact same adapter contract rather than
-weakening the acceptance gate.
-
-## Current official options
-
-The cost example uses a deliberately explicit planning assumption: **1,000 input
-tokens + 200 output tokens per forge request**, standard synchronous pricing, no
-cache discount, no retry, and no tools. It is not a bill or measured usage.
-
-| Option | Structured output | Current list price per 1M input/output tokens | Example cost per call | Fit |
-| --- | --- | ---: | ---: | --- |
-| **A — OpenAI `gpt-5.6-luna` (recommended)** | Supported | $1.00 / $6.00 | **$0.00220** | Low-cost stable model; simple Responses API adapter; test semantic accuracy first |
-| **B — Google `gemini-3.1-flash-lite`** | Supported | $0.25 / $1.50 | **$0.00055** | Cheapest option and explicitly designed for lightweight extraction/classification; creative ambiguity may need escalation |
-| **C — Anthropic `claude-haiku-4-5`** | Supported | $1.00 / $5.00 | **$0.00200** | Fastest Claude tier and strict JSON support; similar cost to option A |
-
-For the required 48 real cases, the same assumptions imply approximately $0.106,
-$0.026, or $0.096 respectively, before retries. Actual cost must come from
-provider usage fields and stays `UNKNOWN` until the run.
-
-Official references checked on 2026-07-19:
-
-- [OpenAI GPT-5.6 Luna model and pricing](https://developers.openai.com/api/docs/models/gpt-5.6-luna)
-- [Google Gemini 3.1 Flash-Lite model and structured output](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite)
-- [Google Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing)
-- [Anthropic model overview](https://platform.claude.com/docs/en/about-claude/models/overview)
-- [Anthropic structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
-- [Anthropic API pricing](https://platform.claude.com/docs/en/about-claude/pricing)
-
-## Latency expectation
-
-- **ASSUMPTION:** a short non-streaming schema response should normally fit a
-  1–4 second interactive planning range on all three small/fast models.
-- **TO VALIDATE:** no vendor page provides a Project Forge end-to-end latency SLA.
-  The actual median and nearest-rank P95 will be measured over the real labelled
-  run. Acceptance remains median ≤5 seconds and P95 ≤10 seconds.
-- The server timeout stays 8 seconds. It sends `AbortSignal` and does not retry a
-  wrapper timeout because upstream billing may already have occurred. At most one
-  retry is available only for an adapter-classified retry-safe transient failure.
-  Retries and failures are reported separately rather than hidden in averages.
-
-## Required server configuration
-
-Common non-secret values:
+The Sites environment was rechecked after the product owner corrected the secret.
+Revision 2 reports the following names without exposing the secret value:
 
 ```text
-WEAPON_AI_PROVIDER=openai | google | anthropic
-WEAPON_AI_MODEL=<selected model ID>
+WEAPON_AI_PROVIDER=anthropic
+WEAPON_AI_MODEL=claude-haiku-4-5-20251001
 WEAPON_INTERPRETER_REQUIRE_DURABLE_GUARD=true
+M1B1_PROVIDER_BUDGET_USD=5
+ANTHROPIC_API_KEY=<Sites Secret>
 ```
 
-Exactly one provider credential, stored as a Sites secret environment value:
+- **CONFIRMED** `ANTHROPIC_API_KEY` is marked secret in Sites and is not sourced
+  from Claude Code or the local shell.
+- **CONFIRMED** The key is never read back, logged, copied into Git, injected into
+  Godot, or shipped in HTML, JavaScript, WASM or PCK assets.
+- **TO VALIDATE** A dedicated Anthropic workspace provider-side spend limit must
+  be confirmed before enabling paid public traffic. This is independent of D1.
 
-```text
-OPENAI_API_KEY=<secret>       # option A
-GEMINI_API_KEY=<secret>       # option B
-ANTHROPIC_API_KEY=<secret>    # option C
-```
+## Five-dollar hard limit
 
-The key must never enter Godot settings, HTML/JavaScript/WASM/PCK assets, Git,
-query strings, screenshots, test fixtures, or logs. The user should set it through
-the deployment service's secret control rather than paste it into chat or source.
+- **CONFIRMED** The product owner approved a maximum M1B1 provider spend of USD 5.
+- **CONFIRMED** Worker + D1 use a lifetime ledger keyed by milestone, provider,
+  immutable model and pricing revision.
+- **CONFIRMED** Each request atomically reserves 201,280 micro-USD before calling
+  Anthropic: the 200,000-token model input ceiling at USD $1/M plus the fixed
+  256-token output ceiling at USD $5/M.
+- **CONFIRMED** Verified usage settles to its measured amount. A proven non-billed
+  HTTP failure releases the reservation. Timeout, abort, malformed successful
+  response or unknown billing state commits the full reservation conservatively.
+- **CONFIRMED** Missing D1, a partial guard, configuration mismatch, lock,
+  duplicate charge identity, exhaustion, projected cap exceed, settlement error
+  or reservation breach fails closed. No provider call occurs after that decision.
+- **CONFIRMED** Refusal and `max_tokens` output are discarded but their verified
+  usage is still charged to the D1 ledger.
 
-## Deployment and cost controls
+## Retry and validation rules
 
-1. Add only the selected server adapter behind `resolveAdapter()`; keep Godot on
-   same-origin `/api/compile-weapon`.
-2. Configure provider/model, the durable-guard requirement, and the provider key
-   in Sites server environment.
-3. Deploy the checked-in Sites D1 `DB` migration. It atomically enforces 8
-   requests/minute per session and 60 per network, owns cross-isolate request
-   leases/replays, and fails closed before provider invocation if unavailable.
-4. Before public paid traffic, add an account-level provider spend cap. D1 is the
-   application quota/idempotency boundary; the provider cap is the independent
-   financial backstop.
-5. Run the labelled matrix, safety corpus, M1A suite, Web build, Chromium and
-   WebKit; record real usage, cost, latency, failures, corrections, and accuracy.
-6. Deploy a newly hashed public preview only after PR/CI pass. Keep M1A v9 and
-   `v0.1.0-m1a` as rollback evidence.
+- **CONFIRMED** The native adapter uses raw `fetch` and allows one attempt only.
+  Anthropic 429, 5xx, network errors, aborts and wrapper timeouts do not
+  automatically retry.
+- **CONFIRMED** The response must have the exact configured model, one text block,
+  `end_turn`, valid usage and only the required semantic fields. Refusal,
+  truncation, wrong model, wrong shape, unsupported enums and missing usage all
+  produce a schema-valid safe fallback.
+- **CONFIRMED** Provider prose, names, corrections, metadata, IDs and nested costs
+  never cross the trust boundary. Player-facing text is generated from validated
+  labels; cost is `UNKNOWN` or one bounded USD object derived from usage.
 
-## Decision requested
+## Evidence state
 
-Choose **A, B, or C** (or name another provider/model), confirm that a server-side
-API key can be configured, and approve an account spend cap before the
-public preview. No real provider call occurs before that choice.
+- **CONFIRMED (offline)** 15 Anthropic adapter tests and 9 provider-budget tests
+  pass alongside the existing interpreter, D1, Godot and Web build suites.
+- **CONFIRMED (offline)** The paid 42-case runner is hard-disabled unless an
+  explicit authorization environment value is present; it calls only the same-
+  origin Project Forge endpoint and never reads a provider key.
+- **TO VALIDATE** One controlled canary, the 42-case real-provider matrix, measured
+  accuracy/latency/cost, deployed D1 migration, public resource hash, WebKit and
+  physical iPhone Safari acceptance.
+
+Official implementation references checked on 2026-07-20:
+
+- [Anthropic authentication](https://platform.claude.com/docs/en/manage-claude/authentication)
+- [Anthropic Structured Outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
+- [Anthropic model IDs](https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions)
+- [Claude Haiku pricing](https://www.anthropic.com/claude/haiku)
+- [Anthropic API errors](https://platform.claude.com/docs/en/api/errors)
+- [Anthropic workspaces and spend limits](https://platform.claude.com/docs/en/manage-claude/workspaces)

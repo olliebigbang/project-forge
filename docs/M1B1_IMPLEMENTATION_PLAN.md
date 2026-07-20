@@ -1,6 +1,6 @@
 # M1B1 Real Text-to-Weapon AI Interpreter — implementation plan
 
-Status: **CONFIRMED — provider-neutral implementation complete; real-provider decision pending**
+Status: **CONFIRMED — Anthropic guarded integration implemented; live and device gates pending**
 
 Stable baseline: `v0.1.0-m1a` / `b09bd8f`
 
@@ -37,11 +37,10 @@ does not claim visual understanding; image semantics remain M1B2.
    owns cross-isolate quotas and request leases/results; local maps are dev-only.
 7. **CONFIRMED** Run at least 40 annotated cases plus M1A, mobile, WebKit, build,
    schema, budget, worker, and public-resource regression.
-8. **TBD** The provider-independent implementation has passed. Obtain
-   one product-owner decision covering provider, model, credential, and final
-   production environment variables. Real latency and cost remain `UNKNOWN`
-   until that adapter runs. Prepared options are in
-   `docs/M1B1_PROVIDER_DECISION.md`.
+8. **CONFIRMED** Anthropic with immutable model
+   `claude-haiku-4-5-20251001`, native Messages/Structured Outputs, Sites Secret,
+   and the USD 5 Worker + D1 application cap were selected and implemented.
+   Real latency and cost remain `UNKNOWN` until the guarded live matrix runs.
 9. **TO VALIDATE** Create a PR and public preview only after real-provider tests
    pass. Do not merge or clean M1B1 worktrees before physical iPhone acceptance.
 
@@ -53,7 +52,8 @@ Godot forge UI
   -> same-origin POST /api/compile-weapon
   -> request limits + safety classification
   -> Sites D1 quota + idempotency lease/result
-  -> provider adapter (deterministic local until provider is selected)
+  -> D1 lifetime USD budget reservation
+  -> Anthropic native Messages adapter (fixed Haiku 4.5 snapshot)
   -> structured semantic intent only
   -> server WeaponSpec repair + allow-list + PowerBudget
   -> client WeaponSpec repair + PowerBudget parity check
@@ -122,6 +122,10 @@ usage data and a verified pricing rule is configured. No guessed value is valid.
   across isolates. A real/custom provider with a missing, partial, or unavailable
   D1 guard fails closed before provider invocation and cannot downgrade to memory.
   Paid public traffic additionally requires a provider account spend cap.
+- A second D1 ledger reserves 201,280 micro-USD before every Anthropic call and
+  enforces the approved USD 5 lifetime application limit. Unknown billing is
+  charged conservatively; any configuration or settlement uncertainty locks or
+  fails the paid path closed.
 - Configurable timeout sends `AbortSignal`. A wrapper timeout never retries;
   adapters may request at most one retry only for a transient failure they can
   prove safe to repeat.

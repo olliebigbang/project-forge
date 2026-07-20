@@ -42,19 +42,22 @@ CI, and the physical-device result together close this gate.
 
 ## M1B1 current gate
 
-The detailed, executable criteria are in `docs/M1B1_ACCEPTANCE.md`. Current
-status is intentionally split between the completed provider-neutral layer and
-the real-provider evidence that cannot exist before the product decision.
+The detailed, executable criteria are in `docs/M1B1_ACCEPTANCE.md`. The provider
+decision and guarded adapter are complete; paid live evidence and physical-device
+acceptance remain separate gates.
 
 | Area | Status | Evidence / remaining gate |
 | --- | --- | --- |
 | Same-origin `WeaponInterpreter` client/server contract | **CONFIRMED** | Godot calls only `/api/compile-weapon`; static worker and local server route it |
-| Schema, allow-list, semantic compatibility, and PowerBudget enforcement | **CONFIRMED (provider-neutral)** | Godot 458 assertions; Node interpreter 68 tests; 48-case main matrix; 60-case red-team corpus |
-| Loading, duplicate lock, safe retry, aborting timeout, cancel, stale rejection, D1 idempotency, and validated fallback | **CONFIRMED (simulated/local D1)** | D1 guard 9/9 plus Chromium and WebKit end-to-end regression; Sites D1 still to validate |
+| Schema, allow-list, semantic compatibility, and PowerBudget enforcement | **CONFIRMED (offline)** | Godot 458 assertions; Node interpreter 68/68; 48-case main matrix; 60-case red-team corpus |
+| Anthropic native Messages/Structured Outputs, exact model and one-attempt policy | **CONFIRMED (offline)** | 15/15 adapter tests; exact `claude-haiku-4-5-20251001`; refusal/truncation/usage tests |
+| Worker + D1 lifetime USD 5 reservation and settlement guard | **CONFIRMED (offline)** | 9/9 budget tests; 201,280 micro-USD pre-reservation; cap/exhaustion/concurrency/unknown-billing probes |
+| Loading, duplicate lock, aborting timeout, cancel, stale rejection, D1 idempotency, and validated fallback | **CONFIRMED (simulated/local D1)** | D1 request guard 9/9 plus Chromium regression; deployed Sites D1 and current WebKit rerun still to validate |
 | Normal-player selector hidden; Developer/MODIFY correction remains validated | **CONFIRMED (browser automation)** | Five patterns compiled, corrected, confirmed, and attacked in Chromium and WebKit |
 | 844×390, 852×393, 915×412, keyboard-height recovery, and three rotation cycles | **CONFIRMED (emulated)** | No scrolling/cropping; real iPhone M1B1 still required |
-| AI provider, model, deployment key, and provider moderation | **TBD** | One product-owner decision required; key must be server-side only |
-| Real-provider 40+ case accuracy, latency, P95, cost, and fallback evidence | **TO VALIDATE** | Run only after provider configuration; cost stays `UNKNOWN` until measured |
+| AI provider, model, and deployment secret | **CONFIRMED (configuration)** | Anthropic, fixed Haiku 4.5 snapshot, Sites secret present; secret value never read back |
+| Anthropic workspace spend limit | **TO VALIDATE** | Independent provider-account backstop required before paid public traffic |
+| Real-provider 40+ case accuracy, latency, P95, cost, and fallback evidence | **TO VALIDATE** | Explicitly gated 42-case runner is ready; no paid result claimed yet |
 | Public M1B1 preview, CI/PR, and physical iPhone Safari acceptance | **TO VALIDATE** | Must use a new asset version; do not merge or clean the branch beforehand |
 
 ## Status vocabulary

@@ -41,8 +41,9 @@ flowchart LR
     G -->|"POST /api/compile-weapon\nsame origin only"| W["Sites server worker"]
     W --> Q["Type/byte limits + safety rules"]
     Q --> L["Sites D1\nquota + request ledger"]
-    L --> A["Provider adapter\nreal provider TBD"]
-    A --> S["Structured semantic labels"]
+    L --> B["D1 USD budget\nreserve before invocation"]
+    B --> A["Anthropic native Messages\nHaiku 4.5 fixed snapshot"]
+    A --> S["Native Structured Outputs\nsemantic labels only"]
     S --> R["Server schema + allow-list repair"]
     R --> P["Deterministic PowerBudget"]
     P --> C["Privacy-safe response + audit metadata"]
@@ -54,9 +55,9 @@ flowchart LR
 - **CONFIRMED** The model is data-only and semantic-first. Provider numeric
   output is untrusted; executable numbers come from project-owned deterministic
   profiles and balancing.
-- **CONFIRMED** The current adapter is deterministic until a provider/model is
-  selected. It exercises the complete transport and safety boundary but is not
-  evidence of real-AI quality, latency, or cost.
+- **CONFIRMED** Production M1B1 selects Anthropic's native Messages API with
+  `claude-haiku-4-5-20251001` and native Structured Outputs. The deterministic
+  adapter remains only for offline regression and is not live-quality evidence.
 - **CONFIRMED** At most one request is active. The client creates cryptographically
   random 128-bit session and request IDs. On Sites, an atomic D1 request ledger
   gives identical concurrent requests one owner across worker isolates; completed
@@ -75,6 +76,12 @@ flowchart LR
   invocation if the request guard is incomplete or unavailable. Any real provider
   configuration requires a complete D1 binding and cannot silently downgrade to
   memory. A provider account spend cap remains mandatory before paid public traffic.
+- **CONFIRMED** A second D1 ledger enforces the lifetime USD 5 application cap.
+  The immutable key includes milestone, provider, exact model and pricing
+  revision. A transaction reserves 201,280 micro-USD before provider invocation;
+  measured usage settles the charge, proven non-billed failures release it, and
+  ambiguous outcomes commit the full reservation. Exhaustion, mismatch, lock,
+  settlement uncertainty or missing D1 fails closed.
 - **CONFIRMED** Every provider call receives an `AbortSignal`. A wrapper timeout
   aborts cooperative transports but is never automatically retried because the
   backend cannot prove that an upstream request was unbilled. One retry is allowed
@@ -152,6 +159,8 @@ schema/                     portable JSON Schema
 tests/                      M1A matrix, 48 M1B1 cases, red-team/browser checks
 hosting/weapon_interpreter.mjs request/safety/provider orchestration
 hosting/durable_request_guard.mjs D1 quota, lease, replay, and cleanup
+hosting/anthropic_weapon_adapter.mjs fixed native Anthropic structured adapter
+hosting/provider_budget_guard.mjs D1 lifetime USD reservation and settlement
 hosting/weapon_contract.mjs server repair and power-budget parity
 hosting/weapon_schema.mjs   executable Draft 2020-12 schema validation
 hosting/static_worker.mjs   static hosting, API route, and WASM chunk loader
@@ -166,25 +175,22 @@ small browser loader that reconstructs the exact bytes before Godot compilation.
 Node tests verify chunk order and WebAssembly magic bytes. The hosting worker adds
 COOP/COEP/CORP and cache headers and owns `POST /api/compile-weapon`.
 
-- **CONFIRMED (capability)** Sites supports server worker functions, a logical D1
-  binding, and secret environment variables. D1 binding `DB` owns the short-lived
-  quota/idempotency records; provider credentials will be configured as secrets
-  and never injected into the Web build.
+- **CONFIRMED (configuration)** Sites supports server worker functions, logical D1
+  binding `DB`, runtime variables, and secrets. `ANTHROPIC_API_KEY` is present as
+  a Sites Secret; its value is never read back or injected into the Web build.
 - **CONFIRMED** Audit logs contain request ID, input length, provider/model label,
   attempts, latency, fallback and correction counts, cost metadata, and validity;
   they omit raw descriptions, drawings, keys, and full provider responses.
-- **TBD** Real provider/model and provider-specific secret. Options, current list
-  pricing, environment names, and recommendation are recorded in
-  `docs/M1B1_PROVIDER_DECISION.md`.
-- **TBD** Provider-side moderation, production authentication, provider account
-  spend cap, telemetry destination, and retention. The D1 rate window and request
-  ledger are **CONFIRMED** in local SQLite/D1-parity tests and remain **TO
-  VALIDATE** on the first real Sites deployment.
+- **CONFIRMED** Provider/model/environment names and the USD 5 D1 algorithm are
+  recorded in `docs/M1B1_PROVIDER_DECISION.md`.
+- **TO VALIDATE** Anthropic workspace spend limit and deployed D1 migrations.
+  Provider-side moderation, production authentication, telemetry destination and
+  retention remain **TBD**.
 
 - **TO VALIDATE** Physical iOS/Android safe areas, virtual keyboards, thermal/GPU
   performance, and browser-specific audio remain device-stage work.
-- **TO VALIDATE** Real-provider latency, P95, cost, rate-limit behavior, and public
-  deployment remain unmeasured until provider configuration.
+- **TO VALIDATE** Real-provider accuracy, latency, P95, cost, rate-limit behavior,
+  and public deployment remain unmeasured until the controlled live gate runs.
 
 ## Mobile Web presentation and input boundary
 

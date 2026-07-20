@@ -52,10 +52,16 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
 - Before paid public traffic, require a provider account spend cap. Sites D1 is
   the application quota/idempotency boundary. Any non-local provider with a
   missing, partial, or unavailable D1 guard must fail closed before invocation.
+- **CONFIRMED** M1B1 uses Anthropic's native Messages API with native Structured
+  Outputs and the immutable model snapshot `claude-haiku-4-5-20251001`. Never use
+  an OpenAI-compatible Anthropic endpoint or auto-upgrade to another Claude tier.
+- **CONFIRMED** `M1B1_PROVIDER_BUDGET_USD=5` is a lifetime application hard cap.
+  Worker + D1 reserve worst-case spend before invocation, settle verified usage,
+  conservatively charge ambiguous outcomes, and fail closed on guard uncertainty.
+- `ANTHROPIC_API_KEY` is a Sites Secret only. Never read, print, copy, persist, or
+  inject it into tests, Godot, browser assets, Git, screenshots, or logs.
 - Drawing input is numeric `drawing_summary` only; visual semantics are M1B2.
 - Preserve drawing/text across cancellation, timeout, retry and fallback.
-- Provider/model/credential remain `TBD` until the product owner answers the one
-  consolidated provider decision after vendor-neutral implementation.
 - No M1B2, voice, production art, accounts, sharing, monetization or multiplayer.
 
 ## Engineering rules

@@ -1,7 +1,7 @@
 # Project Forge — Game Design Document
 
 Version: 0.1 (organized from the supplied GDD)  
-Current delivery milestone: **M1B1 real text-to-weapon interpreter — provider-neutral implementation CONFIRMED; real-provider integration TO VALIDATE**
+Current delivery milestone: **M1B1 real text-to-weapon interpreter — Anthropic integration CONFIRMED in source/offline tests; live deployment and device acceptance TO VALIDATE**
 Stable mobile acceptance: **CONFIRMED on physical iPhone Safari with v9**
 
 ## 1. Product identity
@@ -117,9 +117,11 @@ Voice is an input method, not a separate weapon system.
   alter saves, call engine functions directly, bypass budgets, or return an
   unsupported capability.
 - **CONFIRMED (M0)** Use a deterministic local mock. No paid API or API key.
-- **CONFIRMED (M1B1 pre-provider)** The production-shaped client calls only the
-  same-origin project endpoint. A deterministic adapter remains active until the
-  product owner selects a real provider/model and configures a server-side key.
+- **CONFIRMED (M1B1)** The production client calls only the same-origin project
+  endpoint. The selected server adapter uses Anthropic's native Messages API,
+  native Structured Outputs, and immutable model
+  `claude-haiku-4-5-20251001`; it never uses an OpenAI-compatible route or model
+  upgrade. The credential is a Sites Secret and never enters client assets.
 - **CONFIRMED (M1B1)** Provider free-form display text, correction text, metadata,
   and nested cost fields are untrusted and never reflected directly. The server
   derives names, summaries, and repair messages from allow-listed semantic labels.
@@ -209,10 +211,13 @@ Target data flow:
 - **CONFIRMED (M1B1)** Random client/request IDs, SHA-256 privacy namespaces,
   strict response-ID matching, and privacy-safe logs are programmatically
   enforced. Sites D1 owns atomic per-session/network quotas and cross-isolate
-  idempotency. A provider account spend cap remains **TO VALIDATE** before paid
-  public traffic.
-- **TBD** Real AI provider/model, provider moderation, authentication policy,
-  production observability, cache policy, and retention periods.
+  idempotency.
+- **CONFIRMED (M1B1)** Worker + D1 enforce the approved USD 5 lifetime provider
+  budget by reserving worst-case spend before invocation and failing closed on
+  exhaustion or guard uncertainty. Unknown billing is charged conservatively.
+- **TO VALIDATE** A separate Anthropic workspace spend limit is required before
+  paid public traffic. Provider moderation, production authentication policy,
+  observability, cache policy, and retention periods remain **TBD**.
 
 ## 9. Safety and content control
 
@@ -275,12 +280,12 @@ rolling for a higher damage value.
   input, explicit power budget, runtime and JSON Schema validation/repair, five
   attack forms, four elements, target lab, 32 input cases, public Web deployment,
   and physical iPhone Safari acceptance.
-- **M1B1 — real text-to-weapon interpreter (in progress):** the independent
-  branch has the same-origin backend contract, provider adapter boundary, safe
-  fallback, confirmation/correction UI, 48-case main matrix, 60-case red-team
-  corpus, and Chromium/WebKit mobile regression. **TBD:** real provider/model and
-  server key. Real semantic accuracy, latency, cost, public preview, and physical
-  iPhone acceptance remain **TO VALIDATE** after that decision.
+- **M1B1 — real text-to-weapon interpreter (in progress):** Anthropic Haiku 4.5
+  is selected and configured server-side. The branch has the native adapter,
+  same-origin contract, safe fallback, confirmation/correction UI, D1 USD 5 hard
+  limit, 48-case main matrix, 60-case red-team corpus, and mobile regression.
+  Real semantic accuracy, latency, cost, public preview, WebKit rerun and physical
+  iPhone acceptance remain **TO VALIDATE**.
 - **M1B2 — drawing semantic understanding (not started):** image/vision meaning
   is explicitly outside M1B1; only bounded `drawing_summary` metadata is sent.
 - **M2 — vertical slice:** production combat character, three normal monsters, one
