@@ -1,6 +1,40 @@
 # M1B1 Mobile Regression Test Results
 
-## Final public v15 and real Anthropic integration — authoritative result
+## Physical iPhone acceptance and PR #4 closure rerun — authoritative result
+
+- **Executed:** 2026-07-20 (Australia/Sydney)
+- **Accepted public runtime:** `6d5ba3a7c10c2eb46154209744c9af55e072cb32`
+- **Accepted Sites version:** 19
+- **Accepted diagnostic URL:**
+  `https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?qa=m1b1&release=p0-v20-6d5ba3a`
+- **Physical device:** real iPhone Safari
+- **Disposition:** **PASS — PRODUCT OWNER ACCEPTED THE REOPENED P0 GATE**
+
+Physical checks reported PASS: first-touch Description focus, keyboard open,
+non-black Canvas, typing/deletion/Done/dismissal, Bow held with arrows, Grenade
+arc/explosion/restore, Sword without projectile, Boomerang out/return, and the
+tested navigation/re-forge path. No new blocker was reported.
+
+Closure rerun from the PR source passed:
+
+| Suite | Result |
+| --- | --- |
+| Godot import/parse, 629 assertions, scene smoke | PASS |
+| All Node Worker/Interpreter/D1/Anthropic/security tests | 133/133 PASS |
+| Interpreter including chunked-body bound | 77/77 PASS |
+| Canonical Web/Sites build and reproducibility | PASS |
+| Chromium P0 weapon/keyboard regression | PASS; console errors 0 |
+| Playwright WebKit P0 weapon/keyboard regression | PASS; console errors 0 |
+| Chromium canonical Anthropic mobile simulation | PASS; application console errors 0 |
+| Playwright WebKit canonical Anthropic mobile simulation | PASS; application console errors 0 |
+
+The final independent review found two release blockers. Both were fixed and
+retested: no-`Content-Length` streams are bounded before D1/provider work, and CI
+now validates the actual injected and chunked Sites artifact. Final GitHub CI,
+main deployment, stable smoke, and rollback verification are recorded in the
+release report; M1B2 remains out of scope.
+
+## Historical public v15 and real Anthropic integration result
 
 - **Executed:** 2026-07-20 (Australia/Sydney)
 - **Candidate source revision:** `ad9c08999451cbe2ec5ec7addfb8f4481755ba89`

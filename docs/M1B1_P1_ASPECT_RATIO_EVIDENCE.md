@@ -5,7 +5,7 @@
 > they did not detect the complete held bow being copied as a projectile. The
 > actual-bounds/uniform-scale measurements remain valid for player-ink visuals.
 
-Status: **TO VALIDATE on physical iPhone Safari**. This report covers the P1
+Status: **CONFIRMED on physical iPhone Safari**. This report covers the P1
 display-transform blocker independently from the P0 interpreter/input blocker.
 
 ## Independent diagnosis

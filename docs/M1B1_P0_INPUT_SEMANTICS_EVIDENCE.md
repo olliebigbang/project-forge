@@ -1,7 +1,7 @@
 # M1B1 P0 — Input and Weapon Semantics Evidence
 
-Status: **TO VALIDATE on physical iPhone Safari**. This report records the
-independent P0 fix only; it does not claim that P1 aspect-ratio work is complete.
+Status: **CONFIRMED on physical iPhone Safari**. This report records the
+independent P0 fix; P1 and the later visual-role repair have separate evidence.
 
 ## Baseline reproduction
 
@@ -119,7 +119,8 @@ Durable evidence:
 - [bow confirmation](evidence/m1b1-blockers/real-bow-confirmation.png)
 - [bow straight projectile](evidence/m1b1-blockers/real-bow-projectile.png)
 
-## Remaining P0 gate
+## Physical P0 gate
 
-- **TO VALIDATE** Re-run the deployed build on physical iPhone Safari. No merge
-  is authorized before the product owner accepts both P0 and P1.
+- **CONFIRMED on 2026-07-20:** the product owner accepted Description/keyboard,
+  Bow, Grenade, Sword, and Boomerang behavior on the deployed iPhone Safari
+  build. No new blocker was reported.

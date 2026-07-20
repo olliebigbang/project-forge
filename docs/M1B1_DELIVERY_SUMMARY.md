@@ -1,5 +1,10 @@
 # M1B1 delivery summary
 
+> Final closure handoff: [`M1B1_HANDOFF.md`](M1B1_HANDOFF.md). The product owner
+> accepted the Sites v19 / runtime `6d5ba3a` build on physical iPhone Safari on
+> 2026-07-20. The material below is retained as the historical v15 delivery
+> record and must not be mistaken for the final PR #4 release state.
+
 > Historical v15 delivery record. The current unmerged blocker-fix candidate,
 > separate P0/P1 diagnoses, PR #4, real grenade/bow evidence, and physical-iPhone
 > gate are recorded in [`M1B1_BLOCKER_FIX_DELIVERY.md`](M1B1_BLOCKER_FIX_DELIVERY.md).

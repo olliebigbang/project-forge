@@ -49,7 +49,9 @@ This log records current decisions without turning untested defaults into facts.
 | D-041 | **CONFIRMED** WeaponSpec v2 separates `weapon_form`, `delivery`, `trajectory`, `impact`, and `area_effect` from `attack_pattern`. Grenade is `grenade/thrown/arc/delayed_or_contact/explosion/area_blast`; `area_blast` is the landing effect and never substitutes for the throw | A visible delivery phase and its impact effect are independent gameplay semantics |
 | D-042 | **CONFIRMED** Player ink is fit from its actual bounding box with 10% padding and one uniform minimum scale in confirmation, held, melee animation, and semantic drawn-projectile copies. Procedural projectile shapes do not copy the ink; parent nodes may mirror/rotate but not non-uniformly scale | Wide drawings were compressed by canvas-wide X/Y normalization and a second fill transform |
 | D-043 | **CONFIRMED** M1B1 runtime separates `held_visual`, `projectile_visual`, and `impact_visual` through a deterministic `WeaponVisualBundle`. Bow keeps player ink in hand and fires a procedural arrow; grenade throws a centred temporary ink copy then creates a separate explosion; melee creates no projectile; boomerang alone may send the complete drawn weapon out and back; other ranged forms use procedural arrow, bullet, spear, or energy shapes | The former single `WeaponVisual` path copied and rotated the entire held weapon for every projectile |
-| D-044 | **CONFIRMED (automated); TO VALIDATE on physical iPhone** Web text entry keeps one stable landscape Canvas while the keyboard changes only the Visual Viewport. A safe-area-aware compact input dock with 16px text, explicit clear, and Done follows `visualViewport.offsetTop/offsetLeft`; the game world is not resized to keyboard height | Physical iPhone v18 showed the policy-2 Canvas and focus-scroll feedback loop moving the whole game outside the visible viewport |
+| D-044 | **CONFIRMED (automated and physical iPhone)** Web text entry keeps one stable landscape Canvas while the keyboard changes only the Visual Viewport. A safe-area-aware compact input dock with 16px text, explicit clear, and Done follows `visualViewport.offsetTop/offsetLeft`; the game world is not resized to keyboard height | Physical iPhone v18 exposed the failure; the product owner accepted the replacement on 2026-07-20 |
+| D-045 | **CONFIRMED** The product owner accepted the public M1B1 P0 build on physical iPhone Safari: Description/keyboard, non-black Canvas, Bow, Grenade, Sword, Boomerang, and the tested navigation paths passed without a new blocker | Authoritative device report on 2026-07-20 closes the reopened P0 gate |
+| D-046 | **CONFIRMED** Worker request bodies are read through an 8192-byte bounded stream before JSON, D1, rate-limit, or provider work; canonical CI builds and verifies the same injected, chunked Sites bundle used for deployment | Final independent code review found a streaming-memory bypass and a non-representative CI artifact |
 
 ## Assumptions
 
@@ -71,10 +73,10 @@ This log records current decisions without turning untested defaults into facts.
 | V-004 | **TO VALIDATE** Players change ideas rather than re-roll for higher damage | M1/M2 playtest; deterministic M0 values avoid false reward |
 | V-005 | **CONFIRMED (M1A prototype)** Five attack forms and four elements fit one stable compiler/budget | 32-case matrix and five browser combat runs; balance feel remains M2 |
 | V-006 | **TO VALIDATE** Native safe areas, touch latency, and performance | M3 Android/iOS device matrix |
-| V-007 | **CONFIRMED** Provider-neutral faults pass local Chromium/WebKit regression. The guarded real-provider matrix passed 42/42 with 100% labelled pattern/element accuracy, 100% final validity, 1.318 s median, 4.846 s P95, and USD 0.033588 measured matrix cost. Physical iPhone M1B1 behavior remains **TO VALIDATE** | Public v15 plus controlled real-provider matrix |
+| V-007 | **CONFIRMED** Provider-neutral faults pass local Chromium/WebKit regression. The guarded real-provider matrix passed 42/42 with 100% labelled pattern/element accuracy, 100% final validity, 1.318 s median, 4.846 s P95, and USD 0.033588 measured matrix cost. Physical iPhone M1B1 behavior is accepted | Public v15, controlled real-provider matrix, and owner device report |
 | V-008 | **TO VALIDATE** `front_shield` is present in the product-intent example but not in the current executable ability allow-list; M1B1 must omit/repair it rather than silently invent gameplay | Separate module, combat behavior, and budget design before support |
-| V-009 | **CONFIRMED (automated/live); TO VALIDATE on physical iPhone** The public blocker-fix candidate preserves request input, rejects false-success fallbacks, interprets real Claude grenade/bow semantics correctly, and keeps real wide-bow/round-grenade aspect error far below 2% | Two-call guarded live run, D1 settlement logs, Godot 629 assertions, public Chromium/WebKit regression, and retained screenshots |
-| V-010 | **CONFIRMED in local/public Chromium/WebKit; TO VALIDATE on physical iPhone** The reopened P0 candidate keeps the Canvas visible during synthetic keyboard geometry, restores it after Done/toolbars/rotation, keeps bow held through 10 arrows, lands a centred grenade on an explicit floor before its separate blast, emits no sword projectile, and returns the same boomerang instance | Sites v19 exact resource hashes plus separate local/public v20 reports/screenshots |
+| V-009 | **CONFIRMED (automated/live/physical iPhone)** The public blocker-fix candidate preserves request input, rejects false-success fallbacks, interprets real Claude grenade/bow semantics correctly, and keeps real wide-bow/round-grenade aspect error far below 2% | Two-call guarded live run, D1 settlement logs, Godot 629 assertions, public browser regression, retained screenshots, and owner device pass |
+| V-010 | **CONFIRMED in local/public Chromium/WebKit and physical iPhone** The reopened P0 candidate keeps the Canvas visible during keyboard use, restores it after Done/toolbars/rotation, keeps bow held, lands and explodes a grenade, emits no sword projectile, and returns the boomerang | Sites v19 hashes, local/public v20 reports/screenshots, and owner device pass |
 
 ## TBD
 
@@ -92,8 +94,9 @@ This log records current decisions without turning untested defaults into facts.
 The five attack forms, four elements, target lab, and deterministic compiler are
 complete in M1A. M1B1 now contains the Anthropic text interpreter, secure
 same-origin boundary, USD 5 D1 hard cap, controlled real-provider evidence, and
-the public blocker-fix candidate. Physical iPhone Safari acceptance remains the
-open M1B1 gate.
+the public blocker-fix candidate. Physical iPhone Safari acceptance is closed;
+PR/CI, stable deployment, smoke, and rollback verification are the remaining
+M1B1 release-closure tasks.
 Formal levels, complete win/loss/restart, voice, image understanding, production
 moderation policy, accounts, community, monetization, and native-store delivery
 remain deferred without deletion. See `docs/GDD.md` and

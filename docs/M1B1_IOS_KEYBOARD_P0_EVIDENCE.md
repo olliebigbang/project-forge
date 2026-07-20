@@ -1,8 +1,8 @@
 # M1B1 iOS keyboard P0 evidence
 
-Status: **CONFIRMED in Chromium and Playwright WebKit; TO VALIDATE on a physical
-iPhone Safari**. This candidate remains on `codex/fix/m1b1-input-aspect` in
-Draft PR #4 and must not merge before the product owner accepts the public build.
+Status: **CONFIRMED in Chromium, Playwright WebKit, and physical iPhone Safari**.
+The product owner accepted the public Sites v19 / runtime `6d5ba3a` build on
+2026-07-20. PR #4 remains unmerged only while formal release closure runs.
 
 ## Separate root cause
 
@@ -93,10 +93,9 @@ the physical iOS keyboard):
 - `scripts/main.gd`
 - `tests/browser/run_m1b1_blocker_regression.mjs`
 
-## Remaining physical gate
+## Physical iPhone result
 
-Playwright WebKit validates Safari-engine layout and events, but cannot display
-or prove the real iOS system keyboard. A physical iPhone must still verify focus,
-typing/deletion, Done, toolbar expansion/collapse and three orientation cycles.
-Until that pass, this P0 remains **TO VALIDATE on physical iPhone Safari** and the
-branch remains unmerged.
+**CONFIRMED:** the product owner verified first-touch focus, keyboard appearance,
+typing, deletion, Done, keyboard dismissal, stable non-black Canvas, and restored
+layout on real iPhone Safari. No new blocker appeared. This closes the physical
+keyboard P0; branch retention now exists only for the requested release process.

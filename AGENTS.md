@@ -24,9 +24,10 @@ assets, balance data, or development direction from Cat Battle or another projec
 - Strong capabilities must have a visible drawback or deterministic stat cost.
 - Test against stationary, moving, shield, and grouped targets.
 - Physical iPhone Safari acceptance for v9 is complete and recorded.
-- **CONFIRMED** M1B1 real text interpretation is authorized only on
-  `codex/feat/m1b1-real-text-interpreter`, based on `v0.1.0-m1a`.
-- Never develop M1B1 on `main` or move/delete the stable tag.
+- **CONFIRMED** M1B1 real text interpretation and its reopened P0 fixes passed
+  physical iPhone Safari acceptance on 2026-07-20. Formal release closure uses
+  PR #4 from `codex/fix/m1b1-input-aspect`.
+- Do not start M1B2 during M1B1 closure or move/delete either stable tag.
 - The M1A forge uses five persistent attack-pattern test buttons. Never restore
   an `OptionButton`, `PopupMenu`, or full-screen modal selector for this flow.
 
@@ -97,8 +98,9 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
 ## Git and agent workflow
 
 - Stable branch after release closure: `main`.
-- Stable release tag: `v0.1.0-m1a`.
-- Current integration branch: `codex/feat/m1b1-real-text-interpreter`.
+- Stable M1B1 release tag after closure: `v0.2.0-m1b1`.
+- Retained M1A rollback tag: `v0.1.0-m1a`.
+- Current closure branch: `codex/fix/m1b1-input-aspect`.
 - Compact Landscape uses CSS `visualViewport` dimensions; do not size mobile
   touch controls from the 1280×720 logical viewport alone.
 - Web Description input is a bounded native HTML overlay synchronized with

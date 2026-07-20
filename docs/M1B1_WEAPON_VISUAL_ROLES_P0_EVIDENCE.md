@@ -1,8 +1,8 @@
 # M1B1 weapon visual roles P0 evidence
 
-Status: **CONFIRMED in deterministic Godot, Chromium and Playwright WebKit;
-TO VALIDATE on a physical iPhone Safari**. This is a separate root cause from the
-iOS keyboard issue.
+Status: **CONFIRMED in deterministic Godot, Chromium, Playwright WebKit, and
+physical iPhone Safari**. This is a separate root cause from the iOS keyboard
+issue.
 
 ## Separate root cause
 
@@ -94,9 +94,9 @@ Visual evidence:
 - `tests/run_tests.gd`
 - `tests/browser/run_m1b1_blocker_regression.mjs`
 
-## Remaining physical gate
+## Physical iPhone result
 
-The same public build must still be observed on a physical iPhone: bow held plus
-arrow flight for repeated attacks, grenade departure/arc/centred rotation/blast/
-restore, melee with no projectile, and boomerang return. No merge is permitted
-before that product-owner result.
+**CONFIRMED on 2026-07-20:** the product owner observed the bow remain held while
+arrows fired, the grenade follow an arc and explode before restoring, the sword
+create no projectile, and the boomerang leave and return. No new blocker was
+reported. The visual-role P0 is closed.

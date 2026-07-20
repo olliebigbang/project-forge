@@ -1,7 +1,7 @@
 # Project Forge — Game Design Document
 
 Version: 0.1 (organized from the supplied GDD)  
-Current delivery milestone: **M1B1 real text-to-weapon interpreter — public blocker-fix candidate and real-provider automated gates CONFIRMED; physical iPhone M1B1 acceptance TO VALIDATE**
+Current delivery milestone: **M1B1 real text-to-weapon interpreter — physical iPhone acceptance CONFIRMED; formal merge/deploy closure in progress**
 Stable mobile acceptance: **CONFIRMED on physical iPhone Safari with v9**
 
 ## 1. Product identity
@@ -309,12 +309,12 @@ rolling for a higher damage value.
   and version-matched WebKit public regression passed with zero application
   console errors. Two additional live blocker cases confirmed grenade
   thrown/arc/landing-explosion and bow direct-projectile semantics for USD
-  0.003575 total. Physical iPhone Safari M1B1 acceptance remains **TO VALIDATE**.
+  0.003575 total. Physical iPhone Safari M1B1 acceptance is **CONFIRMED**.
   A later physical-iPhone pass reopened two P0 gates: keyboard focus/Canvas
   stability and held/projectile/impact visual separation. The replacement keeps
   a stable Canvas with compact text entry, keeps bows held while arrows fly, and
   gives grenades a centred drawn flight copy plus independent explosion. These
-  are **CONFIRMED in Chromium/WebKit and TO VALIDATE on physical iPhone**.
+  are **CONFIRMED in Chromium/WebKit and on physical iPhone Safari**.
 - **M1B2 — drawing semantic understanding (not started):** image/vision meaning
   is explicitly outside M1B1; only bounded `drawing_summary` metadata is sent.
 - **M2 — vertical slice:** production combat character, three normal monsters, one

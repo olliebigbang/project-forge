@@ -45,8 +45,9 @@ CI, and the physical-device result together close this gate.
 The detailed, executable criteria are in `docs/M1B1_ACCEPTANCE.md`. Provider,
 deployed D1 and controlled paid evidence remain valid. The previous public
 candidate was reopened for keyboard/Canvas and weapon-visual-role P0 failures.
-The replacement passes desktop browser automation; its final deployment, CI and
-physical-device acceptance remain separate gates.
+The replacement passes desktop browser automation and the product owner accepted
+it on physical iPhone Safari. Final PR CI, main deployment, production smoke, and
+rollback verification remain separate release-closure gates.
 
 | Area | Status | Evidence / remaining gate |
 | --- | --- | --- |
@@ -56,14 +57,14 @@ physical-device acceptance remain separate gates.
 | Worker + D1 lifetime USD 5 reservation and settlement guard | **CONFIRMED (offline + deployed)** | 14/14 budget tests plus 11/11 hostile safety tests; public reserve/settle audit; cap/exhaustion/concurrency/non-2xx/unknown-billing probes |
 | Loading, duplicate lock, aborting timeout, cancel, stale rejection, D1 idempotency, and explicit non-equipable errors | **CONFIRMED (simulated + deployed D1)** | D1 request guard 9/9, no-`weapon_spec` failure regression, live two-request duplicate gate, settled D1 audits, and final Chromium/WebKit regression |
 | Normal-player selector hidden; Developer/MODIFY correction remains validated | **CONFIRMED (browser automation)** | Five patterns compiled, corrected, confirmed, and attacked in Chromium and WebKit |
-| 844×390, 852×393, 915×412, 844×343 toolbar stress, keyboard-height recovery, and rotation cycles | **CONFIRMED (Chromium + WebKit)** | No scrolling/cropping; app console errors/warnings 0; real iPhone M1B1 still required |
+| 844×390, 852×393, 915×412, 844×343 toolbar stress, keyboard-height recovery, and rotation cycles | **CONFIRMED (Chromium + WebKit + physical iPhone)** | No scrolling/cropping; app console errors/warnings 0; real keyboard/orientation/toolbars accepted |
 | AI provider, model, and deployment secret | **CONFIRMED (configuration)** | Anthropic, fixed Haiku 4.5 snapshot, Sites secret present; secret value never read back |
 | Anthropic workspace spend limit | **CONFIRMED** | Provider-account backstop at or below USD 5 was configured before controlled paid traffic |
 | Real-provider 40+ case accuracy, latency, P95, cost, and fallback evidence | **CONFIRMED** | 42/42 pass; pattern and element accuracy 100%; validity 100%; median 1.318 s; P95 4.846 s; matrix cost USD 0.033588 |
-| iOS compact text-entry Canvas stability | **CONFIRMED (synthetic Chromium + WebKit); TO VALIDATE physically** | Stable 844x390 Canvas/backing store under 844x190 Visual Viewport at offsetTop 92; 16px Description, clear and Done visible; edit/delete/restore/toolbars/three rotations pass |
-| Held/projectile/impact visual separation | **CONFIRMED (Godot + Chromium + WebKit); TO VALIDATE physically** | Bow held through 10 arrows; grenade centred arc copy, separate blast and restore; sword projectile delta 0; boomerang returns same instance |
-| Public M1B1 blocker preview and CI/PR | **CONFIRMED for automated handoff** | Draft PR #4 stays open and unmerged; runtime `6d5ba3a` CI passed, fresh Sites v19 deployed, public JS/PCK/WASM hashes matched, and public Chromium/WebKit passed; physical iPhone remains required |
-| Physical iPhone Safari M1B1 acceptance | **TO VALIDATE** | Do not merge, clean the branch, or start M1B2 before product-owner acceptance |
+| iOS compact text-entry Canvas stability | **CONFIRMED (Chromium + WebKit + physical iPhone)** | Stable Canvas; 16px Description, clear and Done; edit/delete/restore/toolbars/three rotations accepted |
+| Held/projectile/impact visual separation | **CONFIRMED (Godot + Chromium + WebKit + physical iPhone)** | Bow held through arrows; grenade arc/blast/restore; sword no projectile; boomerang return |
+| Public M1B1 blocker preview and CI/PR | **CONFIRMED for accepted preview; release closure in progress** | Runtime `6d5ba3a` / Sites v19 hashes and browser tests passed; PR #4 final CI and main deployment are closure steps |
+| Physical iPhone Safari M1B1 acceptance | **CONFIRMED on 2026-07-20** | Product owner passed Description/keyboard, Bow, Grenade, Sword, Boomerang, orientation, and Safari toolbar checks |
 
 ## Status vocabulary
 

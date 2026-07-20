@@ -16,13 +16,14 @@ Battle or any previous game.
 
 ## Public preview and rollback
 
-[Open the M1B1 P0 v20 iPhone candidate](https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?qa=m1b1&release=p0-v20-6d5ba3a)
+[Open the physically accepted M1B1 P0 v20 build](https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?qa=m1b1&release=p0-v20-6d5ba3a)
 
 Sites exposes one mutable public origin, so a query parameter is a diagnostic
 label and does not pin an old build. The immutable M1A rollback points are Git tag
 `v0.1.0-m1a`, its release archive, and retained test evidence. The current M1B1
-preview remains a Draft-PR candidate and must not merge until the product owner
-passes the reopened physical-iPhone gate.
+preview passed the reopened physical-iPhone gate on 2026-07-20. PR/CI review,
+stable deployment, production smoke, and rollback verification are now the only
+M1B1 closure steps; M1B2 has not started.
 
 Source: [GitHub repository](https://github.com/olliebigbang/project-forge)
 
@@ -79,9 +80,9 @@ For the same-origin Web client and deterministic backend:
 ```
 
 Open [http://localhost:8060](http://localhost:8060) on the development computer.
-`localhost` is not a phone delivery address; the public link above is the current
-unmerged M1B1 device candidate. Use tag `v0.1.0-m1a` and its retained archive for
-the accepted M1A rollback build.
+`localhost` is not a phone delivery address; the public link above is the accepted
+M1B1 device build. Until formal closure finishes, use tag `v0.1.0-m1a` and its
+retained archive for the accepted M1A rollback build.
 
 Controls:
 
@@ -107,6 +108,8 @@ regressions documented in `artifacts/M1B1_TEST_RESULTS.md`.
 - Product scope: `docs/GDD.md`
 - Milestone traceability: `docs/MVP_ACCEPTANCE.md`
 - M1B1 executable acceptance: `docs/M1B1_ACCEPTANCE.md`
+- Final M1B1 handoff: `docs/M1B1_HANDOFF.md`
+- Version history: `CHANGELOG.md`
 - Reopened iOS keyboard P0 evidence: `docs/M1B1_IOS_KEYBOARD_P0_EVIDENCE.md`
 - Reopened weapon visual-role P0 evidence: `docs/M1B1_WEAPON_VISUAL_ROLES_P0_EVIDENCE.md`
 - M1B1 implementation plan: `docs/M1B1_IMPLEMENTATION_PLAN.md`

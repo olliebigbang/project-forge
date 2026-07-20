@@ -1,9 +1,10 @@
 # M1B1 blocker-fix delivery
 
-Status: **TO VALIDATE on physical iPhone Safari**. The fixes are isolated on
-`codex/fix/m1b1-input-aspect`, draft PR
-[#4](https://github.com/olliebigbang/project-forge/pull/4), and are not merged.
-M1B2 remains paused.
+Status: **CONFIRMED on physical iPhone Safari; formal release closure in
+progress**. The accepted fixes remain isolated on
+`codex/fix/m1b1-input-aspect`, PR
+[#4](https://github.com/olliebigbang/project-forge/pull/4), and are not yet
+merged. M1B2 remains paused.
 
 ## Separate diagnoses
 
@@ -137,7 +138,7 @@ and byte-for-byte resource hashes, not by changing a query string.
 scanner. The final PCK hash above was identical across two consecutive exports,
 so adding delivery evidence can no longer perturb the game package.
 
-## Public preview and remaining gate
+## Public preview and physical-device result
 
 Preview:
 <https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?qa=m1b1&release=p0-v20-6d5ba3a>
@@ -147,11 +148,13 @@ hashes above prove that this is a fresh deployment rather than a query-only cach
 change. Public fixture reports and screenshots are retained under
 [`evidence/m1b1-p0-v20-public/`](evidence/m1b1-p0-v20-public/).
 
-**TO VALIDATE** Playwright WebKit on Windows is a Safari-engine path, not a
-physical iPhone Safari acceptance result. The branch must not merge and M1B2
-must not start until the product owner confirms the public build.
+Playwright WebKit on Windows remained a Safari-engine approximation. On
+2026-07-20, the product owner independently accepted the same public build on a
+physical iPhone Safari session. This closes the device gate; PR/CI review,
+post-merge deployment, production smoke, and rollback verification remain the
+release-closure gates. M1B2 must not start during closure.
 
-Shortest physical-iPhone check:
+Physical-iPhone checklist completed:
 
 1. Open the preview in Safari, rotate to landscape, draw a round grenade, enter
    `grenade`, and tap FORGE.
@@ -179,8 +182,25 @@ are separately diagnosed and evidenced here:
   a deterministic held/projectile/impact bundle, including held bow plus arrow
   and centred thrown grenade plus separate explosion.
 
-Current automated candidate results: Godot 629 assertions; Worker 4/4; WASM 1/1;
-interpreter 76/76; request D1 9/9; Anthropic adapter 17/17; budget D1 14/14;
-hostile safety 11/11; Web export PASS; Chromium and WebKit P0 regression PASS
-with zero application console errors. Physical iPhone Safari remains
-**TO VALIDATE**, so Draft PR #4 stays unmerged and M1B2 stays paused.
+Current automated candidate results: Godot 629 assertions; Worker/WASM,
+interpreter, request D1, Anthropic adapter, budget D1, and hostile-safety suites
+PASS; canonical Web/Sites build PASS; Chromium and WebKit P0 regression PASS
+with zero application console errors. Physical iPhone Safari is **CONFIRMED**.
+PR #4 remains unmerged only until the requested final review, CI, stable deploy,
+smoke test, and rollback checks finish. M1B2 stays paused.
+
+## PR head and accepted Sites runtime identity
+
+**CONFIRMED:** the accepted Sites v19 deployment records source runtime commit
+`6d5ba3a7c10c2eb46154209744c9af55e072cb32`. The pre-closure PR head
+`019a6e82af554c22c2022b22e71bfb2245e4bd11` is its direct child and changes only
+README/documentation plus committed screenshots/reports. There is no runtime,
+scene, Worker, schema, export, or build-script delta between those two commits.
+Consequently the identifiers differ because evidence was committed after the
+runtime deployment, not because the phone tested uncommitted gameplay code.
+
+Two consecutive builds from `019a6e8` produced identical JS, PCK, WASM chunks,
+and Worker hashes; the PCK and reconstructed WASM matched the accepted public
+assets byte-for-byte. The formal closure fixes add only a bounded Worker request
+reader, canonical CI packaging, and release records; they do not alter the
+physically accepted client UI or combat behavior.

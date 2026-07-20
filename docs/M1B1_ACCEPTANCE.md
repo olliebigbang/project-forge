@@ -1,15 +1,16 @@
 # M1B1 acceptance plan
 
-Status: **TO VALIDATE — public blocker-fix/provider automated gates passed; physical iPhone gate remains open**
+Status: **CONFIRMED — product owner passed the public M1B1 build on physical iPhone Safari; release closure is in progress**
 
-M1A remains the stable rollback baseline. M1B1 cannot merge, clean its branches,
-or proceed to M1B2 until the product owner accepts the public preview on a real
-iPhone Safari session.
+M1A remains the stable rollback baseline until the M1B1 merge, stable deployment,
+smoke test, tag, and rollback verification finish. The product owner accepted the
+public preview on a real iPhone Safari session on 2026-07-20. M1B2 remains paused.
 
 The prior public candidate was reopened after physical-iPhone discovery of two
 P0 failures: keyboard focus could move the Canvas outside the visible viewport,
 and the projectile path could throw the complete held weapon. Automated v20
-evidence is green, but it does not close the physical-device gate.
+evidence is green and the product owner independently passed both repaired paths
+on the physical device.
 
 ## Contract and backend
 
@@ -61,15 +62,15 @@ evidence is green, but it does not close the physical-device gate.
 | ID | Acceptance criterion | Current status |
 | --- | --- | --- |
 | M1B1-24 | All M1A compiler, five-attack, four-element and target-lab tests remain green | **CONFIRMED (629 assertions)** |
-| M1B1-25 | 844×390, 852×393, 915×412, 844×343 toolbar stress, portrait gate, keyboard and Safari-toolbar flows remain usable | **CONFIRMED (final Chromium + version-matched WebKit); TO VALIDATE on physical iPhone M1B1** |
-| M1B1-26 | Godot parse, unit, worker, both D1 guards, Web build, Chromium and WebKit regression pass without new application errors | **CONFIRMED (Godot 629, worker 4/4, WASM 1/1, interpreter 76/76, request D1 9/9, Anthropic 17/17, budget D1 14/14, hostile safety 11/11, Web bundle, Chromium/WebKit app console 0)** |
-| M1B1-27 | PR and CI pass; a new uncached public deployment is verified by HTTP and resource hash | **CONFIRMED for Draft PR #4 / runtime `6d5ba3a`: CI success; Sites v19 HTTP 200; JS/PCK/WASM exact public hashes; PR remains Draft and unmerged** |
-| M1B1-28 | Product owner accepts the new public build on physical iPhone Safari | **TO VALIDATE** |
+| M1B1-25 | 844×390, 852×393, 915×412, 844×343 toolbar stress, portrait gate, keyboard and Safari-toolbar flows remain usable | **CONFIRMED (Chromium + WebKit + physical iPhone Safari)** |
+| M1B1-26 | Godot parse, unit, worker, both D1 guards, Web build, Chromium and WebKit regression pass without new application errors | **CONFIRMED (Godot 629, Worker/WASM/Interpreter/D1/Anthropic/security suites, canonical Sites bundle, Chromium/WebKit app console 0)** |
+| M1B1-27 | PR and CI pass; a new uncached public deployment is verified by HTTP and resource hash | **CONFIRMED for accepted runtime `6d5ba3a` / Sites v19; final PR #4 HEAD CI and post-merge stable deployment remain release-closure steps** |
+| M1B1-28 | Product owner accepts the new public build on physical iPhone Safari | **CONFIRMED on 2026-07-20 using the Sites v19 / runtime `6d5ba3a` public build** |
 | M1B1-29 | Description and numeric drawing state are atomically frozen with a visible request ID; the POST and confirmation snapshot match | **CONFIRMED (Chromium/WebKit + two live blocker cases)** |
-| M1B1-30 | Grenade is visibly thrown on an arc before a landing explosion; bow remains held and emits a separate velocity-facing arrow | **CONFIRMED (Godot + Chromium/WebKit); TO VALIDATE on physical iPhone** |
-| M1B1-31 | Every player-ink visual uses actual stroke bounds and uniform scale with at most 2% aspect error; procedural projectiles never copy the held ink | **CONFIRMED (Godot + Chromium/WebKit); TO VALIDATE on physical iPhone** |
-| M1B1-32 | Keyboard focus keeps a stable visible Canvas, exposes Description/clear/Done inside the Visual Viewport and safe area, and restores normal layout after blur, toolbar change and three rotation cycles | **CONFIRMED with synthetic Visual Viewport in Chromium/WebKit; TO VALIDATE with the real iOS keyboard** |
-| M1B1-33 | Visual roles are deterministic: bow 10/10 held-arrow attacks, grenade centred arc/blast/restore, sword zero projectiles, and same-instance boomerang return | **CONFIRMED in Chromium/WebKit with zero application console errors; TO VALIDATE on physical iPhone** |
+| M1B1-30 | Grenade is visibly thrown on an arc before a landing explosion; bow remains held and emits a separate velocity-facing arrow | **CONFIRMED (Godot + Chromium/WebKit + physical iPhone)** |
+| M1B1-31 | Every player-ink visual uses actual stroke bounds and uniform scale with at most 2% aspect error; procedural projectiles never copy the held ink | **CONFIRMED (Godot + Chromium/WebKit + physical iPhone visual acceptance)** |
+| M1B1-32 | Keyboard focus keeps a stable visible Canvas, exposes Description/clear/Done inside the Visual Viewport and safe area, and restores normal layout after blur, toolbar change and three rotation cycles | **CONFIRMED with Chromium/WebKit and the real iOS keyboard** |
+| M1B1-33 | Visual roles are deterministic: bow 10/10 held-arrow attacks, grenade centred arc/blast/restore, sword zero projectiles, and same-instance boomerang return | **CONFIRMED in Chromium/WebKit and on physical iPhone Safari** |
 
 ## Measurement rules
 
