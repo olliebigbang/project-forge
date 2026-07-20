@@ -742,3 +742,223 @@ provider moderation, server-secret deployment, account spend cap, real 40+ case
 accuracy/latency/cost, public Web asset identity, Chromium/WebKit deployment and
 physical iPhone Safari remain **TBD / TO VALIDATE**. The branch must not claim
 Real Text-to-Weapon AI completion or enter M1B2 until those gates are completed.
+
+## 21. Anthropic provider-selection safety design review
+
+Document state: **DESIGN REVIEW COMPLETE; IMPLEMENTATION AND REAL-PROVIDER
+EXECUTION NOT YET TESTED**
+
+Prepared: 2026-07-20
+
+Review base: `d41511c9c65c0c9760d79b62ee7bc9f7e78951b6`
+
+QA branch: `codex/qa/m1b1-anthropic-safety`
+
+### 21.1 Confirmed owner decision and review boundary
+
+- **CONFIRMED (product-owner decision)** Provider is Anthropic through the
+  direct Claude API, not an OpenAI-compatible proxy.
+- **CONFIRMED (product-owner decision)** The only permitted model ID is the
+  dated snapshot `claude-haiku-4-5-20251001`. The adapter must not use the
+  `claude-haiku-4-5` alias or route to Sonnet, Opus, a server-side fallback, a
+  client-side fallback, or another provider.
+- **CONFIRMED (product-owner decision)** Native Messages API and native JSON
+  Structured Outputs are mandatory. The approved M1B1 development/test spend
+  ceiling is USD 5.
+- **CONFIRMED (product-owner decision)** The Sites Worker and D1 remain the
+  server and durable-state boundary. `WEAPON_INTERPRETER_REQUIRE_DURABLE_GUARD`
+  is `true` for Anthropic.
+- **CONFIRMED (main-agent configuration report only)** The product owner reports
+  that the Sites runtime values and `ANTHROPIC_API_KEY` Secret were corrected.
+  This QA Worktree cannot and must not read, print, copy, validate, or retain the
+  secret value. A presence/redaction probe remains required on the deployed
+  Worker.
+- **CONFIRMED** This section is a static review and an executable test design.
+  It made zero Anthropic calls, spent USD 0, did not inspect the secret, and does
+  not claim real-model accuracy, latency, Schema behavior, cost, or moderation.
+
+The machine-readable provider-specific suite is
+`tests/m1b1_anthropic_safety_cases.json`. Its execution state is explicitly
+`DESIGN_ONLY_NOT_RUN` until the main integrator supplies an exact candidate.
+
+### 21.2 Official Anthropic behaviors used as test oracles
+
+The following official facts were checked on 2026-07-20:
+
+1. The direct API request is `POST https://api.anthropic.com/v1/messages` with
+   server-only `x-api-key`, required `anthropic-version` and JSON content type.
+   Anthropic's current authentication example uses API version `2023-06-01`.
+2. Native JSON outputs use
+   `output_config.format = {"type":"json_schema","schema":...}` and return
+   structured JSON in `response.content[0].text`. The older `output_format` is a
+   transition field, and OpenAI `response_format` is not the native contract.
+3. Native Structured Outputs do not eliminate response validation. Anthropic
+   documents that HTTP 200 responses with `stop_reason: "refusal"` or
+   `stop_reason: "max_tokens"` may violate the supplied Schema. Refusals are
+   still billed. Enum capitalization can also vary.
+4. The native grammar supports only a JSON Schema subset. The official SDK
+   transformation removes unsupported constraints including `minimum`,
+   `maximum`, `minLength`, and `maxLength`, then expects the application to
+   validate the original Schema after generation. Therefore Project Forge may
+   send a structurally strict Anthropic-compatible Schema, but it must retain
+   the complete repository Schema, allow-list, semantic compatibility, and
+   PowerBudget gates after parsing.
+5. Structured-output grammar compilation adds first-use latency, is cached by
+   Anthropic for 24 hours, and injects extra billable input-format instructions.
+   Cold and warm latency/cost must be reported separately.
+6. Anthropic's official SDKs retry connection, 429 and 5xx failures twice by
+   default. Project Forge's direct provider path must disable SDK retries or use
+   one native `fetch`; the project wrapper must also start no second Anthropic
+   call when delivery/billing is ambiguous.
+7. The pinned model is a dated Claude API snapshot. Current standard pricing is
+   USD 1 per million input tokens and USD 5 per million output tokens, with a
+   200,000-token context window. Pricing is a deployment assumption that must be
+   rechecked rather than inferred from the model name.
+8. Message usage reports input and output token counts. Total input usage may
+   also include cache-creation and cache-read categories. This implementation
+   must not enable prompt caching; unexpected non-zero cache or fallback
+   iteration usage is a fail-closed accounting anomaly.
+
+Official references:
+
+- [Authentication and direct API headers](https://platform.claude.com/docs/en/manage-claude/authentication)
+- [Messages API](https://platform.claude.com/docs/en/api/messages/create)
+- [Structured Outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
+- [Claude API errors and default SDK retries](https://platform.claude.com/docs/en/api/errors)
+- [Pinned model IDs and aliases](https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions)
+- [Claude model overview and pricing](https://platform.claude.com/docs/en/about-claude/models/overview)
+- [Token counting and its estimate caveat](https://platform.claude.com/docs/en/build-with-claude/token-counting)
+
+### 21.3 Static findings at `d41511c`
+
+These are expected integration gaps at the vendor-neutral checkpoint, but each
+is a release blocker for the newly authorized paid-provider path.
+
+| ID | Severity | Finding at review base | Required closure |
+| --- | --- | --- | --- |
+| M1B1-ANTH-001 | **P1 BLOCKER** | `resolveAdapter()` installs only the deterministic adapter | Add one direct Anthropic Messages adapter, exact provider/model allow-list, native Structured Outputs, a bounded response parser and no client/provider proxy path |
+| M1B1-ANTH-002 | **P1 BLOCKER** | D1 has only request leases and minute-rate windows; no USD budget or cost reservation exists | Add a durable integer USD budget total and per-request ledger with atomic reserve/settle; enforce 5 USD in Worker and D1 before every provider call |
+| M1B1-ANTH-003 | **P1 BLOCKER** | Generic adapter success trusts an object and does not know Anthropic `stop_reason`, content blocks, served model or usage envelope | Accept only exact-model, one-text-block, valid-usage `end_turn`; refusal/max_tokens/wrong model/unknown blocks become charged safe fallback without retry |
+| M1B1-ANTH-004 | **P1 BLOCKER** | Generic retry support allows a second call when an adapter marks transient failure retry-safe | Anthropic adapter marks no post-dispatch/network/HTTP failure retry-safe; disable official SDK defaults or use one native fetch |
+| M1B1-ANTH-005 | **P1 BLOCKER** | Repository Schema contains constraints Anthropic says native grammar does not support directly | Check in an Anthropic-compatible structural schema derived from the semantic trust boundary, test its parity, and continue validating the complete original WeaponSpec after parsing |
+| M1B1-ANTH-006 | **P1 BLOCKER** | No immutable provider/model/cost identity is connected to a D1 budget scope | Fail closed unless provider, exact snapshot, standard pricing table, max output, no-cache/no-tools feature set and budget scope all match the approved constants |
+| M1B1-ANTH-007 | **P2 EVIDENCE** | Secret presence was reported through the main configuration flow but not verified by this QA branch | Deployed presence-only probe and source/build/log marker scans; never expose or compare the secret value in test output |
+| M1B1-ANTH-008 | **P2 EVIDENCE** | Provider-side USD ceiling is not evidenced | Before paid public preview, verify an Anthropic workspace/account spend ceiling as the independent backstop; do not add an Admin key to this app |
+
+The current 8-per-session and 60-per-network D1 windows mitigate request spam
+but cannot substitute for `M1B1_PROVIDER_BUDGET_USD=5`: many sessions, deployment
+restarts, concurrent isolates, ambiguous timeouts, or changed traffic patterns
+can still exceed a dollar ceiling unless every paid call owns a durable monetary
+reservation.
+
+### 21.4 Required Worker plus D1 hard-budget invariant
+
+The minimum acceptable accounting design is:
+
+1. Represent all monetary values as integer micro-USD. The approved cap is
+   exactly `5_000_000`; no floating-point sum may authorize a call.
+2. Keep a Worker-owned maximum of USD 5 for this phase. Missing, malformed,
+   non-finite, negative, zero, or larger `M1B1_PROVIDER_BUDGET_USD` values fail
+   closed. An environment edit cannot silently raise the compiled safety maximum.
+3. Store a persistent D1 budget row keyed by a fixed release/provider/model
+   scope, plus a unique per-request cost row tied to the same caller namespace,
+   request ID, fingerprint and durable owner. Deployment, isolate, client time,
+   IP, session changes, or expired request leases must not reset the budget.
+4. Acquire the existing durable request lease first. Only its owner may make an
+   atomic D1 reservation. An inflight duplicate waits; a completed duplicate
+   replays; a conflicting fingerprint returns 409. None reserves twice.
+5. Before `fetch`, atomically allow the reservation only when
+   `spent_micro_usd + held_micro_usd + requested_micro_usd <= 5_000_000`.
+   Equality may pass; one micro-USD over must deny with zero provider calls.
+6. A conservative reservation must bound the entire permitted request, including
+   Structured Outputs' injected format instructions. A simple auditable ceiling
+   for this pinned standard/no-cache/no-tool path is at least
+   `200_000 * 1 + max_tokens * 5` micro-USD. With Worker-owned
+   `max_tokens <= 512`, that is 202,560 micro-USD per inflight request. A tighter
+   bound is acceptable only if it has a proved upper bound; the free token-count
+   endpoint alone is documented as an estimate and is not a hard-cap proof.
+7. On an exact-model successful response with complete finite integer usage and
+   expected zero cache categories, actual cost is
+   `input_tokens * 1 + output_tokens * 5` micro-USD. One atomic settlement moves
+   the reservation to spent and releases only verified excess.
+8. Refusal and max-token responses are billed and settle from usage even though
+   their content is rejected. Missing/malformed usage, unexpected cache/fallback
+   usage, timeout, disconnect after dispatch, Worker crash, or failed settlement
+   keeps the conservative reservation held/charged. It must not disappear by TTL.
+9. If actual calculated cost ever exceeds its reservation, enter a durable
+   fail-closed alarm state, retain the reservation, reject the response as normal
+   success, and allow no further provider calls until explicit reconciliation.
+10. D1 reserve failure makes zero provider calls. D1 settlement failure cannot
+    downgrade to memory or release money. Budget status and error codes may be
+    audited, but raw text, the key, headers and provider bodies may not be stored.
+
+This design deliberately prefers early budget exhaustion over an unbounded
+charge. Crash-held reservations can be reconciled manually with redacted provider
+usage evidence after the test, but no automated expiry may assume an upstream
+request was free.
+
+### 21.5 Required native response decision tree
+
+The adapter must not equate HTTP 200, parseable JSON, or native grammar with a
+safe WeaponSpec. The acceptance order is:
+
+1. Validate exact configuration, D1 guard and monetary reservation.
+2. Send one non-streaming direct Messages request with the pinned model,
+   `anthropic-version: 2023-06-01`, no tools/fallbacks/cache/thinking/beta routing,
+   bounded `max_tokens`, and `output_config.format.type: json_schema`.
+3. Bound the HTTP response bytes before parsing. Never include the response body
+   or Anthropic error message in client errors or logs.
+4. Validate HTTP status and top-level envelope, exact served model, a single
+   expected text block, `stop_reason: end_turn`, and complete usage. Reject tool,
+   thinking, fallback, extra-text, empty, malformed or unknown blocks.
+5. Handle `refusal` and `max_tokens` first: reject content, account verified
+   usage, return a validated local fallback, and do not retry.
+6. Parse `content[0].text` exactly once. Normalize enum casing only when the
+   case-folded value exactly matches one server allow-list value. Never search
+   prose for an embedded JSON fragment or accept alternate objects.
+7. Convert the strict semantic result into server-owned numeric gameplay data;
+   then run full repository Schema, allow-list, compatibility repair and
+   PowerBudget. Godot repeats runtime repair before combat.
+8. Atomically settle cost and durable result under the same request identity.
+   If settlement cannot be proven, preserve the conservative charge and fail
+   closed for subsequent spend.
+
+### 21.6 Test execution order and stop conditions
+
+After the main integrator supplies an exact implementation commit, QA must run:
+
+1. **Offline structural probes:** captured native request, hostile Anthropic
+   envelopes, refusal/max-token/model mismatch, Schema subset/parity, key/error
+   redaction, abort/no-retry, and all existing 60 generic cases. These spend USD 0.
+2. **D1 accounting probes:** migration parity, integer cost math, exact-boundary,
+   cross-binding concurrent reservations, duplicate replay, conflict, crash,
+   ambiguous timeout, reserve/settle outage, overspend alarm, and deployment
+   persistence. These use local D1 parity and spend USD 0.
+3. **Deployed preflight:** confirm only variable/secret presence and redaction,
+   exact D1 migration, budget remaining, public asset identity, and no provider
+   request from a health check. Do not retrieve the secret value.
+4. **One paid canary:** only after steps 1-3 pass, issue one benign request and
+   record exact provider request ID, served model, stop reason, usage, calculated
+   cost, D1 before/after totals, latency and final validation without raw text.
+5. **Labelled real matrix:** proceed case-by-case only while D1 reports enough
+   conservative remaining budget. Stop immediately on wrong model, any second
+   Anthropic attempt, reservation/usage mismatch, secret/body leakage, D1 error,
+   Schema/runtime/Power failure, or projected cap exceed.
+
+Real-provider tests must report cold-schema and warm-schema latency separately.
+A fallback is a reliability success only when it is final-schema, allow-list and
+Power-valid; it is never counted as semantic accuracy success.
+
+### 21.7 Current QA disposition
+
+**PASS — design review only.** The selected model and native API can fit the
+existing untrusted-data boundary if the controls above are implemented.
+
+**BLOCKED — implementation and real-provider acceptance.** At `d41511c`, no
+Anthropic adapter or USD D1 ledger exists, and none of the new provider-specific
+cases has run. The configured secret must not be used for even one paid canary
+until M1B1-ANTH-001 through M1B1-ANTH-006 close on the integrated candidate.
+
+This review does not authorize M1B2, public paid traffic, a model upgrade, a
+provider fallback, or a relaxation of the existing client/server/Schema/Power
+boundaries.
