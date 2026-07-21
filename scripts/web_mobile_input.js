@@ -398,6 +398,11 @@
             "developer_mode",
             JSON.stringify({ enabled: Boolean(enabled) }),
           ),
+        setPlayerTargetGap: (gap) =>
+          window.__forgeGodotQaCallback?.(
+            "player_target_gap",
+            JSON.stringify({ gap: Number(gap) }),
+          ),
         mobileInput: () => window.__forgeMobileInput.qaSnapshot(),
         setVisualViewport: (value) => window.__forgeMobileInput.qaSetViewportOverride(value),
         clearVisualViewport: () => window.__forgeMobileInput.qaClearViewportOverride(),

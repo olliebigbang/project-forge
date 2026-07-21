@@ -190,6 +190,15 @@ Voice is an input method, not a separate weapon system.
   reuses player ink only when the validated form is itself thrown (grenade or
   boomerang). Bow, bullet, energy and piercing projectiles are deterministic
   program graphics, separate from the held weapon and impact effect.
+- **CONFIRMED (M1B1.1 blocker fix)** A held melee drawing's frozen absolute
+  horizontal span determines one bounded effective reach. The same reach drives
+  held rendering from grip to visible tip, melee hit distance, HUD Range, and an
+  inverse attack-speed tradeoff used by swing, hit timing, recovery, and
+  cooldown. Drawing length does not increase damage.
+- **TO VALIDATE** The prototype reach curve, tier thresholds, 72-228 px bounds,
+  and range-to-speed exchange require physical-device combat-feel tuning. Grip
+  and attack direction remain the current deterministic left-to-right prototype;
+  semantic grip/orientation inference is still deferred.
 
 ## 7. Enemies and levels
 

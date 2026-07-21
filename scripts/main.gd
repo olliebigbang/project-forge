@@ -55,6 +55,7 @@ var reforge_button: Button
 var attack_button: Button
 var current_spec: WeaponSpec
 var current_strokes: Array[PackedVector2Array] = []
+var current_geometry_profile: DrawingGeometryProfile
 var loaded_idea_pattern := ""
 var pending_result: Dictionary = {}
 var pending_spec: WeaponSpec
@@ -64,6 +65,7 @@ var modify_mode := false
 var review_mode := false
 var interpretation_error_mode := false
 var request_strokes: Array[PackedVector2Array] = []
+var request_geometry_profile: DrawingGeometryProfile
 var web_mobile_bridge := WebMobileBridge.new()
 var _description_draft := ""
 var _last_web_description_revision := -1
@@ -681,6 +683,7 @@ func _reset_forge() -> void:
 	pending_result = {}
 	pending_spec = null
 	request_strokes.clear()
+	request_geometry_profile = null
 	last_request_snapshot = {}
 	interpretation_error_mode = false
 	feedback_button.disabled = false
@@ -748,6 +751,7 @@ func _generate_weapon() -> void:
 		_apply_manual_correction()
 		return
 	request_strokes = drawing_canvas.get_strokes_snapshot()
+	request_geometry_profile = DrawingGeometryProfile.from_snapshot(request_strokes, drawing_canvas.size)
 	_request_drawing_summary = drawing_canvas.drawing_summary().duplicate(true)
 	var request_id := interpreter.start_interpretation(
 		str(description_snapshot.get("value", "")),
@@ -768,6 +772,7 @@ func _on_interpretation_started(request_id: String) -> void:
 		"description_revision": _last_web_description_revision,
 		"drawing_summary": outgoing_drawing.duplicate(true),
 		"stroke_count": request_strokes.size(),
+		"geometry_profile": request_geometry_profile.to_dict() if request_geometry_profile != null else {},
 	}
 	interpretation_error_mode = false
 	review_mode = false
@@ -805,6 +810,7 @@ func _on_interpretation_completed(result: Dictionary) -> void:
 	pending_spec.budget_breakdown = PowerBudget.calculate(pending_spec.to_dict())
 	if developer_mode:
 		_apply_developer_pattern_override()
+	_apply_geometry_to_pending_spec()
 	_show_interpretation_review()
 
 
@@ -922,7 +928,7 @@ func _request_snapshot_line(prefix: String) -> String:
 func _update_review_copy() -> void:
 	if pending_spec == null:
 		return
-	review_weapon_visual.configure(request_strokes, pending_spec)
+	review_weapon_visual.configure(request_strokes, pending_spec, request_geometry_profile)
 	_layout_review_weapon_visual()
 	review_summary.add_theme_color_override("font_color", Color("#b9eaff"))
 	var fallback_reason := str(pending_result.get("fallback_reason", ""))
@@ -991,9 +997,10 @@ func _update_review_copy() -> void:
 func _layout_review_weapon_visual() -> void:
 	if review_visual_host == null or review_weapon_visual == null:
 		return
+	var fitted := review_weapon_visual.fitted_bounds()
 	review_weapon_visual.position = Vector2(
-		maxf((review_visual_host.size.x - WeaponVisual.DEFAULT_TARGET_RECT.size.x) * 0.5, 0.0),
-		review_visual_host.size.y * 0.5,
+		maxf((review_visual_host.size.x - fitted.size.x) * 0.5 - fitted.position.x, 0.0),
+		review_visual_host.size.y * 0.5 - fitted.get_center().y,
 	)
 
 
@@ -1068,8 +1075,8 @@ func _apply_manual_correction() -> void:
 	pending_result.weapon_spec = corrected.to_dict()
 	pending_result.interpretation_summary = "Player-corrected interpretation; schema and PowerBudget were re-applied."
 	pending_result.confidence = 1.0
+	corrected.corrections.append("manual correction: attack_pattern set to %s" % corrected.attack_pattern)
 	pending_result.corrections = corrected.corrections.duplicate()
-	pending_result.corrections.append("manual correction: attack_pattern set to %s" % corrected.attack_pattern)
 	pending_result.fallback_reason = ""
 	pending_result.success = true
 	pending_result.provider_invoked = true
@@ -1080,6 +1087,7 @@ func _apply_manual_correction() -> void:
 	pending_result.allow_list_valid = corrected.is_valid()
 	pending_result.power_valid = corrected.power_score <= PowerBudget.MAX_POWER
 	pending_result.runtime_valid = corrected.is_valid() and corrected.power_score <= PowerBudget.MAX_POWER
+	_apply_geometry_to_pending_spec()
 	if modify_mode:
 		_update_review_copy()
 		_apply_forge_layout()
@@ -1097,9 +1105,19 @@ func _apply_developer_pattern_override() -> void:
 	)
 	pending_spec = corrected
 	pending_result.weapon_spec = corrected.to_dict()
-	var corrections: Array = pending_result.get("corrections", [])
-	corrections.append("developer mode: attack_pattern forced to %s" % corrected.attack_pattern)
-	pending_result.corrections = corrections
+	corrected.corrections.append("developer mode: attack_pattern forced to %s" % corrected.attack_pattern)
+	pending_result.corrections = corrected.corrections.duplicate()
+
+
+func _apply_geometry_to_pending_spec() -> void:
+	if pending_spec == null or request_geometry_profile == null:
+		return
+	request_geometry_profile.apply_to_spec(pending_spec)
+	pending_result.weapon_spec = pending_spec.to_dict()
+	pending_result.corrections = pending_spec.corrections.duplicate()
+	pending_result.power_budget = pending_spec.budget_breakdown.duplicate(true)
+	pending_result.power_valid = pending_spec.power_score <= PowerBudget.MAX_POWER
+	pending_result.runtime_valid = pending_spec.is_valid() and pending_spec.power_score <= PowerBudget.MAX_POWER
 
 
 func _try_again() -> void:
@@ -1124,6 +1142,7 @@ func _confirm_interpretation() -> void:
 		return
 	current_spec = pending_spec
 	current_strokes = request_strokes.duplicate(true)
+	current_geometry_profile = request_geometry_profile
 	_commit_weapon()
 
 
@@ -1132,7 +1151,7 @@ func _commit_weapon() -> void:
 		current_spec = null
 		_show_interpretation_error()
 		return
-	player.equip(current_spec, current_strokes)
+	player.equip(current_spec, current_strokes, current_geometry_profile)
 	player.set_combat_enabled(true)
 	description_input.release_focus()
 	if web_mobile_bridge.is_available():
@@ -1208,6 +1227,7 @@ func _open_reforge() -> void:
 	pending_result = {}
 	pending_spec = null
 	request_strokes.clear()
+	request_geometry_profile = null
 	last_request_snapshot = {}
 	interpretation_error_mode = false
 	feedback_button.disabled = false
@@ -1258,6 +1278,13 @@ func _clear_transient_combat() -> void:
 func _on_player_attack(spec: WeaponSpec, origin: Vector2, direction: Vector2, strokes: Array[PackedVector2Array]) -> void:
 	_qa_attack_count += 1
 	_qa_last_attack_pattern = spec.attack_pattern
+	_record_attack_event("hit_window_open", {
+		"pattern": spec.attack_pattern,
+		"effective_reach": spec.attack_range,
+		"attack_speed": spec.attack_speed,
+		"cycle_seconds": player.attack_cycle_seconds(),
+		"hit_delay_seconds": player.attack_hit_delay_seconds(),
+	})
 	_update_qa_bridge()
 	if spec.delivery == "thrown" and spec.trajectory == "arc":
 		_launch_projectile(spec, origin, direction, strokes)
@@ -1272,6 +1299,8 @@ func _launch_melee(spec: WeaponSpec, origin: Vector2, direction: Vector2) -> voi
 	var slash := ForgeSlashEffect.new()
 	slash.color = WeaponVisual._color_for_element(spec.element)
 	slash.direction = direction
+	slash.reach = spec.attack_range
+	slash.lifetime = clampf(player.attack_cycle_seconds() * 0.22, 0.18, 0.34)
 	slash.global_position = origin
 	world.add_child(slash)
 	slash.add_to_group("forge_transient_attack")
@@ -1279,16 +1308,14 @@ func _launch_melee(spec: WeaponSpec, origin: Vector2, direction: Vector2) -> voi
 	for target in targets:
 		if not target.visible:
 			continue
-		var offset := target.global_position - player.global_position
-		var forward := offset.dot(direction.normalized())
-		# The visible slash and the hand-drawn weapon extend beyond the body origin.
-		# Keep the target in the facing half-plane while allowing that full visual reach.
-		if forward >= -12.0 and forward <= spec.attack_range + 96.0 and absf(offset.y) < 120.0:
+		# A bounded segment/capsule starts at the visible grip and ends at the
+		# visible tip. There is no hidden forward-reach compensation.
+		if DrawingGeometryProfile.melee_reaches_point(origin, target.global_position, direction, spec.attack_range):
 			candidates.append(target)
 	if candidates.is_empty():
 		combat_status.text = "Melee slash missed — close the distance."
 		return
-	candidates.sort_custom(func(a: TrainingDummy, b: TrainingDummy): return a.global_position.distance_to(player.global_position) < b.global_position.distance_to(player.global_position))
+	candidates.sort_custom(func(a: TrainingDummy, b: TrainingDummy): return a.global_position.distance_to(origin) < b.global_position.distance_to(origin))
 	var actual := candidates[0].take_damage(spec.damage, spec.status_effect, spec.attack_pattern, direction)
 	combat_status.text = "Melee arc hit %s for %d." % [candidates[0].target_label, actual]
 
@@ -1461,6 +1488,15 @@ func _on_qa_command(command: String, payload: Dictionary) -> void:
 			if developer_mode:
 				call_deferred("_mark_developer_ui_ready")
 				return
+		"player_target_gap":
+			if is_instance_valid(player):
+				var requested_gap := clampf(float(payload.get("gap", 170.0)), 40.0, 600.0)
+				for target: TrainingDummy in targets:
+					if target.visible:
+						player.global_position.x = target.global_position.x - requested_gap - ForgePlayer.WEAPON_REST_POSITION.x
+						player.facing = 1.0
+						player.restore_held_weapon_now()
+						break
 	_update_qa_bridge()
 
 
@@ -1507,6 +1543,14 @@ func _update_qa_bridge() -> void:
 			projectile_states.append((transient as ForgeProjectile).qa_visual_state())
 		elif transient is ForgeAreaBlast:
 			active_area_blasts += 1
+	var target_states: Array[Dictionary] = []
+	for target: TrainingDummy in targets:
+		target_states.append({
+			"label": target.target_label,
+			"health": target.health,
+			"position": _vector_dictionary(target.global_position),
+			"visible": target.visible,
+		})
 	var state := {
 		"screen": screen,
 		"phase": phase,
@@ -1548,6 +1592,8 @@ func _update_qa_bridge() -> void:
 		"peak_active_projectiles": _qa_peak_active_projectiles,
 		"visual_bundle": _qa_last_visual_bundle,
 		"held_visual": player.held_visual_state() if is_instance_valid(player) else {},
+		"player_position": _vector_dictionary(player.global_position) if is_instance_valid(player) else {},
+		"targets": target_states,
 		"projectiles": projectile_states,
 		"last_finished_projectile": _qa_last_finished_projectile,
 		"attack_events": _qa_attack_events.duplicate(true),
@@ -1555,6 +1601,7 @@ func _update_qa_bridge() -> void:
 		"area_impact_position": _vector_dictionary(_qa_area_impact_position) if _qa_has_area_impact else {},
 		"area_impact_distance": _qa_projectile_origin.distance_to(_qa_area_impact_position) if _qa_has_projectile_origin and _qa_has_area_impact else 0.0,
 		"stroke_geometry": _stroke_fit_evidence(),
+		"geometry_profile": request_geometry_profile.to_dict() if request_geometry_profile != null else (current_geometry_profile.to_dict() if current_geometry_profile != null else {}),
 		"visual_transforms": _visual_transform_evidence(),
 		"mobile_input": web_mobile_bridge.metrics(),
 	}
@@ -1589,11 +1636,16 @@ func _stroke_fit_evidence() -> Dictionary:
 		source = current_strokes
 	if source.is_empty():
 		return {}
-	var transform := StrokeFit.fit_transform(source, WeaponVisual.DEFAULT_TARGET_RECT)
+	var target_rect := WeaponVisual.DEFAULT_TARGET_RECT
+	var active_profile := request_geometry_profile if request_geometry_profile != null else current_geometry_profile
+	var active_spec := pending_spec if pending_spec != null else current_spec
+	if active_profile != null and active_profile.applies_to(active_spec):
+		target_rect = active_profile.held_target_rect()
+	var transform := StrokeFit.fit_transform(source, target_rect)
 	if not bool(transform.get("valid", false)):
 		return {}
 	var source_aspect := StrokeFit.aspect_ratio(source)
-	var fitted := StrokeFit.map_strokes(source, WeaponVisual.DEFAULT_TARGET_RECT)
+	var fitted := StrokeFit.map_strokes(source, target_rect)
 	var rendered_aspect := StrokeFit.aspect_ratio(fitted)
 	return {
 		"source_bounds": _vector_rect_dictionary(transform.source_bounds),
@@ -1604,6 +1656,7 @@ func _stroke_fit_evidence() -> Dictionary:
 		"scale_x": float(transform.scale),
 		"scale_y": float(transform.scale),
 		"padding_fraction": float(transform.padding_fraction),
+		"visible_reach": StrokeFit.actual_bounds(fitted).end.x,
 	}
 
 
@@ -1779,19 +1832,20 @@ func _update_combat_hud() -> void:
 		return
 	if developer_mode:
 		stats_label.text = (
-			"%s\nDAMAGE %d   POWER %d/100   SPEED %.2f\nATTACK  %s\nELEMENT  %s   SPECIAL  %s\nWEAKNESS  %s"
+			"%s\nDAMAGE %d   POWER %d/100   SPEED %.2f   RANGE %.0f\nATTACK  %s\nELEMENT  %s   SPECIAL  %s\nWEAKNESS  %s"
 			% [current_spec.display_name, current_spec.damage, current_spec.power_score, current_spec.attack_speed,
-			current_spec.attack_label(), current_spec.effect_label(), current_spec.special_ability.replace("_", " ").to_upper(), current_spec.weakness_label()]
+			current_spec.attack_range, current_spec.attack_label(), current_spec.effect_label(), current_spec.special_ability.replace("_", " ").to_upper(), current_spec.weakness_label()]
 		)
 		return
 	stats_label.text = (
-		"%s\n%s  /  %s\nDAMAGE %d    SPEED %.2f    POWER %d\nWEAKNESS  %s"
+		"%s\n%s  /  %s\nDAMAGE %d    SPEED %.2f    RANGE %.0f    POWER %d\nWEAKNESS  %s"
 		% [
 			current_spec.display_name,
 			current_spec.attack_label().to_upper(),
 			current_spec.element.to_upper(),
 			current_spec.damage,
 			current_spec.attack_speed,
+			current_spec.attack_range,
 			current_spec.power_score,
 			current_spec.weakness_label().to_upper(),
 		]

@@ -15,6 +15,12 @@
   one uniform scale. Source strokes are deep-copied and never destructively fit.
   `WeaponVisualBundle` separately selects held, projectile and impact roles; only
   a validated thrown object may reuse player ink as its flying visual.
+- **CONFIRMED** `DrawingGeometryProfile` freezes raw stroke bounds and canvas
+  size with the FORGE request snapshot. For held melee only, its bounded
+  `effective_reach` is the single source for visible grip-to-tip length, melee
+  capsule length, HUD Range, and the inverse speed used by swing, hit timing,
+  recovery, and cooldown. It is internal client geometry, not provider-authored
+  semantics, so the public Structured Output and WeaponSpec Schema do not expand.
 
 ## M1A runtime flow
 
@@ -143,6 +149,14 @@ The runtime executes recovery-related drawbacks as longer attack cooldowns.
 `low_impact`, `narrow_arc`, and projectile tradeoffs are expressed in profile
 statistics and module geometry.
 
+For held melee, the frozen geometry profile exchanges incoming range and attack
+speed at the existing component prices (`range / 45`, `attack_speed * 10`) before
+recalculating the component breakdown and score. This preserves damage and does
+not grant free reach: long ink pays with a slower cycle, while short ink converts
+its saved range cost into a faster bounded cycle. The correction reason is
+retained in the generation audit. The prototype thresholds and curve are
+**TO VALIDATE**.
+
 ## Attack and element behavior
 
 | Module | Visible and combat distinction |
@@ -175,6 +189,7 @@ program shapes and their geometry-centred pivot.
 
 ```text
 scripts/weapon_compiler.gd  deterministic input interpreter and audit
+scripts/drawing_geometry_profile.gd frozen bounds, reach tier, fit and timing tradeoff
 scripts/weapon_interpreter.gd same-origin async client, cancellation, fallback
 scripts/weapon_spec.gd      contract repair, runtime validation, display
 scripts/power_budget.gd     explicit calculator and deterministic balancing

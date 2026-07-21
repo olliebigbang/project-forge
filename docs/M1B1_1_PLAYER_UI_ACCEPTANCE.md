@@ -96,6 +96,13 @@ Temporary screenshots, logs, exports, and build bundles stay outside Git.
   orientation cycles pass in Chromium and WebKit.
 - Bow remains held while its arrow flies; grenade arcs/explodes/restores; sword
   emits no projectile; boomerang leaves and returns.
+- Dagger/short sword, standard sword, and full-canvas long sword retain strictly
+  increasing held length and melee distance. Their complete cycles are strictly
+  short < standard < long; visible tip, melee capsule, HUD Range, swing hit time,
+  recovery, and cooldown come from the same frozen reach/speed profile.
+- Drawing geometry and reach do not drift across 844×390, 852×393, 915×412 or
+  orientation cycles. Every fitted copy keeps one uniform X/Y scale, at most 2%
+  aspect error, 8%-12% padding, and unchanged raw strokes.
 - Browser console has no new application error.
 
 Run:

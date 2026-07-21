@@ -10,11 +10,13 @@ var touch_axis := 0.0
 var facing := 1.0
 var current_spec: WeaponSpec
 var current_strokes: Array[PackedVector2Array] = []
+var current_geometry_profile: DrawingGeometryProfile
 var attack_cooldown := 0.0
 var combat_enabled := true
 var movement_bounds := Vector2(80.0, 1200.0)
 var weapon_visual: WeaponVisual
 var _attack_tween: Tween
+var _attack_generation := 0
 var _detached_visual_count := 0
 var _detached_generation := 0
 var _diagnostic_label_visible := true
@@ -51,13 +53,19 @@ func _physics_process(delta: float) -> void:
 		attack()
 
 
-func equip(spec: WeaponSpec, strokes: Array[PackedVector2Array]) -> void:
+func equip(
+	spec: WeaponSpec,
+	strokes: Array[PackedVector2Array],
+	geometry_profile: DrawingGeometryProfile = null,
+) -> void:
+	_attack_generation += 1
 	current_spec = spec
+	current_geometry_profile = geometry_profile
 	attack_cooldown = 0.0
 	current_strokes.clear()
 	for stroke in strokes:
 		current_strokes.append(stroke.duplicate())
-	weapon_visual.configure(current_strokes, spec)
+	weapon_visual.configure(current_strokes, spec, current_geometry_profile)
 	restore_held_weapon_now()
 
 
@@ -79,32 +87,53 @@ func set_diagnostic_label_visible(value: bool) -> void:
 func attack() -> void:
 	if not combat_enabled or current_spec == null or attack_cooldown > 0.0:
 		return
+	var direction := Vector2(facing, 0.0)
+	var cycle_seconds := attack_cycle_seconds()
+	attack_cooldown = cycle_seconds
+	_attack_generation += 1
+	var generation := _attack_generation
+	if current_spec.delivery == "held" and current_spec.attack_pattern == "melee_slash":
+		_play_melee_attack_motion(cycle_seconds, generation, direction)
+		return
+	_restore_weapon_pose()
+	_emit_attack(generation, direction)
+
+
+func attack_cycle_seconds() -> float:
+	if current_spec == null:
+		return 0.0
 	var drawback_multiplier: float = {
 		"slow_recovery": 1.25, "self_stagger": 1.30, "cooldown_lock": 1.45
 	}.get(current_spec.drawback, 1.0)
-	attack_cooldown = (1.0 / maxf(current_spec.attack_speed, 0.2)) * float(drawback_multiplier)
-	_play_attack_motion()
-	var direction := Vector2(facing, 0.0)
+	return (1.0 / maxf(current_spec.attack_speed, 0.2)) * drawback_multiplier
+
+
+func attack_hit_delay_seconds() -> float:
+	return attack_cycle_seconds() * 0.38
+
+
+func _emit_attack(generation: int, direction: Vector2) -> void:
+	if generation != _attack_generation or current_spec == null or not combat_enabled:
+		return
 	var bundle := WeaponVisualBundle.from_spec(current_spec)
 	var projectile_kind := str(bundle.get("projectile_kind", "none"))
 	var origin := weapon_visual.projectile_spawn_global(projectile_kind)
 	if projectile_kind == "none":
-		origin = global_position + Vector2(28.0 * facing, -14.0)
+		origin = weapon_visual.to_global(Vector2.ZERO)
 	attack_requested.emit(current_spec, origin, direction, current_strokes)
 
 
-func _play_attack_motion() -> void:
+func _play_melee_attack_motion(cycle_seconds: float, generation: int, direction: Vector2) -> void:
 	if _attack_tween and _attack_tween.is_valid():
 		_attack_tween.kill()
 	_restore_weapon_pose()
-	# Ranged and detached weapons keep an exact rest pose. Their visible attack
-	# motion belongs to the projectile, not to a generic sword swing.
-	if current_spec != null and (current_spec.delivery != "held" or current_spec.weapon_form == "bow"):
-		return
 	weapon_visual.rotation = -0.32 * facing
 	_attack_tween = create_tween()
-	_attack_tween.tween_property(weapon_visual, "rotation", 0.42 * facing, 0.10)
-	_attack_tween.tween_property(weapon_visual, "rotation", 0.0, 0.13)
+	_attack_tween.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
+	var hit_delay := cycle_seconds * 0.38
+	_attack_tween.tween_property(weapon_visual, "rotation", 0.42 * facing, hit_delay)
+	_attack_tween.tween_callback(func() -> void: _emit_attack(generation, direction))
+	_attack_tween.tween_property(weapon_visual, "rotation", 0.0, cycle_seconds - hit_delay)
 	_attack_tween.tween_callback(_restore_weapon_pose)
 
 
@@ -127,6 +156,7 @@ func complete_detached_weapon_attack() -> void:
 
 
 func restore_held_weapon_now() -> void:
+	_attack_generation += 1
 	_detached_generation += 1
 	_detached_visual_count = 0
 	if is_instance_valid(weapon_visual):
@@ -137,6 +167,7 @@ func restore_held_weapon_now() -> void:
 func held_visual_state() -> Dictionary:
 	if not is_instance_valid(weapon_visual):
 		return {}
+	var bounds := weapon_visual.fitted_bounds()
 	return {
 		"visible": weapon_visual.visible,
 		"local_position": {"x": weapon_visual.position.x, "y": weapon_visual.position.y},
@@ -146,6 +177,17 @@ func held_visual_state() -> Dictionary:
 		"rotation": weapon_visual.rotation,
 		"detached_count": _detached_visual_count,
 		"cooldown": attack_cooldown,
+		"visible_reach": bounds.position.x + bounds.size.x,
+		"fitted_bounds": {
+			"x": bounds.position.x,
+			"y": bounds.position.y,
+			"width": bounds.size.x,
+			"height": bounds.size.y,
+		},
+		"attack_speed": current_spec.attack_speed if current_spec != null else 0.0,
+		"attack_cycle_seconds": attack_cycle_seconds(),
+		"hit_delay_seconds": attack_hit_delay_seconds(),
+		"geometry_profile": current_geometry_profile.to_dict() if current_geometry_profile != null else {},
 	}
 
 
