@@ -1,9 +1,9 @@
 class_name ProjectForgeMain
 extends Control
 
-const NAVY := Color("#091424")
-const PANEL := Color("#12233b")
-const PANEL_LIGHT := Color("#1a3150")
+const NAVY := Color("#07111f")
+const PANEL := Color("#0d1b2d")
+const PANEL_LIGHT := Color("#142943")
 const TEXT := Color("#edf4ff")
 const MUTED := Color("#9bb0cf")
 const CYAN := Color("#65d9ff")
@@ -44,10 +44,13 @@ var try_again_button: Button
 var feedback_button: Button
 var orientation_prompt: RotationPrompt
 var forge_status: Label
+var weapon_readout: PanelContainer
+var budget_readout: PanelContainer
 var stats_label: Label
 var budget_label: Label
 var combat_status: Label
 var target_health_label: Label
+var movement_controls: HBoxContainer
 var reforge_button: Button
 var attack_button: Button
 var current_spec: WeaponSpec
@@ -104,6 +107,7 @@ func _ready() -> void:
 	_build_world()
 	_build_hud()
 	_build_forge_overlay()
+	_apply_presentation_mode()
 	_build_orientation_prompt()
 	web_mobile_bridge.description_event.connect(_on_web_description_event)
 	web_mobile_bridge.viewport_changed.connect(_on_web_viewport_changed)
@@ -128,12 +132,21 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), NAVY, true)
-	var horizon := size.y * 0.69
-	draw_rect(Rect2(0, horizon, size.x, size.y - horizon), Color("#14243b"), true)
-	draw_line(Vector2(0, horizon), Vector2(size.x, horizon), Color("#355174"), 3.0)
-	for x in range(0, int(size.x) + 1, 96):
-		draw_line(Vector2(x, horizon), Vector2(x - 55, size.y), Color("#1e3552"), 2.0)
-	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.5 - 190, horizon - 20), "M1B1 VALIDATED COMBAT LAB", HORIZONTAL_ALIGNMENT_CENTER, 380, 17, Color("#44698f"))
+	var horizon := size.y * 0.70
+	draw_rect(Rect2(0, horizon, size.x, size.y - horizon), Color("#102033"), true)
+	draw_line(Vector2(0, horizon), Vector2(size.x, horizon), Color("#2b4662"), 2.0)
+	if developer_mode:
+		for x in range(0, int(size.x) + 1, 112):
+			draw_line(Vector2(x, horizon), Vector2(x - 48, size.y), Color("#1a314c"), 1.0)
+		draw_string(
+			ThemeDB.fallback_font,
+			Vector2(size.x * 0.5 - 210, size.y - 22),
+			"DEVELOPER / TARGET MATRIX",
+			HORIZONTAL_ALIGNMENT_CENTER,
+			420,
+			14,
+			Color("#557796"),
+		)
 
 
 func _build_world() -> void:
@@ -165,36 +178,36 @@ func _add_target(kind: String, label_text: String, maximum: int) -> void:
 
 
 func _build_hud() -> void:
-	var top_panel := PanelContainer.new()
-	top_panel.name = "WeaponReadout"
-	top_panel.position = Vector2(18, 16)
-	top_panel.size = Vector2(500, 184)
-	top_panel.add_theme_stylebox_override("panel", _panel_style(PANEL, CYAN, 2))
-	top_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(top_panel)
+	weapon_readout = PanelContainer.new()
+	weapon_readout.name = "WeaponReadout"
+	weapon_readout.position = Vector2(22, 18)
+	weapon_readout.size = Vector2(400, 126)
+	weapon_readout.add_theme_stylebox_override("panel", _panel_style(PANEL, Color("#35516f"), 1))
+	weapon_readout.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(weapon_readout)
 	var top_margin := MarginContainer.new()
 	top_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]: top_margin.add_theme_constant_override(side, 12)
-	top_panel.add_child(top_margin)
+	_set_margin(top_margin, 14, 14, 11, 10)
+	weapon_readout.add_child(top_margin)
 	stats_label = Label.new()
-	stats_label.text = "NO WEAPON FORGED\nDraw and describe an idea for the M1B1 interpreter."
+	stats_label.text = "NO WEAPON YET\nForge an idea to enter combat."
 	stats_label.add_theme_color_override("font_color", TEXT)
-	stats_label.add_theme_font_size_override("font_size", 15)
-	stats_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	stats_label.add_theme_font_size_override("font_size", 14)
+	stats_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	stats_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top_margin.add_child(stats_label)
 
-	var budget_panel := PanelContainer.new()
-	budget_panel.name = "BudgetReadout"
-	budget_panel.position = Vector2(534, 16)
-	budget_panel.size = Vector2(450, 184)
-	budget_panel.add_theme_stylebox_override("panel", _panel_style(PANEL, Color("#b392ff"), 2))
-	budget_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(budget_panel)
+	budget_readout = PanelContainer.new()
+	budget_readout.name = "BudgetReadout"
+	budget_readout.position = Vector2(534, 18)
+	budget_readout.size = Vector2(450, 136)
+	budget_readout.add_theme_stylebox_override("panel", _panel_style(PANEL, Color("#725aa8"), 1))
+	budget_readout.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(budget_readout)
 	var budget_margin := MarginContainer.new()
 	budget_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]: budget_margin.add_theme_constant_override(side, 12)
-	budget_panel.add_child(budget_margin)
+	budget_readout.add_child(budget_margin)
 	budget_label = Label.new()
 	budget_label.text = "POWER BUDGET  —  WAITING\nExplicit component costs and repair reasons appear here."
 	budget_label.add_theme_color_override("font_color", TEXT)
@@ -205,8 +218,8 @@ func _build_hud() -> void:
 
 	reforge_button = _button("REFORGE", ORANGE, 17)
 	reforge_button.name = "ReforgeButton"
-	reforge_button.position = Vector2(size.x - 174, 20)
-	reforge_button.size = Vector2(156, 74)
+	reforge_button.position = Vector2(size.x - 174, 18)
+	reforge_button.size = Vector2(152, 82)
 	reforge_button.pressed.connect(_open_reforge)
 	reforge_button.disabled = true
 	add_child(reforge_button)
@@ -218,8 +231,8 @@ func _build_hud() -> void:
 	combat_status.add_theme_font_size_override("font_size", 15)
 	combat_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	combat_status.anchor_right = 1.0
-	combat_status.offset_top = 208.0
-	combat_status.offset_bottom = 236.0
+	combat_status.offset_top = 164.0
+	combat_status.offset_bottom = 190.0
 	add_child(combat_status)
 
 	target_health_label = Label.new()
@@ -228,35 +241,35 @@ func _build_hud() -> void:
 	target_health_label.add_theme_font_size_override("font_size", 13)
 	target_health_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	target_health_label.anchor_right = 1.0
-	target_health_label.offset_top = 238.0
-	target_health_label.offset_bottom = 266.0
+	target_health_label.offset_top = 192.0
+	target_health_label.offset_bottom = 218.0
 	add_child(target_health_label)
 	_refresh_target_health()
 
-	var movement := HBoxContainer.new()
-	movement.name = "TouchMovement"
-	movement.add_theme_constant_override("separation", 10)
-	movement.position = Vector2(18, size.y - 96)
-	movement.size = Vector2(252, 76)
-	movement.mouse_filter = Control.MOUSE_FILTER_PASS
-	add_child(movement)
+	movement_controls = HBoxContainer.new()
+	movement_controls.name = "TouchMovement"
+	movement_controls.add_theme_constant_override("separation", 8)
+	movement_controls.position = Vector2(20, size.y - 100)
+	movement_controls.size = Vector2(244, 82)
+	movement_controls.mouse_filter = Control.MOUSE_FILTER_PASS
+	add_child(movement_controls)
 	var left_button := _button("LEFT", CYAN, 17)
 	left_button.name = "MoveLeftButton"
-	left_button.custom_minimum_size = Vector2(121, 76)
+	left_button.custom_minimum_size = Vector2(118, 82)
 	left_button.button_down.connect(func(): player.set_touch_axis(-1.0))
 	left_button.button_up.connect(func(): player.set_touch_axis(0.0))
-	movement.add_child(left_button)
+	movement_controls.add_child(left_button)
 	var right_button := _button("RIGHT", CYAN, 17)
 	right_button.name = "MoveRightButton"
-	right_button.custom_minimum_size = Vector2(121, 76)
+	right_button.custom_minimum_size = Vector2(118, 82)
 	right_button.button_down.connect(func(): player.set_touch_axis(1.0))
 	right_button.button_up.connect(func(): player.set_touch_axis(0.0))
-	movement.add_child(right_button)
+	movement_controls.add_child(right_button)
 
 	attack_button = _button("ATTACK", ORANGE, 20)
 	attack_button.name = "AttackButton"
-	attack_button.position = Vector2(size.x - 180, size.y - 102)
-	attack_button.size = Vector2(162, 82)
+	attack_button.position = Vector2(size.x - 172, size.y - 100)
+	attack_button.size = Vector2(150, 82)
 	attack_button.pressed.connect(player.attack)
 	attack_button.disabled = true
 	add_child(attack_button)
@@ -265,7 +278,7 @@ func _build_hud() -> void:
 func _build_forge_overlay() -> void:
 	forge_overlay = ColorRect.new()
 	forge_overlay.name = "ForgeOverlay"
-	forge_overlay.color = Color(0.02, 0.04, 0.075, 1.0)
+	forge_overlay.color = Color("#07111f")
 	forge_overlay.z_index = 100
 	forge_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	# The forge background is visual only. Interactive children receive their own
@@ -274,8 +287,8 @@ func _build_forge_overlay() -> void:
 	add_child(forge_overlay)
 	forge_panel = PanelContainer.new()
 	forge_panel.name = "ForgePanel"
-	forge_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 24)
-	forge_panel.add_theme_stylebox_override("panel", _panel_style(PANEL, CYAN, 3))
+	forge_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 20)
+	forge_panel.add_theme_stylebox_override("panel", _panel_style(Color("#07111f"), Color("#07111f"), 0))
 	forge_panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	forge_overlay.add_child(forge_panel)
 	forge_margin = MarginContainer.new()
@@ -290,7 +303,7 @@ func _build_forge_overlay() -> void:
 	forge_title_row.mouse_filter = Control.MOUSE_FILTER_PASS
 	forge_layout.add_child(forge_title_row)
 	forge_title = Label.new()
-	forge_title.text = "PROJECT FORGE  /  M1B1 TEXT INTERPRETER"
+	forge_title.text = "FORGE A WEAPON"
 	forge_title.add_theme_color_override("font_color", TEXT)
 	forge_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	forge_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -305,7 +318,7 @@ func _build_forge_overlay() -> void:
 	review_panel.name = "InterpretationReview"
 	review_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	review_panel.mouse_filter = Control.MOUSE_FILTER_PASS
-	review_panel.add_theme_stylebox_override("panel", _panel_style(Color("#0d1c30"), Color("#b392ff"), 2))
+	review_panel.add_theme_stylebox_override("panel", _panel_style(Color("#0b1829"), Color("#536f8e"), 1))
 	forge_layout.add_child(review_panel)
 	var review_margin := MarginContainer.new()
 	review_margin.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -423,7 +436,7 @@ func _build_forge_overlay() -> void:
 	load_idea_button.visible = developer_mode
 	forge_status = Label.new()
 	forge_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	forge_status.text = "Describe your idea. AI output is validated before combat."
+	forge_status.text = ""
 	forge_status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	forge_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	forge_status.add_theme_color_override("font_color", MUTED)
@@ -485,14 +498,15 @@ func _apply_compact_forge_layout(css_size: Vector2, browser_metrics: Dictionary)
 	forge_panel.offset_bottom = -bottom
 	_set_margin(forge_margin, int(metrics.inner_margin), int(metrics.inner_margin), int(metrics.inner_margin), int(metrics.inner_margin))
 	forge_layout.add_theme_constant_override("separation", int(metrics.separation))
-	forge_title_row.custom_minimum_size.y = float(metrics.title_height)
-	forge_title.text = "PROJECT FORGE / M1B1"
+	forge_title_row.custom_minimum_size.y = float(metrics.touch_height if back_button.visible else metrics.title_height * 0.76)
+	forge_title.text = _forge_title_text(true)
 	forge_title.add_theme_font_size_override("font_size", int(metrics.title_font))
 	back_button.custom_minimum_size = Vector2(float(metrics.back_width), float(metrics.touch_height))
 	back_button.add_theme_font_size_override("font_size", int(metrics.body_font))
 	drawing_canvas.custom_minimum_size.y = float(metrics.canvas_height)
 	description_row.custom_minimum_size.y = float(metrics.touch_height)
 	description_row.add_theme_constant_override("separation", maxi(2, int(metrics.separation * 2.0)))
+	description_label.visible = developer_mode
 	description_label.custom_minimum_size = Vector2(float(metrics.description_label_width), float(metrics.touch_height))
 	description_label.add_theme_font_size_override("font_size", int(metrics.status_font))
 	description_input.custom_minimum_size.y = float(metrics.touch_height)
@@ -526,14 +540,15 @@ func _apply_regular_forge_layout() -> void:
 	forge_panel.offset_bottom = -18.0
 	_set_margin(forge_margin, 14, 14, 8, 8)
 	forge_layout.add_theme_constant_override("separation", 6)
-	forge_title_row.custom_minimum_size.y = 64.0
-	forge_title.text = "PROJECT FORGE  /  M1B1 TEXT INTERPRETER"
-	forge_title.add_theme_font_size_override("font_size", 22)
+	forge_title_row.custom_minimum_size.y = 58.0 if back_button.visible else 42.0
+	forge_title.text = _forge_title_text(false)
+	forge_title.add_theme_font_size_override("font_size", 20)
 	back_button.custom_minimum_size = Vector2(96, 64)
 	back_button.add_theme_font_size_override("font_size", 15)
 	drawing_canvas.custom_minimum_size.y = 220.0
 	description_row.custom_minimum_size.y = 64.0
 	description_row.add_theme_constant_override("separation", 8)
+	description_label.visible = developer_mode
 	description_label.custom_minimum_size = Vector2(130, 64)
 	description_label.add_theme_font_size_override("font_size", 17)
 	description_input.custom_minimum_size.y = 64.0
@@ -558,6 +573,18 @@ func _apply_regular_forge_layout() -> void:
 	for button in [reset_button, load_idea_button, generate_button, cancel_button]:
 		button.add_theme_font_size_override("font_size", 17)
 	forge_status.add_theme_font_size_override("font_size", 14)
+
+
+func _forge_title_text(compact: bool) -> String:
+	if developer_mode:
+		return "DEVELOPER FORGE" if compact else "PROJECT FORGE / DEVELOPER MODE"
+	return "FORGE A WEAPON"
+
+
+func _refresh_back_visibility() -> void:
+	if back_button == null:
+		return
+	back_button.visible = current_spec != null
 
 
 func _set_margin(container: MarginContainer, left: int, right: int, top: int, bottom: int) -> void:
@@ -839,18 +866,22 @@ func _show_interpretation_error() -> void:
 	feedback_button.hide()
 	var reason := str(pending_result.get("fallback_reason", "invalid_provider_response"))
 	var metadata: Dictionary = pending_result.get("provider_metadata", {})
-	review_summary.text = "INTERPRETATION ERROR: %s\nNo weapon was generated or equipped." % reason.replace("_", " ").to_upper()
+	review_summary.text = "COULDN'T FORGE THIS WEAPON\nNo weapon was generated or equipped."
 	review_summary.add_theme_color_override("font_color", Color("#ff9c9c"))
-	review_details.text = (
-		"%s\n"
-		+ "PROVIDER  %s / %s    ATTEMPTS %d    CONFIDENCE 0%%\n"
-		+ "Your drawing and description are preserved. Choose EDIT INPUT or TRY AGAIN."
-	) % [
-		_request_snapshot_line("INPUT SNAPSHOT"),
-		str(metadata.get("provider", "none")),
-		str(metadata.get("model", "none")),
-		int(metadata.get("attempts", 0)),
-	]
+	if developer_mode:
+		review_summary.text = "INTERPRETATION ERROR: %s\nNo weapon was generated or equipped." % reason.replace("_", " ").to_upper()
+		review_details.text = (
+			"%s\n"
+			+ "PROVIDER  %s / %s    ATTEMPTS %d    CONFIDENCE 0%%\n"
+			+ "Your drawing and description are preserved. Choose EDIT INPUT or TRY AGAIN."
+		) % [
+			_request_snapshot_line("INPUT SNAPSHOT"),
+			str(metadata.get("provider", "none")),
+			str(metadata.get("model", "none")),
+			int(metadata.get("attempts", 0)),
+		]
+	else:
+		review_details.text = "%s\nYour drawing and Description are safe. Edit the input or try again." % _request_snapshot_line("REQUEST")
 	back_button.disabled = false
 	_apply_forge_layout()
 	_sync_web_description_overlay()
@@ -902,7 +933,8 @@ func _update_review_copy() -> void:
 	var metadata: Dictionary = pending_result.get("provider_metadata", {})
 	var cost: Variant = pending_result.get("estimated_cost", "UNKNOWN")
 	var cost_text := str(cost) if not cost is Dictionary else "%s %.6f" % [str(cost.get("currency", "USD")), float(cost.get("amount", 0.0))]
-	review_details.text = (
+	if developer_mode:
+		review_details.text = (
 		"%s    POWER %d/100\n"
 		+ "FORM  %s    DELIVERY  %s / %s\n"
 		+ "ATTACK  %s    IMPACT  %s / %s    ELEMENT  %s\n"
@@ -911,7 +943,7 @@ func _update_review_copy() -> void:
 		+ "WEAKNESS  %s\n"
 		+ "CONFIDENCE  %d%%    REPAIRS  %d\n"
 		+ "PROVIDER  %s / %s    %d ms    COST %s"
-	) % [
+		) % [
 		pending_spec.display_name,
 		pending_spec.power_score,
 		pending_spec.weapon_form.to_upper(),
@@ -932,8 +964,28 @@ func _update_review_copy() -> void:
 		str(metadata.get("provider", "unknown")),
 		str(metadata.get("model", "unknown")),
 		int(pending_result.get("latency_ms", 0)),
-		cost_text,
-	]
+			cost_text,
+		]
+	else:
+		review_details.text = (
+			"%s    POWER %d/100\n"
+			+ "%s  /  %s    ELEMENT  %s\n"
+			+ "DAMAGE  %d    SPEED  %.2f    RANGE  %.0f\n"
+			+ "ABILITY  %s    STATUS  %s\n"
+			+ "WEAKNESS  %s"
+		) % [
+			pending_spec.display_name,
+			pending_spec.power_score,
+			pending_spec.weapon_form.to_upper(),
+			pending_spec.attack_label().to_upper(),
+			pending_spec.element.to_upper(),
+			pending_spec.damage,
+			pending_spec.attack_speed,
+			pending_spec.attack_range,
+			pending_spec.special_ability.replace("_", " ").to_upper(),
+			pending_spec.status_effect.replace("_", " ").to_upper(),
+			pending_spec.weakness_label().to_upper(),
+		]
 
 
 func _layout_review_weapon_visual() -> void:
@@ -961,6 +1013,7 @@ func _show_forge_form(correction: bool) -> void:
 	generate_button.show()
 	cancel_button.hide()
 	_set_forge_interactable(true)
+	_refresh_back_visibility()
 	_apply_forge_layout()
 	_sync_web_description_overlay()
 	_update_qa_bridge()
@@ -1084,11 +1137,7 @@ func _commit_weapon() -> void:
 	description_input.release_focus()
 	if web_mobile_bridge.is_available():
 		web_mobile_bridge.blur()
-	stats_label.text = (
-		"%s\nDAMAGE %d   POWER %d/100   SPEED %.2f\nATTACK  %s\nELEMENT  %s   SPECIAL  %s\nWEAKNESS  %s"
-		% [current_spec.display_name, current_spec.damage, current_spec.power_score, current_spec.attack_speed,
-		current_spec.attack_label(), current_spec.effect_label(), current_spec.special_ability.replace("_", " ").to_upper(), current_spec.weakness_label()]
-	)
+	_update_combat_hud()
 	var parts := current_spec.budget_breakdown
 	budget_label.text = (
 		"POWER BUDGET  %d / 100\nDamage %.1f + Speed %.1f + Range %.1f + Pattern %.1f\nElement %.1f + Ability %.1f + Status %.1f + Module %.1f\nTradeoff %.1f   •   Repairs %d"
@@ -1104,6 +1153,7 @@ func _commit_weapon() -> void:
 	attack_button.disabled = true
 	_combat_ui_ready = false
 	pattern_selector.hide()
+	player.global_position.x = size.x * (0.14 if developer_mode else 0.19)
 	forge_overlay.hide()
 	_sync_web_description_overlay()
 	review_mode = false
@@ -1167,7 +1217,7 @@ func _open_reforge() -> void:
 	var current_index := AttackPatternSelector.PATTERNS.find(current_spec.attack_pattern) if current_spec else 0
 	pattern_selector.select_pattern(maxi(current_index, 0), false)
 	_show_forge_form(false)
-	forge_status.text = "Draw and describe a replacement; the current weapon remains until CONFIRM."
+	forge_status.text = "Current weapon stays equipped until you confirm."
 	forge_status.add_theme_color_override("font_color", MUTED)
 	forge_overlay.show()
 	_apply_forge_layout()
@@ -1227,6 +1277,8 @@ func _launch_melee(spec: WeaponSpec, origin: Vector2, direction: Vector2) -> voi
 	slash.add_to_group("forge_transient_attack")
 	var candidates: Array[TrainingDummy] = []
 	for target in targets:
+		if not target.visible:
+			continue
 		var offset := target.global_position - player.global_position
 		var forward := offset.dot(direction.normalized())
 		# The visible slash and the hand-drawn weapon extend beyond the body origin.
@@ -1313,17 +1365,26 @@ func _refresh_target_health() -> void:
 
 func _layout_world() -> void:
 	if not is_instance_valid(player): return
-	var ground_y := size.y * 0.69 - 52.0
-	if player.global_position.x <= 85.0 or player.global_position.x >= size.x - 85.0: player.global_position.x = size.x * 0.25
+	var ground_y := size.y * 0.70 - 52.0
+	if player.global_position.x <= 85.0 or player.global_position.x >= size.x - 85.0:
+		player.global_position.x = size.x * (0.14 if developer_mode else 0.19)
 	player.global_position.y = ground_y
 	player.movement_bounds = Vector2(70.0, size.x - 70.0)
-	var positions := [Vector2(size.x * 0.50, ground_y - 4), Vector2(size.x * 0.64, ground_y - 4), Vector2(size.x * 0.82, ground_y - 4), Vector2(size.x * 0.53, ground_y - 132), Vector2(size.x * 0.61, ground_y - 132), Vector2(size.x * 0.69, ground_y - 132)]
+	var positions := [
+		Vector2(size.x * 0.70, ground_y - 4),
+		Vector2(size.x * 0.50, ground_y - 4),
+		Vector2(size.x * 0.86, ground_y - 4),
+		Vector2(size.x * 0.55, ground_y - 130),
+		Vector2(size.x * 0.66, ground_y - 130),
+		Vector2(size.x * 0.77, ground_y - 130),
+	]
+	if developer_mode:
+		positions[0] = Vector2(size.x * 0.34, ground_y - 4)
 	for index in mini(targets.size(), positions.size()): targets[index].set_arena_position(positions[index])
 	if reforge_button:
-		reforge_button.position = Vector2(size.x - 174, 20)
-		attack_button.position = Vector2(size.x - 180, size.y - 102)
-		var movement := get_node("TouchMovement") as Control
-		movement.position = Vector2(18, size.y - 96)
+		reforge_button.position = Vector2(size.x - 174, 18)
+		attack_button.position = Vector2(size.x - 172, size.y - 100)
+		movement_controls.position = Vector2(20, size.y - 100)
 	queue_redraw()
 
 
@@ -1391,6 +1452,7 @@ func _on_qa_command(command: String, payload: Dictionary) -> void:
 			)
 		"developer_mode":
 			developer_mode = bool(payload.get("enabled", false))
+			_apply_presentation_mode()
 			_developer_ui_ready = false
 			if not review_mode and not interpreter.in_flight:
 				pattern_selector.visible = developer_mode or modify_mode
@@ -1512,6 +1574,10 @@ func _update_qa_bridge() -> void:
 		"reforge": _rect_dictionary(reforge_button),
 		"back": _rect_dictionary(back_button),
 		"stroke_preview": _rect_dictionary(review_visual_host),
+		"weapon_hud": _rect_dictionary(weapon_readout),
+		"budget_hud": _rect_dictionary(budget_readout),
+		"target_health": _rect_dictionary(target_health_label),
+		"movement": _rect_dictionary(movement_controls),
 		"pattern_buttons": pattern_rects,
 	}
 	web_mobile_bridge.update_qa_state(state, controls, size)
@@ -1666,9 +1732,9 @@ func _button(label_text: String, accent: Color, font_size: int) -> Button:
 	button.add_theme_color_override("font_color", TEXT)
 	button.add_theme_color_override("font_hover_color", TEXT)
 	button.add_theme_color_override("font_pressed_color", NAVY)
-	button.add_theme_stylebox_override("normal", _panel_style(PANEL_LIGHT, accent, 2))
-	button.add_theme_stylebox_override("hover", _panel_style(Color("#244366"), accent, 3))
-	button.add_theme_stylebox_override("pressed", _panel_style(accent, accent, 2))
+	button.add_theme_stylebox_override("normal", _panel_style(PANEL_LIGHT, Color(accent, 0.78), 1))
+	button.add_theme_stylebox_override("hover", _panel_style(Color("#1d3857"), accent, 2))
+	button.add_theme_stylebox_override("pressed", _panel_style(accent, accent, 1))
 	button.add_theme_stylebox_override("disabled", _panel_style(Color("#18263a"), Color("#46566e"), 1))
 	return button
 
@@ -1684,3 +1750,49 @@ func _panel_style(background: Color, border: Color, width: int) -> StyleBoxFlat:
 	style.content_margin_top = 8
 	style.content_margin_bottom = 8
 	return style
+
+
+func _apply_presentation_mode() -> void:
+	if weapon_readout == null or player == null:
+		return
+	weapon_readout.size = Vector2(500, 146) if developer_mode else Vector2(400, 126)
+	budget_readout.visible = developer_mode
+	combat_status.visible = developer_mode
+	# Exact health is rendered beside each developer target. Keeping the former
+	# full-width health string visible would collide with the elevated group row.
+	target_health_label.visible = false
+	stats_label.add_theme_font_size_override("font_size", 15 if developer_mode else 14)
+	player.set_diagnostic_label_visible(developer_mode)
+	for index in targets.size():
+		targets[index].set_presentation_active(developer_mode or index == 0, developer_mode)
+	if current_spec != null:
+		_update_combat_hud()
+	if forge_status != null and not developer_mode and current_spec == null:
+		forge_status.text = ""
+	_refresh_back_visibility()
+	_layout_world()
+	queue_redraw()
+
+
+func _update_combat_hud() -> void:
+	if current_spec == null:
+		return
+	if developer_mode:
+		stats_label.text = (
+			"%s\nDAMAGE %d   POWER %d/100   SPEED %.2f\nATTACK  %s\nELEMENT  %s   SPECIAL  %s\nWEAKNESS  %s"
+			% [current_spec.display_name, current_spec.damage, current_spec.power_score, current_spec.attack_speed,
+			current_spec.attack_label(), current_spec.effect_label(), current_spec.special_ability.replace("_", " ").to_upper(), current_spec.weakness_label()]
+		)
+		return
+	stats_label.text = (
+		"%s\n%s  /  %s\nDAMAGE %d    SPEED %.2f    POWER %d\nWEAKNESS  %s"
+		% [
+			current_spec.display_name,
+			current_spec.attack_label().to_upper(),
+			current_spec.element.to_upper(),
+			current_spec.damage,
+			current_spec.attack_speed,
+			current_spec.power_score,
+			current_spec.weakness_label().to_upper(),
+		]
+	)

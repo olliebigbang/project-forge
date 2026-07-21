@@ -3,8 +3,8 @@ extends Control
 
 signal drawing_changed
 
-const BACKGROUND := Color("#101d31")
-const GRID := Color("#203655")
+const BACKGROUND := Color("#0c192a")
+const GRID := Color("#172b43")
 const INK := Color("#f8f2df")
 const ACCENT := Color("#65d9ff")
 
@@ -126,10 +126,11 @@ func _clamp_point(point: Vector2) -> Vector2:
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), BACKGROUND, true)
-	for x in range(0, int(size.x) + 1, 48):
+	for x in range(0, int(size.x) + 1, 64):
 		draw_line(Vector2(x, 0), Vector2(x, size.y), GRID, 1.0)
-	for y in range(0, int(size.y) + 1, 48):
+	for y in range(0, int(size.y) + 1, 64):
 		draw_line(Vector2(0, y), Vector2(size.x, y), GRID, 1.0)
+	draw_rect(Rect2(Vector2.ONE, size - Vector2(2, 2)), Color("#2c4864"), false, 2.0)
 	for stroke in strokes:
 		if stroke.size() == 1:
 			draw_circle(stroke[0], 5.0, INK)
@@ -138,4 +139,4 @@ func _draw() -> void:
 			draw_polyline(stroke, INK, 5.0, true)
 	if strokes.is_empty():
 		var font := ThemeDB.fallback_font
-		draw_string(font, Vector2(24, 42), "DRAW YOUR WEAPON HERE", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color("#8296b6"))
+		draw_string(font, Vector2(22, 36), "DRAW YOUR WEAPON", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("#7189a5"))

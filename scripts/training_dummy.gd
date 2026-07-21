@@ -19,6 +19,8 @@ var _resetting := false
 var _slow_timer := 0.0
 var _stagger_timer := 0.0
 var _status_epoch := 0
+var _feedback_revision := 0
+var _diagnostic_labels_visible := true
 
 
 func configure(kind: String, label_text: String, maximum_health: int = 160) -> void:
@@ -85,6 +87,8 @@ func _apply_damage(amount: int, note: String) -> void:
 	health = maxi(health - amount, 0)
 	_flash = 0.16
 	_status_text = "-%d  %s" % [amount, note]
+	_feedback_revision += 1
+	_clear_feedback_after_delay(_feedback_revision)
 	health_changed.emit(health, max_health)
 	if health == 0:
 		_resetting = true
@@ -111,6 +115,7 @@ func _reset_after_delay() -> void:
 
 func reset_target() -> void:
 	_status_epoch += 1
+	_feedback_revision += 1
 	health = max_health
 	_resetting = false
 	_status_text = "READY"
@@ -122,6 +127,7 @@ func reset_target() -> void:
 
 func clear_transient_status() -> void:
 	_status_epoch += 1
+	_feedback_revision += 1
 	_slow_timer = 0.0
 	_stagger_timer = 0.0
 	_status_text = "READY"
@@ -131,6 +137,23 @@ func clear_transient_status() -> void:
 func set_arena_position(arena_position: Vector2) -> void:
 	global_position = arena_position
 	_home_x = arena_position.x
+
+
+func set_presentation_active(active: bool, show_diagnostics: bool) -> void:
+	visible = active
+	_diagnostic_labels_visible = show_diagnostics
+	collision_layer = 2 if active else 0
+	set_physics_process(active)
+	if not active:
+		velocity = Vector2.ZERO
+	queue_redraw()
+
+
+func _clear_feedback_after_delay(revision: int) -> void:
+	await get_tree().create_timer(0.9).timeout
+	if revision == _feedback_revision and not _resetting:
+		_status_text = "READY"
+		queue_redraw()
 
 
 func _draw() -> void:
@@ -151,5 +174,15 @@ func _draw() -> void:
 		draw_line(Vector2(-34, -40), Vector2(-34, 30), Color("#7868d4"), 3.0, true)
 	draw_rect(Rect2(-42, -108, 84, 8), Color("#17243b"), true)
 	draw_rect(Rect2(-40, -106, 80.0 * float(health) / max_health, 4), Color("#60e69a"), true)
-	draw_string(ThemeDB.fallback_font, Vector2(-58, -116), target_label, HORIZONTAL_ALIGNMENT_CENTER, 116, 12, Color("#edf4ff"))
-	draw_string(ThemeDB.fallback_font, Vector2(-62, 82), _status_text, HORIZONTAL_ALIGNMENT_CENTER, 124, 11, Color("#edf4ff"))
+	if _diagnostic_labels_visible:
+		draw_string(
+			ThemeDB.fallback_font,
+			Vector2(-64, -116),
+			"%s  %d/%d" % [target_label, health, max_health],
+			HORIZONTAL_ALIGNMENT_CENTER,
+			128,
+			11,
+			Color("#edf4ff"),
+		)
+	if _diagnostic_labels_visible or _status_text not in ["READY", "RESET"]:
+		draw_string(ThemeDB.fallback_font, Vector2(-62, 82), _status_text, HORIZONTAL_ALIGNMENT_CENTER, 124, 11, Color("#edf4ff"))
