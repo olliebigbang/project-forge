@@ -17,6 +17,7 @@ var movement_bounds := Vector2(80.0, 1200.0)
 var weapon_visual: WeaponVisual
 var _attack_tween: Tween
 var _attack_generation := 0
+var _melee_attack_facing := 0.0
 var _detached_visual_count := 0
 var _detached_generation := 0
 var _diagnostic_label_visible := true
@@ -44,11 +45,11 @@ func _physics_process(delta: float) -> void:
 	var keyboard_axis := Input.get_axis("move_left", "move_right")
 	var axis := clampf(keyboard_axis + touch_axis, -1.0, 1.0)
 	velocity = Vector2(axis * MOVE_SPEED, 0.0)
-	if absf(axis) > 0.05:
+	if absf(axis) > 0.05 and is_zero_approx(_melee_attack_facing):
 		facing = signf(axis)
 	move_and_slide()
 	global_position.x = clampf(global_position.x, movement_bounds.x, movement_bounds.y)
-	weapon_visual.scale = Vector2(facing, 1.0)
+	weapon_visual.scale = Vector2(_visual_facing(), 1.0)
 	if combat_enabled and Input.is_action_just_pressed("attack"):
 		attack()
 
@@ -127,11 +128,13 @@ func _play_melee_attack_motion(cycle_seconds: float, generation: int, direction:
 	if _attack_tween and _attack_tween.is_valid():
 		_attack_tween.kill()
 	_restore_weapon_pose()
-	weapon_visual.rotation = -0.32 * facing
+	_melee_attack_facing = signf(direction.x)
+	weapon_visual.scale = Vector2(_melee_attack_facing, 1.0)
+	weapon_visual.rotation = -0.32 * _melee_attack_facing
 	_attack_tween = create_tween()
 	_attack_tween.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
 	var hit_delay := cycle_seconds * 0.38
-	_attack_tween.tween_property(weapon_visual, "rotation", 0.42 * facing, hit_delay)
+	_attack_tween.tween_property(weapon_visual, "rotation", 0.42 * _melee_attack_facing, hit_delay)
 	_attack_tween.tween_callback(func() -> void: _emit_attack(generation, direction))
 	_attack_tween.tween_property(weapon_visual, "rotation", 0.0, cycle_seconds - hit_delay)
 	_attack_tween.tween_callback(_restore_weapon_pose)
@@ -187,6 +190,9 @@ func held_visual_state() -> Dictionary:
 		"attack_speed": current_spec.attack_speed if current_spec != null else 0.0,
 		"attack_cycle_seconds": attack_cycle_seconds(),
 		"hit_delay_seconds": attack_hit_delay_seconds(),
+		"facing": facing,
+		"attack_facing": _melee_attack_facing,
+		"visual_facing": _visual_facing(),
 		"geometry_profile": current_geometry_profile.to_dict() if current_geometry_profile != null else {},
 	}
 
@@ -194,9 +200,16 @@ func held_visual_state() -> Dictionary:
 func _restore_weapon_pose() -> void:
 	if not is_instance_valid(weapon_visual):
 		return
+	_melee_attack_facing = 0.0
 	weapon_visual.position = WEAPON_REST_POSITION
 	weapon_visual.rotation = 0.0
 	weapon_visual.scale = Vector2(facing, 1.0)
+
+
+func _visual_facing() -> float:
+	if not is_zero_approx(_melee_attack_facing):
+		return _melee_attack_facing
+	return facing
 
 
 func _draw() -> void:

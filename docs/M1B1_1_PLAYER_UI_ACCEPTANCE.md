@@ -100,6 +100,9 @@ Temporary screenshots, logs, exports, and build bundles stay outside Git.
   increasing held length and melee distance. Their complete cycles are strictly
   short < standard < long; visible tip, melee capsule, HUD Range, swing hit time,
   recovery, and cooldown come from the same frozen reach/speed profile.
+- A melee attack freezes its starting facing through hit and recovery. Immediate
+  reverse movement cannot flip the visible swing away from the recorded hit
+  direction; the new facing applies only after recovery.
 - Drawing geometry and reach do not drift across 844×390, 852×393, 915×412 or
   orientation cycles. Every fitted copy keeps one uniform X/Y scale, at most 2%
   aspect error, 8%-12% padding, and unchanged raw strokes.

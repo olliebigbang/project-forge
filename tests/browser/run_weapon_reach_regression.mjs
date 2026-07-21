@@ -113,21 +113,36 @@ async function runCase(caseName, startFraction, endFraction, expectHit) {
   await waitFor((value) => value.description === description, "description sync");
   const canvas = (await controls()).canvas;
   const y = canvas.y + canvas.height * 0.52;
-  const points = [
+  const bladePoints = [
     { x: canvas.x + canvas.width * startFraction, y: y - canvas.height * 0.025 },
     { x: canvas.x + canvas.width * (endFraction - 0.015), y: y - canvas.height * 0.075 },
     { x: canvas.x + canvas.width * endFraction, y },
     { x: canvas.x + canvas.width * (endFraction - 0.015), y: y + canvas.height * 0.075 },
     { x: canvas.x + canvas.width * startFraction, y: y + canvas.height * 0.025 },
   ];
-  await page.mouse.move(points[0].x, points[0].y);
-  await page.mouse.down();
-  for (const point of points.slice(1)) {
-    await page.mouse.move(point.x, point.y, { steps: 4 });
-    await sleep(12);
+  const strokes = caseName === "long"
+    ? [
+        bladePoints,
+        [
+          { x: canvas.x + canvas.width * (startFraction + 0.015), y: y - canvas.height * 0.27 },
+          { x: canvas.x + canvas.width * (startFraction + 0.015), y: y + canvas.height * 0.27 },
+        ],
+        [
+          { x: canvas.x + canvas.width * startFraction, y },
+          { x: canvas.x + canvas.width * (startFraction + 0.11), y },
+        ],
+      ]
+    : [bladePoints];
+  for (const stroke of strokes) {
+    await page.mouse.move(stroke[0].x, stroke[0].y);
+    await page.mouse.down();
+    for (const point of stroke.slice(1)) {
+      await page.mouse.move(point.x, point.y, { steps: 4 });
+      await sleep(12);
+    }
+    await page.mouse.up();
   }
-  await page.mouse.up();
-  await waitFor((value) => value.drawing_count === 1, "drawing");
+  await waitFor((value) => value.drawing_count === strokes.length, "drawing");
   await tap((await controls()).forge);
   const confirmation = await waitFor((value) => value.screen === "confirmation" && value.phase === "result", "confirmation");
   assert(confirmation.spec.damage === baseSword.damage, `${caseName}: damage changed`);
@@ -167,6 +182,35 @@ async function runCase(caseName, startFraction, endFraction, expectHit) {
   await page.screenshot({ path: join(destination, `${browserName}-${caseName}-impact.png`) });
 
   if (caseName === "long") {
+    await waitFor((value) => value.held_visual?.cooldown <= 0.01, "melee recovery");
+    const reverseStart = await state();
+    const reverseStartX = reverseStart.player_position.x;
+    const secondAttackBefore = reverseStart.attack_count;
+    await tap((await controls()).attack);
+    const left = (await controls()).left;
+    assert(left?.width > 0 && left?.height > 0, "long: LEFT control unavailable");
+    await page.mouse.move(left.x + left.width / 2, left.y + left.height / 2);
+    await page.mouse.down();
+    const reverseAttempt = await waitFor(
+      (value) =>
+        value.player_position?.x < reverseStartX - 4 &&
+        value.held_visual?.attack_facing === 1 &&
+        value.held_visual?.visual_facing === 1,
+      "reverse movement while swing direction stays frozen",
+    );
+    await page.mouse.up();
+    const reverseHit = await waitFor((value) => value.attack_count === secondAttackBefore + 1, "reverse-input hit window");
+    const reverseEvent = [...(reverseHit.attack_events || [])].reverse().find((entry) => entry.kind === "hit_window_open");
+    assert(reverseEvent?.direction_x === 1, "long: reverse input changed the frozen hit direction");
+    assert(reverseHit.held_visual.attack_facing === 1, "long: attack lock cleared before recovery");
+    assert(reverseHit.held_visual.visual_facing === 1, "long: held visual flipped away from the hit direction");
+    report.reverse_during_swing = {
+      movement_delta_x: reverseAttempt.player_position.x - reverseStartX,
+      attack_facing: reverseHit.held_visual.attack_facing,
+      visual_facing: reverseHit.held_visual.visual_facing,
+      hit_direction_x: reverseEvent.direction_x,
+    };
+    await waitFor((value) => value.held_visual?.attack_facing === 0, "direction lock release");
     for (const viewport of [{ width: 852, height: 393 }, { width: 915, height: 412 }, { width: 844, height: 390 }]) {
       await page.setViewportSize(viewport);
       const resized = await waitFor((value) => value.screen === "combat", `${viewport.width}x${viewport.height}`);

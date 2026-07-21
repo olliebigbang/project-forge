@@ -549,9 +549,23 @@ func _test_player_combat_gate() -> void:
 	player.attack()
 	_expect(emissions.is_empty(), "re-forge combat gate blocks the equipped weapon")
 	player.set_combat_enabled(true)
+	player.facing = 1.0
 	player.attack()
+	player.set_touch_axis(-1.0)
+	await physics_frame
+	var locked_state := player.held_visual_state()
+	_expect(is_equal_approx(float(locked_state.attack_facing), 1.0), "melee attack freezes its starting direction")
+	_expect(is_equal_approx(float(locked_state.visual_facing), 1.0), "reverse movement cannot flip the held weapon before the hit window")
 	await create_timer(player.attack_hit_delay_seconds() + 0.08).timeout
 	_expect(emissions.size() == 1, "closing re-forge restores the equipped weapon")
+	var during_hit_state := player.held_visual_state()
+	_expect(is_equal_approx(float(during_hit_state.visual_facing), 1.0), "melee hit direction stays aligned with the visible swing")
+	await create_timer(maxf(player.attack_cycle_seconds() - player.attack_hit_delay_seconds(), 0.0) + 0.08).timeout
+	await physics_frame
+	var recovered_state := player.held_visual_state()
+	_expect(is_zero_approx(float(recovered_state.attack_facing)), "melee direction lock clears after recovery")
+	_expect(is_equal_approx(float(recovered_state.visual_facing), -1.0), "held reverse input becomes the visible facing after recovery")
+	player.set_touch_axis(0.0)
 	player.queue_free()
 
 

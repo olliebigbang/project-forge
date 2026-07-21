@@ -1280,6 +1280,7 @@ func _on_player_attack(spec: WeaponSpec, origin: Vector2, direction: Vector2, st
 	_qa_last_attack_pattern = spec.attack_pattern
 	_record_attack_event("hit_window_open", {
 		"pattern": spec.attack_pattern,
+		"direction_x": direction.x,
 		"effective_reach": spec.attack_range,
 		"attack_speed": spec.attack_speed,
 		"cycle_seconds": player.attack_cycle_seconds(),
@@ -1608,6 +1609,8 @@ func _update_qa_bridge() -> void:
 	var pattern_rects: Array[Dictionary] = []
 	for button: Button in pattern_selector.buttons():
 		pattern_rects.append(_rect_dictionary(button))
+	var left_control := movement_controls.get_node_or_null("MoveLeftButton") as Control
+	var right_control := movement_controls.get_node_or_null("MoveRightButton") as Control
 	var controls := {
 		"canvas": _rect_dictionary(drawing_canvas),
 		"forge": _rect_dictionary(generate_button),
@@ -1625,6 +1628,8 @@ func _update_qa_bridge() -> void:
 		"budget_hud": _rect_dictionary(budget_readout),
 		"target_health": _rect_dictionary(target_health_label),
 		"movement": _rect_dictionary(movement_controls),
+		"left": _rect_dictionary(left_control),
+		"right": _rect_dictionary(right_control),
 		"pattern_buttons": pattern_rects,
 	}
 	web_mobile_bridge.update_qa_state(state, controls, size)
