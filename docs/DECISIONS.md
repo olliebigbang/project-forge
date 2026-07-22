@@ -98,7 +98,7 @@ This log records current decisions without turning untested defaults into facts.
 
 | V-015 | **CONFIRMED for Weapon Physics B1 controlled scope** Candidate cycles are .333 s 1-grid/light, .549 s 4-grid/light, 1.042 s 8-grid/balanced, and 1.695-1.923 s 16-grid balanced/heavy. The product owner accepted the 5.775 extreme ratio on physical iPhone; mass thresholds, whole-bounds mass proxy, 72 px floor, and production balance remain **TO VALIDATE** | 12-case Godot + Chromium + WebKit matrix, rapid-touch/hit-count evidence, retained comparison screenshots, isolated Sites Version 2, and physical-device acceptance on 2026-07-22 |
 | V-016 | **CONFIRMED (stable production smoke)** The stable B1 release serves, preserves the accepted mobile keyboard and four weapon-visual roles, and reaches Anthropic through the guarded same-origin path without client credentials or fallback success | Sites v24 source `b37e524`, production Chromium/WebKit reports, one live `claude-haiku-4-5-20251001` request with one attempt and all validity flags true, zero application console errors, and zero recent Worker error events |
-| V-017 | **CONFIRMED (production provenance)** Sites Version 25 records current `main` `2c7b8f5` and is content-equivalent to smoke-tested Version 24 | Matching archive hash `sha256:13bec17c923b0476aacd1abef09718aebb91549205f0429e04487836de0b8922` |
+| V-017 | **CONFIRMED (production provenance)** Sites Version 25 records runtime source `main` `2c7b8f5` and is content-equivalent to smoke-tested Version 24; later governance-only Git commits do not imply a deployment | Matching archive hash `sha256:13bec17c923b0476aacd1abef09718aebb91549205f0429e04487836de0b8922` |
 
 ## TBD
 

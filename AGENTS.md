@@ -31,7 +31,7 @@ assets, balance data, or development direction from Cat Battle or another projec
   physical iPhone Safari acceptance on 2026-07-20 and are released.
 - Weapon Physics B1 release closure is complete. Do not start M1B2 from the
   B1 release or closeout branches, and do not move/delete any stable tag.
-- **CONFIRMED** Current stable delivery is `main` at `2c7b8f5`, tag
+- **CONFIRMED** Current stable runtime delivery was built from `main` at `2c7b8f5`, tag
   `v0.3.0-weapon-physics-b1`, and Sites Version 25. Sites Version 23 plus
   `v0.2.1-m1b1.2` are the direct rollback pair.
 - The M1A forge uses five persistent attack-pattern test buttons. Never restore
@@ -135,7 +135,8 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
 
 - Follow `docs/DEVELOPMENT_WORKFLOW.md`; every major task starts from a scoped
   issue and an isolated worktree based on current `origin/main`.
-- Stable branch: `main` at `2c7b8f5` when this guide was last reconciled.
+- Stable runtime source: `main` at `2c7b8f5` when this guide was last reconciled;
+  governance-only commits may advance the branch without a Sites deployment.
 - Current stable tag: `v0.3.0-weapon-physics-b1`.
 - Direct rollback tag: `v0.2.1-m1b1.2`; historical stable tags
   `v0.2.0-m1b1` and `v0.1.0-m1a` remain retained.

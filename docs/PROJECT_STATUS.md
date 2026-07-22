@@ -11,20 +11,22 @@ reports.
 | Item | Status |
 | --- | --- |
 | Remote default branch | **CONFIRMED:** `main` |
-| Current `origin/main` | **CONFIRMED:** `2c7b8f5021506bece6b60cb2c649ae7f3fbb961e` |
+| Current production source on `main` | **CONFIRMED:** `2c7b8f5021506bece6b60cb2c649ae7f3fbb961e` |
 | Weapon Physics B1 merge | **CONFIRMED:** PR #7, merge `b37e524c206c5f4490ce612fb5e3d54838e8ebdd` |
-| Closeout documentation merge | **CONFIRMED:** PR #8, merge/current main `2c7b8f5021506bece6b60cb2c649ae7f3fbb961e` |
+| Runtime closeout documentation merge | **CONFIRMED:** PR #8, merge `2c7b8f5021506bece6b60cb2c649ae7f3fbb961e` |
 | Current stable tag | **CONFIRMED:** `v0.3.0-weapon-physics-b1` |
 | Production Site | **CONFIRMED:** Version 25 at <https://project-forge-weapon-lab.hongningliu0130.chatgpt.site> |
 | Production archive hash | **CONFIRMED:** `sha256:13bec17c923b0476aacd1abef09718aebb91549205f0429e04487836de0b8922` |
 | Equivalent smoke-tested build | **CONFIRMED:** Sites Version 24 has the same archive hash |
 | Repository visibility | **CONFIRMED:** Private; Issues enabled |
 
-Sites Version 25 records current `main`. Version 24 deployed the gameplay merge
+Sites Version 25 records the current production source from `main`. Version 24 deployed the gameplay merge
 `b37e524` and passed HTTP, Chromium, WebKit, mobile-input, four weapon-role,
 and one explicitly authorized Anthropic smoke gate. The equal archive hash proves
 that the Version 25 code bundle is equivalent; it does not rewrite the historical
-Version 24 smoke record.
+Version 24 smoke record. Governance-only commits may advance the Git branch
+without changing this runtime identity; deployment status must be stated
+separately from repository integration status.
 
 ## Rollback chain
 
@@ -71,8 +73,8 @@ authorization to begin development.
 - Changing gameplay, player UI, `WeaponSpec`, Schema, `PowerBudget`, weapon
   physics, combat balance, Provider, D1, or deployment business logic.
 - Reading or exposing `ANTHROPIC_API_KEY`, or making a real provider call.
-- Deploying, rolling back, moving/deleting tags, merging this branch, or changing
-  repository visibility.
+- Deploying, rolling back, moving/deleting tags, merging without explicit
+  approval, or changing repository visibility.
 - Deleting or cleaning branches, worktrees, screenshots, logs, archives, or
   user files without separate approval.
 
@@ -105,7 +107,8 @@ Read-only audit on 2026-07-23:
 
 The workflow-hardening task uses
 `codex/chore/workflow-hardening` in
-`output/workflow-hardening-worktree`, based on current `origin/main`.
+`output/workflow-hardening-worktree`, based on the audited `origin/main`
+baseline `2c7b8f5`.
 
 Remote historical branches retained at audit time:
 

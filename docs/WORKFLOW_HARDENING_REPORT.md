@@ -1,7 +1,7 @@
 # Development workflow hardening report
 
-Status: **CONFIRMED implementation and local verification complete; Draft PR
-check status remains authoritative in GitHub**
+Status: **CONFIRMED implementation and local verification complete; PR #9
+remains the authoritative integration record in GitHub**
 
 Date: 2026-07-23
 

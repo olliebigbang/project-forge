@@ -5,7 +5,7 @@ Physics B1 gates. The detailed B1 contract and evidence are in
 `docs/WEAPON_PHYSICS_B1_ACCEPTANCE.md`.
 **CONFIRMED:** M1B1.1 and M1B1.2 are completed, PR #7 and PR #8 are merged,
 `v0.3.0-weapon-physics-b1` is the stable tag, and production Sites Version 25
-records current `main` `2c7b8f5`. Sites Version 23 plus `v0.2.1-m1b1.2` are the
+records runtime source `main` `2c7b8f5`. Sites Version 23 plus `v0.2.1-m1b1.2` are the
 direct rollback pair. M1B2 has not started.
 `docs/GDD.md` retains the broader product definition; later requirements remain
 visible without being silently pulled into the deterministic compiler milestone.
@@ -87,7 +87,7 @@ deterministic held-melee physicality and does not start M1B2 or expand the publi
 | Reach independent from thickness/mass | **CONFIRMED** | Same longitudinal evidence produces identical Range across extreme thickness and two consecutive WebKit runs |
 | Chromium/WebKit mobile regression | **CONFIRMED** | Both engines pass the 12-case matrix plus keyboard, toolbar, orientation, bow, grenade, sword, and boomerang regressions with zero application console errors |
 | Physical iPhone combat feel | **CONFIRMED on 2026-07-22** | Product owner accepted the isolated Sites Version 2 preview and reported no new blocker |
-| PR #7, PR #8, and stable deployment | **CONFIRMED** | PR #7 merged as `b37e524`; v24 deployed and passed production Chromium/WebKit plus one-call Anthropic smoke; PR #8/current `main` is `2c7b8f5`; v25 records that source with the same archive hash as v24; stable tag `v0.3.0-weapon-physics-b1` and rollback v23 / `v0.2.1-m1b1.2` are retained |
+| PR #7, PR #8, and stable deployment | **CONFIRMED** | PR #7 merged as `b37e524`; v24 deployed and passed production Chromium/WebKit plus one-call Anthropic smoke; PR #8 runtime closeout source is `2c7b8f5`; v25 records that source with the same archive hash as v24; stable tag `v0.3.0-weapon-physics-b1` and rollback v23 / `v0.2.1-m1b1.2` are retained |
 
 The accepted preview used deployment-only metadata commit `a81061f` to bind a
 separate Site and a USD 0.50 D1 lifetime cap. It did not mutate stable v23.

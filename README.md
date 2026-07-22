@@ -10,7 +10,7 @@ direction from Cat Battle or any previous game.
 
 ## Current stable release
 
-- **CONFIRMED:** `main` is
+- **CONFIRMED:** the current production runtime was built from `main` at
   `2c7b8f5021506bece6b60cb2c649ae7f3fbb961e`.
 - **CONFIRMED:** the stable tag is `v0.3.0-weapon-physics-b1`.
 - **CONFIRMED:** M1B1, M1B1.1, M1B1.2, and Weapon Physics B1 are complete.
