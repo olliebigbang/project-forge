@@ -104,11 +104,17 @@ jobs:
               chromium \
               http://127.0.0.1:8060/ \
               output/ci-browser/chromium-report.json \
-              simulated
+              ci-smoke
 
           node -e '
             const report = require("./output/ci-browser/chromium-report.json");
-            if (report.mode !== "simulated") throw new Error("Smoke was not provider-free");
+            if (report.mode !== "ci-smoke") throw new Error("Smoke was not provider-free");
+            if (report.providerClaim !== "NOT TESTED - simulated HTTP only") {
+              throw new Error("Smoke made a real-provider claim");
+            }
+            if (report.simulatedProviderCalls !== 1) {
+              throw new Error("Smoke fixture-call accounting mismatch");
+            }
             if (report.applicationConsoleErrors !== 0) throw new Error("Application console errors found");
           '
 

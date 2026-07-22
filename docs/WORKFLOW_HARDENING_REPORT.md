@@ -1,7 +1,7 @@
 # Development workflow hardening report
 
 Status: **CONFIRMED implementation and local verification complete; Draft PR
-and remote CI pending**
+check status remains authoritative in GitHub**
 
 Date: 2026-07-23
 
@@ -68,7 +68,8 @@ The added Chromium gate:
 
 - installs pinned `playwright-core@1.61.1` without lifecycle scripts;
 - serves only the local deterministic Web build;
-- runs the checked-in browser regression in `simulated` mode;
+- runs the checked-in browser regression in dedicated provider-free
+  `ci-smoke` mode;
 - intercepts compile requests and makes no provider call;
 - covers 844x390, 852x393, 915x412, 844x343 toolbar stress, Description, Forge,
   confirmation, attack, reforge, rotation, and viewport recovery;
@@ -95,7 +96,8 @@ WebKit, real Provider, and physical iPhone remain release-candidate human gates.
 | Anthropic safety offline tests | **PASS: 11/11** |
 | `./scripts/build_web.ps1` equivalent | **PASS** |
 | `./scripts/build_sites_preview.ps1` equivalent | **PASS** |
-| Chromium simulated mobile regression | **PASS: 4 layouts, 4 fixture requests, 0 application console errors** |
+| Chromium full simulated mobile regression | **PASS: 4 layouts, 4 fixture requests, 0 application console errors** |
+| Chromium dedicated `ci-smoke` | **PASS: 4 layouts, 1 immediate fixture call, no provider claim, 0 application console errors** |
 | Real provider | **NOT RUN — prohibited for this task** |
 | WebKit | **NOT RUN — unchanged runtime; retained release-candidate gate** |
 | Physical iPhone | **NOT RUN — unchanged runtime; retained release-candidate gate** |

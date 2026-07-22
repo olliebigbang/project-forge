@@ -14,7 +14,7 @@ const playwright = require(modulePath);
 const browserType = playwright[browserName];
 
 if (!browserType) throw new Error(`Unsupported browser: ${browserName}`);
-if (!new Set(["simulated", "fixture-one-call", "live-one-call"]).has(mode)) {
+if (!new Set(["simulated", "ci-smoke", "fixture-one-call", "live-one-call"]).has(mode)) {
   throw new Error(`Unsupported Anthropic QA mode: ${mode}`);
 }
 if (
@@ -311,7 +311,7 @@ try {
     apiResponseTasks.push(task);
   });
 
-  if (mode === "simulated") {
+  if (mode === "simulated" || mode === "ci-smoke") {
     await page.route("**/api/compile-weapon", async (route) => {
       const plan = simulatedPlans.shift();
       simulatedProviderCalls += 1;
@@ -599,9 +599,16 @@ try {
   await clearDescription.click();
   assert((await input.inputValue()) === "", "Description clear button failed");
 
-  if (mode === "live-one-call" || mode === "fixture-one-call") {
+  if (
+    mode === "live-one-call" ||
+    mode === "fixture-one-call" ||
+    mode === "ci-smoke"
+  ) {
     const description = "a returning electric boomerang that shocks targets";
     await prepareInput(description);
+    if (mode === "ci-smoke") {
+      simulatedPlans.push({ pattern: "boomerang", attempts: 1, delayMs: 0 });
+    }
     const before = await state();
     await tapControl("forge");
     const completed = await waitFor(terminal, "live Anthropic result", 20000);
@@ -640,6 +647,8 @@ try {
     combat = await waitFor((value) => value.attack_count > attackCount, "live attack");
     assert(combat.last_attack_pattern === "boomerang", "Live weapon executed wrong attack module");
     await capture("live-combat-boomerang-attack");
+    await tapControl("reforge");
+    await waitForForge();
   } else {
     const preservedDescription = "a delayed electric boomerang for mobile cancellation";
     await prepareInput(preservedDescription);
@@ -833,7 +842,11 @@ try {
   }
 
   const expectedSimulatedCalls =
-    mode === "simulated" ? 4 : mode === "fixture-one-call" ? 1 : 0;
+    mode === "simulated"
+      ? 4
+      : mode === "ci-smoke" || mode === "fixture-one-call"
+        ? 1
+        : 0;
   assert(
     simulatedProviderCalls === expectedSimulatedCalls,
     `Provider-call accounting mismatch: expected ${expectedSimulatedCalls}, got ${simulatedProviderCalls}`,
