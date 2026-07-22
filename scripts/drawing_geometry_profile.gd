@@ -1,18 +1,12 @@
 class_name DrawingGeometryProfile
 extends RefCounted
 
-# TO VALIDATE: these bounded prototype anchors and tier thresholds require
-# physical-device combat feel testing before they become production balance.
-const MIN_EFFECTIVE_REACH := 72.0
-const NOMINAL_EFFECTIVE_REACH := 132.0
-const MAX_EFFECTIVE_REACH := 228.0
-const CURVE_START_SPAN := 0.18
-const CURVE_END_SPAN := 0.92
-const SHORT_MAX_REACH := 104.0
-const STANDARD_MAX_REACH := 160.0
-const LONG_MAX_REACH := 202.0
-const MAX_HELD_CROSS_AXIS := 104.0
-const RANGE_SPEED_EXCHANGE := 450.0
+# Compatibility facade for the accepted M1B1.2 call sites. B0 now makes the
+# internal authority chain explicit without expanding the public WeaponSpec.
+const MIN_EFFECTIVE_REACH := WeaponPhysicalProfile.MIN_EFFECTIVE_REACH
+const NOMINAL_EFFECTIVE_REACH := WeaponPhysicalProfile.NOMINAL_EFFECTIVE_REACH
+const MAX_EFFECTIVE_REACH := WeaponPhysicalProfile.MAX_EFFECTIVE_REACH
+const MAX_HELD_CROSS_AXIS := WeaponPhysicalProfile.MAX_HELD_CROSS_AXIS
 
 var source_bounds := Rect2()
 var canvas_size := Vector2.ONE
@@ -21,27 +15,28 @@ var normalized_height := 0.0
 var ink_aspect := 1.0
 var reach_profile := "short"
 var effective_reach := MIN_EFFECTIVE_REACH
+var mass_profile := "light"
+var geometry_evidence: GeometryEvidence
+var physical_profile: WeaponPhysicalProfile
+var combat_derived: CombatDerived
 
 
-static func from_snapshot(source: Array[PackedVector2Array], frozen_canvas_size: Vector2) -> DrawingGeometryProfile:
+static func from_snapshot(
+	source: Array[PackedVector2Array],
+	frozen_canvas_size: Vector2,
+	controlled_mass_profile: String = "",
+) -> DrawingGeometryProfile:
 	var profile := DrawingGeometryProfile.new()
-	profile.source_bounds = StrokeFit.actual_bounds(source)
-	profile.canvas_size = Vector2(maxf(frozen_canvas_size.x, 1.0), maxf(frozen_canvas_size.y, 1.0))
-	profile.normalized_length = clampf(profile.source_bounds.size.x / profile.canvas_size.x, 0.0, 1.0)
-	profile.normalized_height = clampf(profile.source_bounds.size.y / profile.canvas_size.y, 0.0, 1.0)
-	profile.ink_aspect = profile.source_bounds.size.x / maxf(profile.source_bounds.size.y, 1.0)
-	var curve_t := clampf(
-		(profile.normalized_length - CURVE_START_SPAN) / (CURVE_END_SPAN - CURVE_START_SPAN),
-		0.0,
-		1.0,
-	)
-	var span_reach := lerpf(MIN_EFFECTIVE_REACH, MAX_EFFECTIVE_REACH, curve_t)
-	# A broad shield-like drawing must not become a screen-filling invisible spear.
-	# This keeps the visible cross-axis bounded while elongated drawings retain
-	# their requested reach.
-	var aspect_safe_reach := maxf(MIN_EFFECTIVE_REACH, MAX_HELD_CROSS_AXIS * profile.ink_aspect)
-	profile.effective_reach = snappedf(clampf(minf(span_reach, aspect_safe_reach), MIN_EFFECTIVE_REACH, MAX_EFFECTIVE_REACH), 1.0)
-	profile.reach_profile = profile._profile_for_reach(profile.effective_reach)
+	profile.geometry_evidence = GeometryEvidence.from_snapshot(source, frozen_canvas_size)
+	profile.physical_profile = WeaponPhysicalProfile.from_evidence(profile.geometry_evidence, controlled_mass_profile)
+	profile.source_bounds = profile.geometry_evidence.source_bounds
+	profile.canvas_size = profile.geometry_evidence.canvas_size
+	profile.normalized_length = profile.geometry_evidence.normalized_length
+	profile.normalized_height = profile.geometry_evidence.normalized_cross_axis
+	profile.ink_aspect = profile.geometry_evidence.ink_aspect
+	profile.effective_reach = profile.physical_profile.effective_reach
+	profile.reach_profile = profile.physical_profile.reach_profile
+	profile.mass_profile = profile.physical_profile.mass_profile
 	return profile
 
 
@@ -72,18 +67,24 @@ func apply_to_spec(spec: WeaponSpec) -> void:
 	var original_range := spec.attack_range
 	var original_speed := spec.attack_speed
 	spec.attack_range = effective_reach
-	# PowerBudget prices range at range/45 and speed at speed*10. Exchanging
-	# 450 px per 1.0 speed keeps geometry from granting free power while making
-	# short weapons faster and long weapons slower.
-	var exchanged_speed := original_speed + (original_range - effective_reach) / RANGE_SPEED_EXCHANGE
-	spec.attack_speed = snappedf(clampf(exchanged_speed, 0.2, _drawback_speed_cap(spec.drawback)), 0.01)
+	combat_derived = CombatDerived.derive(physical_profile, original_speed, spec.drawback)
+	spec.attack_speed = combat_derived.attack_speed
+	var preliminary_budget := PowerBudget.calculate(spec.to_dict())
+	if float(preliminary_budget.total) > PowerBudget.MAX_POWER and spec.attack_speed > 0.2:
+		var allowed_speed := maxf(
+			0.2,
+			floorf((spec.attack_speed - (float(preliminary_budget.total) - PowerBudget.MAX_POWER) / 10.0) * 100.0) / 100.0,
+		)
+		combat_derived.cap_attack_speed(allowed_speed)
+		spec.attack_speed = combat_derived.attack_speed
+	combat_derived.record_budget_effects(original_range, original_speed, spec.attack_range, spec.attack_speed)
 	var note := (
-		"geometry: frozen %.3f canvas span -> %s reach %.0f; range %.0f -> %.0f, attack_speed %.2f -> %.2f; damage %d unchanged"
-		% [normalized_length, reach_profile, effective_reach, original_range, spec.attack_range, original_speed, spec.attack_speed, original_damage]
+		"physics B1: %.3f span -> %s reach %.0f + %s mass; range %.0f -> %.0f, attack_speed %.2f -> %.2f, phases %.3f/%.3f/%.3f, budget delta %.2f; damage %d unchanged"
+		% [normalized_length, reach_profile, effective_reach, mass_profile, original_range, spec.attack_range, original_speed, spec.attack_speed, combat_derived.startup_seconds, combat_derived.active_seconds, combat_derived.recovery_seconds, float(combat_derived.budget_effects.combined_delta), original_damage]
 	)
 	var retained: Array[String] = []
 	for correction: String in spec.corrections:
-		if not correction.begins_with("geometry: frozen "):
+		if not correction.begins_with("geometry: frozen ") and not correction.begins_with("physics B1: "):
 			retained.append(correction)
 	retained.append(note)
 	spec.corrections = retained
@@ -111,26 +112,12 @@ func to_dict() -> Dictionary:
 		"ink_aspect": ink_aspect,
 		"reach_profile": reach_profile,
 		"effective_reach": effective_reach,
+		"mass_profile": mass_profile,
+		"geometry_evidence": geometry_evidence.to_dict() if geometry_evidence != null else {},
+		"physical_profile": physical_profile.to_dict() if physical_profile != null else {},
+		"combat_derived": combat_derived.to_dict() if combat_derived != null else {},
 		"threshold_status": "TO VALIDATE",
 	}
-
-
-func _profile_for_reach(reach: float) -> String:
-	if reach < SHORT_MAX_REACH:
-		return "short"
-	if reach < STANDARD_MAX_REACH:
-		return "standard"
-	if reach < LONG_MAX_REACH:
-		return "long"
-	return "extreme_long"
-
-
-func _drawback_speed_cap(drawback: String) -> float:
-	return float({
-		"slow_recovery": 1.2,
-		"self_stagger": 1.0,
-		"cooldown_lock": 0.85,
-	}.get(drawback, 3.0))
 
 
 func _rect_dict(rect: Rect2) -> Dictionary:

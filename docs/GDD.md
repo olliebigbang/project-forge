@@ -1,9 +1,9 @@
 # Project Forge — Game Design Document
 
 Version: 0.1 (organized from the supplied GDD)  
-Stable delivery milestone: **M1B1.2 absolute weapon reach — physical iPhone scope acceptance CONFIRMED; release closure in progress**
-Next isolated milestone: **Weapon Physics B0 specification, followed by the controlled B1 physicality experiment; not M1B2**
-Stable mobile acceptance: **CONFIRMED on physical iPhone Safari with v9**
+Stable delivery milestone: **Weapon Physics B1 controlled melee physicality — physical iPhone acceptance CONFIRMED; PR #7 release closure in progress**
+Next isolated milestone: **B1.5 weapon-role and near/ranged compensation planning after B1 closure; not M1B2**
+Stable mobile acceptance: **CONFIRMED on physical iPhone Safari through the isolated B1 Sites Version 2 preview on 2026-07-22**
 
 ## 1. Product identity
 
@@ -199,11 +199,25 @@ Voice is an input method, not a separate weapon system.
   short, standard, and full-canvas long melee drawings remain visibly and
   mechanically different in combat. The current release candidate preserves the
   same bounded reach in the held visual, hit boundary, and HUD.
-- **TO VALIDATE (Weapon Physics B1)** The prototype reach curve, tier thresholds,
-  72-228 px bounds, and linear range-to-speed exchange are provisional. A future
-  controlled short/long x light/heavy experiment will derive handling and the
-  observable startup/active/recovery phases. Weapon mass remains independent
-  from length, and length alone does not increase damage.
+- **TO VALIDATE (Weapon Physics B1)** The reach curve, tier thresholds, 72-228 px
+  bounds, and nonlinear cycle anchors are provisional. The current controlled
+  1/4/8/16-grid x light/balanced/heavy experiment derives handling and observable
+  startup/active/recovery phases. Weapon mass remains independent from length,
+  and length alone does not increase damage.
+- **CONFIRMED (Weapon Physics B0 contract)** Numeric authority is frozen as
+  `GeometryEvidence -> PhysicalProfile -> CombatDerived`; AI cannot author
+  numeric physics and the public Schema does not expand for B1.
+- **TO VALIDATE (Weapon Physics B1 prototype)** A bounded continuous reach ×
+  light/balanced/heavy matrix now drives observable startup, active, hit and
+  recovery timing plus existing Range/Speed PowerBudget components. Its curve
+  still requires Chromium/WebKit and physical-device combat-feel evidence.
+- **TO VALIDATE (Weapon Physics B1 round two)** Physical iPhone v23 evidence
+  rejected the first prototype's compressed 1.874 cycle ratio. The current
+  internal candidate uses 1/4/8/16-grid x light/balanced/heavy evidence, a
+  bounded nonlinear cycle curve, a 0.25 s floor, and a one-slot attack buffer.
+  Its automated extreme ratio is 5.775; final feel remains a physical-device
+  decision. Reach reads longitudinal normalized length only; cross-axis mass and
+  ink aspect cannot alter it. No public Schema or contact-region behavior was added.
 - **TO VALIDATE (Weapon Physics B2)** The current melee capsule applies one damage
   value from grip to visible tip. Grip/root low-effect zones, blade regions,
   outer sweet spots, tip damage, and their required visual/audio/hit-stop feedback

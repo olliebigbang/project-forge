@@ -1284,7 +1284,10 @@ func _on_player_attack(spec: WeaponSpec, origin: Vector2, direction: Vector2, st
 		"effective_reach": spec.attack_range,
 		"attack_speed": spec.attack_speed,
 		"cycle_seconds": player.attack_cycle_seconds(),
+		"startup_seconds": player.attack_startup_seconds(),
+		"active_seconds": player.attack_active_seconds(),
 		"hit_delay_seconds": player.attack_hit_delay_seconds(),
+		"recovery_seconds": player.attack_recovery_seconds(),
 	})
 	_update_qa_bridge()
 	if spec.delivery == "thrown" and spec.trajectory == "arc":
@@ -1301,7 +1304,7 @@ func _launch_melee(spec: WeaponSpec, origin: Vector2, direction: Vector2) -> voi
 	slash.color = WeaponVisual._color_for_element(spec.element)
 	slash.direction = direction
 	slash.reach = spec.attack_range
-	slash.lifetime = clampf(player.attack_cycle_seconds() * 0.22, 0.18, 0.34)
+	slash.lifetime = clampf(player.attack_active_seconds(), 0.16, 0.42)
 	slash.global_position = origin
 	world.add_child(slash)
 	slash.add_to_group("forge_transient_attack")

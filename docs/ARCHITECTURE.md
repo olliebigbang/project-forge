@@ -165,6 +165,24 @@ select only allow-listed semantics, while local deterministic code owns all
 numeric physics. Public Schema expansion is deferred until the controlled
 physicality experiments establish which fields are required.
 
+Weapon Physics B0 now makes that internal chain executable. `GeometryEvidence`
+deep-copies the frozen strokes and records geometry only;
+`WeaponPhysicalProfile` independently derives bounded reach and cross-axis mass;
+`CombatDerived` owns the bounded handling curve and observable
+startup/active/recovery timing. `DrawingGeometryProfile` is the compatibility
+facade consumed by accepted M1B1.2 call sites. These QA dictionaries never enter
+provider Structured Output or the public Schema. B1 still uses one uniform
+grip-to-tip contact sample; its empty contact-region interface is reserved for B2.
+
+B1 round two maps 72/92/120/199/228 px reach anchors to bounded complete-cycle
+anchors with piecewise smoothstep interpolation. Independent mass and existing
+drawback multipliers then produce the final cycle; `attack_speed = 1 / cycle`
+drives every animation phase, hit time, cooldown, and the one-slot input buffer.
+Reach reads only `GeometryEvidence.normalized_length`; cross-axis and ink aspect
+cannot cap or grant reach. The 72 px minimum, complete-ink bounding box, and
+cross-axis mass proxy remain explicit `TO VALIDATE` limitations rather than
+inferred blade/handle regions.
+
 ## Attack and element behavior
 
 | Module | Visible and combat distinction |
@@ -198,6 +216,9 @@ program shapes and their geometry-centred pivot.
 ```text
 scripts/weapon_compiler.gd  deterministic input interpreter and audit
 scripts/drawing_geometry_profile.gd frozen bounds, reach tier, fit and timing tradeoff
+scripts/geometry_evidence.gd immutable frozen-stroke geometry evidence
+scripts/weapon_physical_profile.gd independent bounded reach and mass profile
+scripts/combat_derived.gd startup/active/recovery, speed and budget audit
 scripts/weapon_interpreter.gd same-origin async client, cancellation, fallback
 scripts/weapon_spec.gd      contract repair, runtime validation, display
 scripts/power_budget.gd     explicit calculator and deterministic balancing

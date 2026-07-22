@@ -34,34 +34,35 @@ assets, balance data, or development direction from Cat Battle or another projec
 Do not add paid AI, secrets, production levels or art, voice, accounts, cloud
 saves, sharing, monetization, multiplayer, or store submission in M1A.
 
-## Current scope: M1B1.2 Absolute Weapon Reach closure
+## Current scope: Weapon Physics B1 release closure
 
 - M1B1.1 player-interface simplification and M1B1.2 absolute held-melee reach are
-  accepted release candidates stacked as PR #5 then PR #6. They are not M1B2.
+  stable on `main`; Weapon Physics B1 is PR #7 from
+  `codex/feat/weapon-physics-b1`. It is not M1B2.
 - Preserve every M1B1 AI, Worker, D1, schema, PowerBudget, request/revision,
   failure-recovery, and physical-iPhone input invariant below.
 - For held melee, frozen `effective_reach` remains the single source for visible
-  grip-to-tip length, hit boundary, HUD Range, swing timing, recovery, cooldown,
-  and facing lock. Do not restore fixed held size or hidden reach padding.
-- Drawing length does not determine damage. The current uniform grip-to-tip
-  damage and linear speed exchange are explicit follow-ups, not completion
-  claims. Do not add mass, sweet spots, tip multipliers, or new Schema fields to
-  the M1B1.2 closure.
-- The executable gates are `docs/M1B1_1_PLAYER_UI_ACCEPTANCE.md` and
-  `docs/M1B1_2_ABSOLUTE_REACH_ACCEPTANCE.md`.
+  grip-to-tip length, hit boundary, and HUD Range. One derived complete cycle
+  owns startup, active, hit time, recovery, cooldown, visible swing speed, and
+  input acceptance. Do not restore fixed held size, hidden reach padding, or
+  independent animation/cooldown clocks.
+- Drawing length does not determine damage. B1 mass is a separate bounded
+  cross-axis proxy and cannot change reach or grant impact. Uniform grip-to-tip
+  damage remains an explicit B2 follow-up; do not add contact regions, sweet
+  spots, interruption, or new Schema fields during B1 closure.
+- The executable gate is `docs/WEAPON_PHYSICS_B1_ACCEPTANCE.md`. Physical-iPhone
+  cadence acceptance passed on 2026-07-22; PR/CI/merge/stable deployment and
+  rollback verification remain closure work.
 
 ## Next authorized planning boundary
 
-- After M1B1.2 release closure, Weapon Physics B0 may specify the authority chain
-  `GeometryEvidence -> PhysicalProfile -> CombatDerived` and fixed budget order.
-- B1 implementation must use a controlled short/long x light/heavy melee matrix
-  before introducing weapon-role compensation. B1.5 handles role and near/ranged
-  relationships. B2 owns contact regions, sweet spots, interruption, shield,
+- After B1 release closure, B1.5 may plan weapon-role and near/ranged
+  compensation. B2 owns contact regions, sweet spots, interruption, shield,
   multi-target behavior, and matching feedback.
 - Existing M1B1 AI remains stable and may select only allow-listed semantics.
   Local deterministic code owns numeric physics. Do not expand the public Schema
   until the controlled physicality experiments establish required fields.
-- Do not start B1 implementation or M1B2 from the closure branch.
+- Do not start B1.5 or M1B2 from the B1 closure branch.
 
 ## Preserved M1B1 boundaries
 
@@ -129,8 +130,10 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
 - Stable branch after release closure: `main`.
 - Stable M1B1 release tag after closure: `v0.2.0-m1b1`.
 - Retained M1A rollback tag: `v0.1.0-m1a`.
-- Current UI branch: `codex/ui/player-interface-simplification` (PR #5).
-- Current reach closure branch: `codex/fix/absolute-weapon-reach` (PR #6).
+- Current B1 closure branch: `codex/feat/weapon-physics-b1` (PR #7).
+- Planned stable B1 tag after verified merge/deployment:
+  `v0.3.0-weapon-physics-b1`; retained rollback tag:
+  `v0.2.1-m1b1.2`.
 - Compact Landscape uses CSS `visualViewport` dimensions; do not size mobile
   touch controls from the 1280×720 logical viewport alone.
 - Web Description input is a bounded native HTML overlay synchronized with

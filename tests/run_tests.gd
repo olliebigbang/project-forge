@@ -22,6 +22,7 @@ func _init() -> void:
 	await _test_weapon_interpreter_response_context()
 	_test_orientation_prompt_rule()
 	await _test_player_combat_gate()
+	await _test_rapid_melee_input_buffer()
 	_test_target_rules()
 	var result := {"matrix_cases": _matrix_cases, "passed": _passed, "failed": _failed}
 	var output := FileAccess.open("user://m1a_test_results.json", FileAccess.WRITE)
@@ -338,21 +339,132 @@ func _test_drawing_geometry_profiles() -> void:
 		_expect(absf(bounds.end.x - spec.attack_range) <= 0.01, "%s visible tip equals effective range" % profile.reach_profile)
 		_expect(spec.damage == damage_before, "%s reach adjustment leaves damage unchanged" % profile.reach_profile)
 		_expect(float(spec.budget_breakdown.total) <= PowerBudget.MAX_POWER, "%s geometry stats remain inside PowerBudget" % profile.reach_profile)
-		_expect(_notes_contain(spec.corrections, "geometry: frozen"), "%s geometry/budget correction is audited" % profile.reach_profile)
+		_expect(_notes_contain(spec.corrections, "physics B1:"), "%s physics/budget correction is audited" % profile.reach_profile)
 
 	_expect(specs[0].attack_range < specs[1].attack_range and specs[1].attack_range < specs[2].attack_range, "runtime melee ranges are strictly monotonic")
 	_expect(specs[0].attack_speed > specs[1].attack_speed and specs[1].attack_speed > specs[2].attack_speed, "runtime melee speeds are inversely monotonic")
-	var short_cycle := 1.25 / specs[0].attack_speed
-	var standard_cycle := 1.25 / specs[1].attack_speed
-	var long_cycle := 1.25 / specs[2].attack_speed
+	var short_cycle := 1.0 / specs[0].attack_speed
+	var standard_cycle := 1.0 / specs[1].attack_speed
+	var long_cycle := 1.0 / specs[2].attack_speed
 	_expect(short_cycle < standard_cycle and standard_cycle < long_cycle, "complete attack cycles are short < standard < long")
 	var test_target := Vector2(170.0, 0.0)
 	_expect(not DrawingGeometryProfile.melee_reaches_point(Vector2.ZERO, test_target, Vector2.RIGHT, specs[0].attack_range), "short sword cannot hit a target beyond its visible tip")
 	_expect(DrawingGeometryProfile.melee_reaches_point(Vector2.ZERO, test_target, Vector2.RIGHT, specs[2].attack_range), "long sword hits the same target within its visible tip")
+	_test_weapon_physics_b1_matrix(canvas_size)
 
 	var frozen := long_sword.to_dict()
 	for _viewport_size in [Vector2(844, 390), Vector2(852, 393), Vector2(915, 412)]:
 		_expect(long_sword.to_dict() == frozen, "frozen reach does not drift across landscape resize")
+
+
+func _test_weapon_physics_b1_matrix(canvas_size: Vector2) -> void:
+	# These normalized spans reproduce the product owner's 1/4/8/16-grid
+	# physical-iPhone samples at Range 72/92/120/199.
+	var spans := {"1_grid": 0.18, "4_grid": 0.274872, "8_grid": 0.407692, "16_grid": 0.782436}
+	var expected_reach_profiles := {
+		"1_grid": "ultra_short", "4_grid": "short", "8_grid": "standard", "16_grid": "long",
+	}
+	var cross_axes := {"light": 0.05, "balanced": 0.14, "heavy": 0.28}
+	var matrix: Dictionary = {}
+	for reach_name: String in spans:
+		matrix[reach_name] = {}
+		for mass_name: String in cross_axes:
+			var start_x := canvas_size.x * 0.03
+			var end_x := start_x + canvas_size.x * float(spans[reach_name])
+			var half_height := canvas_size.y * float(cross_axes[mass_name]) * 0.5
+			var center_y := canvas_size.y * 0.5
+			var stroke := PackedVector2Array([
+				Vector2(start_x, center_y - half_height),
+				Vector2(end_x - 8.0, center_y - half_height),
+				Vector2(end_x, center_y),
+				Vector2(end_x - 8.0, center_y + half_height),
+				Vector2(start_x, center_y + half_height),
+			])
+			var source: Array[PackedVector2Array] = [stroke]
+			var original := StrokeFit.duplicate_strokes(source)
+			var profile := DrawingGeometryProfile.from_snapshot(source, canvas_size)
+			var spec := WeaponCompiler.new().compile("a plain steel sword")
+			var original_damage := spec.damage
+			profile.apply_to_spec(spec)
+			matrix[reach_name][mass_name] = {"profile": profile, "spec": spec}
+			_expect(source == original, "%s/%s preserves source strokes" % [reach_name, mass_name])
+			_expect(profile.reach_profile == expected_reach_profiles[reach_name], "%s/%s selects %s reach profile" % [reach_name, mass_name, expected_reach_profiles[reach_name]])
+			_expect(profile.mass_profile == mass_name, "%s/%s selects independent mass profile" % [reach_name, mass_name])
+			_expect(spec.damage == original_damage, "%s/%s leaves damage unchanged" % [reach_name, mass_name])
+			_expect(spec.attack_range == profile.effective_reach, "%s/%s Range equals effective reach" % [reach_name, mass_name])
+			var fitted := StrokeFit.map_strokes(source, profile.held_target_rect())
+			_expect(absf(StrokeFit.actual_bounds(fitted).end.x - spec.attack_range) <= 0.01, "%s/%s visible tip equals Range" % [reach_name, mass_name])
+			_expect(profile.combat_derived.startup_seconds > 0.0 and profile.combat_derived.active_seconds > 0.0 and profile.combat_derived.recovery_seconds > 0.0, "%s/%s exposes startup/active/recovery" % [reach_name, mass_name])
+			_expect(is_equal_approx(profile.combat_derived.attack_speed, spec.attack_speed), "%s/%s attack_speed owns derived timing" % [reach_name, mass_name])
+			_expect(float(spec.budget_breakdown.total) <= PowerBudget.MAX_POWER, "%s/%s remains within PowerBudget" % [reach_name, mass_name])
+			_expect(profile.combat_derived.budget_effects.has("combined_delta"), "%s/%s records physics budget effect" % [reach_name, mass_name])
+			var contact_model: Dictionary = profile.combat_derived.to_dict().contact_model
+			_expect(contact_model.mode == "uniform_grip_to_tip" and contact_model.regions.is_empty() and not contact_model.sweet_spots_enabled, "%s/%s keeps B2 contact regions disabled" % [reach_name, mass_name])
+
+	var ordered_reaches := ["1_grid", "4_grid", "8_grid", "16_grid"]
+	for mass_name: String in cross_axes:
+		for index in ordered_reaches.size() - 1:
+			var current: DrawingGeometryProfile = matrix[ordered_reaches[index]][mass_name].profile
+			var next: DrawingGeometryProfile = matrix[ordered_reaches[index + 1]][mass_name].profile
+			_expect(current.effective_reach < next.effective_reach, "%s reach remains monotonic at %s -> %s" % [mass_name, ordered_reaches[index], ordered_reaches[index + 1]])
+			_expect(current.combat_derived.hit_delay_seconds < next.combat_derived.hit_delay_seconds, "%s hit timing remains monotonic at %s -> %s" % [mass_name, ordered_reaches[index], ordered_reaches[index + 1]])
+			_expect(current.combat_derived.cycle_seconds < next.combat_derived.cycle_seconds, "%s cycle remains monotonic at %s -> %s" % [mass_name, ordered_reaches[index], ordered_reaches[index + 1]])
+
+	for reach_name: String in ordered_reaches:
+		var light: DrawingGeometryProfile = matrix[reach_name].light.profile
+		var balanced: DrawingGeometryProfile = matrix[reach_name].balanced.profile
+		var heavy: DrawingGeometryProfile = matrix[reach_name].heavy.profile
+		_expect(light.effective_reach == balanced.effective_reach and balanced.effective_reach == heavy.effective_reach, "%s mass axis does not change reach" % reach_name)
+		_expect(light.combat_derived.hit_delay_seconds < balanced.combat_derived.hit_delay_seconds and balanced.combat_derived.hit_delay_seconds < heavy.combat_derived.hit_delay_seconds, "%s hit timing is light < balanced < heavy" % reach_name)
+		_expect(light.combat_derived.cycle_seconds < balanced.combat_derived.cycle_seconds and balanced.combat_derived.cycle_seconds < heavy.combat_derived.cycle_seconds, "%s cycle is light < balanced < heavy" % reach_name)
+
+	var fastest: DrawingGeometryProfile = matrix["1_grid"].light.profile
+	var four_grid_light: DrawingGeometryProfile = matrix["4_grid"].light.profile
+	var eight_grid_balanced: DrawingGeometryProfile = matrix["8_grid"].balanced.profile
+	var sixteen_grid_balanced: DrawingGeometryProfile = matrix["16_grid"].balanced.profile
+	var slowest: DrawingGeometryProfile = matrix["16_grid"].heavy.profile
+	_expect(fastest.combat_derived.cycle_seconds >= 0.25 and fastest.combat_derived.cycle_seconds <= 0.40, "1-grid ultra-short/light cycle is inside the 0.25-0.40s candidate window")
+	_expect(four_grid_light.combat_derived.cycle_seconds >= 0.45 and four_grid_light.combat_derived.cycle_seconds <= 0.65, "4-grid short/light cycle is inside the 0.45-0.65s candidate window")
+	_expect(eight_grid_balanced.combat_derived.cycle_seconds >= 0.90 and eight_grid_balanced.combat_derived.cycle_seconds <= 1.20, "8-grid standard/balanced cycle is inside the 0.90-1.20s candidate window")
+	_expect(sixteen_grid_balanced.combat_derived.cycle_seconds >= 1.50 and sixteen_grid_balanced.combat_derived.cycle_seconds <= 2.0, "16-grid long/balanced cycle is inside the 1.50-2.00s candidate window")
+	_expect(slowest.combat_derived.cycle_seconds >= 1.50 and slowest.combat_derived.cycle_seconds <= 2.0, "16-grid long/heavy cycle is inside the 1.50-2.00s candidate window")
+	var cycle_ratio := slowest.combat_derived.cycle_seconds / fastest.combat_derived.cycle_seconds
+	_expect(cycle_ratio >= 4.0 and cycle_ratio <= 6.0, "1-grid light to 16-grid heavy cycle ratio is inside the 4-6x candidate window")
+	_expect(fastest.combat_derived.active_seconds * 4.0 < slowest.combat_derived.active_seconds, "visible active-swing angular velocity differs by more than four times")
+	_expect(fastest.combat_derived.cycle_seconds >= CombatDerived.MIN_CYCLE_SECONDS, "ultra-short cadence retains the safety floor")
+	var public_fields: Dictionary = matrix["16_grid"].heavy.spec.to_dict()
+	_expect(not public_fields.has("mass_profile") and not public_fields.has("combat_derived") and not public_fields.has("geometry_evidence"), "B1 does not expand the public WeaponSpec")
+	_test_longitudinal_reach_mass_independence(canvas_size)
+
+
+func _test_longitudinal_reach_mass_independence(canvas_size: Vector2) -> void:
+	# All three inputs have the exact same x extrema. Only cross-axis thickness
+	# changes, including a deliberately extreme heavy case that activated the old
+	# ink-aspect reach cap. This test contains no browser/pointer sampling.
+	var cross_axis_pixels := {"light": 12.0, "balanced": 45.0, "heavy": 280.0}
+	var profiles: Dictionary = {}
+	for expected_mass: String in cross_axis_pixels:
+		var half_height := float(cross_axis_pixels[expected_mass]) * 0.5
+		var center_y := canvas_size.y * 0.5
+		var stroke := PackedVector2Array([
+			Vector2(20.0, center_y - half_height),
+			Vector2(520.0, center_y - half_height),
+			Vector2(520.0, center_y + half_height),
+			Vector2(20.0, center_y + half_height),
+		])
+		var source: Array[PackedVector2Array] = [stroke]
+		var profile := DrawingGeometryProfile.from_snapshot(source, canvas_size)
+		profiles[expected_mass] = profile
+		_expect(profile.mass_profile == expected_mass, "%s cross-axis evidence selects its mass without Playwright" % expected_mass)
+		_expect(is_equal_approx(profile.source_bounds.size.x, 500.0), "%s fixture preserves the identical longitudinal bound" % expected_mass)
+		_expect(str(profile.physical_profile.to_dict().reach_basis) == "normalized_length_only", "%s reach declares longitudinal-only authority" % expected_mass)
+		_expect(not bool(profile.physical_profile.to_dict().cross_axis_affects_reach), "%s cross-axis is excluded from reach" % expected_mass)
+
+	var light: DrawingGeometryProfile = profiles.light
+	var balanced: DrawingGeometryProfile = profiles.balanced
+	var heavy: DrawingGeometryProfile = profiles.heavy
+	_expect(is_equal_approx(light.normalized_length, balanced.normalized_length) and is_equal_approx(balanced.normalized_length, heavy.normalized_length), "identical longitudinal evidence stays identical across mass inputs")
+	_expect(light.effective_reach == balanced.effective_reach and balanced.effective_reach == heavy.effective_reach, "light/balanced/heavy cannot change effective reach for identical longitudinal evidence")
 
 
 func _test_attack_pattern_touch_selector() -> void:
@@ -566,6 +678,40 @@ func _test_player_combat_gate() -> void:
 	_expect(is_zero_approx(float(recovered_state.attack_facing)), "melee direction lock clears after recovery")
 	_expect(is_equal_approx(float(recovered_state.visual_facing), -1.0), "held reverse input becomes the visible facing after recovery")
 	player.set_touch_axis(0.0)
+	player.queue_free()
+
+
+func _test_rapid_melee_input_buffer() -> void:
+	var canvas_size := Vector2(640.0, 300.0)
+	var stroke := PackedVector2Array([
+		Vector2(20.0, 144.0), Vector2(126.0, 144.0), Vector2(135.2, 150.0),
+		Vector2(126.0, 156.0), Vector2(20.0, 156.0),
+	])
+	var source: Array[PackedVector2Array] = [stroke]
+	var profile := DrawingGeometryProfile.from_snapshot(source, canvas_size, "light")
+	var spec := WeaponCompiler.new().compile("a plain steel sword")
+	profile.apply_to_spec(spec)
+	var player := ForgePlayer.new()
+	var emission_times: Array[int] = []
+	player.attack_requested.connect(func(_spec: WeaponSpec, _origin: Vector2, _direction: Vector2, _strokes: Array[PackedVector2Array]): emission_times.append(Time.get_ticks_msec()))
+	root.add_child(player)
+	player.equip(spec, source, profile)
+	var cycle := player.attack_cycle_seconds()
+	_expect(cycle >= 0.25 and cycle <= 0.40, "rapid-input fixture uses the bounded ultra-short cycle")
+	player.attack()
+	for _tap in 8:
+		player.attack()
+	var queued_state := player.held_visual_state()
+	_expect(bool(queued_state.attack_buffered), "rapid repeated taps fill the one-slot attack buffer")
+	_expect(int(queued_state.max_buffered_attacks) == 1 and int(queued_state.accepted_attack_count) == 1, "rapid taps cannot re-enter the authoritative attack gate")
+	await create_timer(cycle * 2.0 + 0.20).timeout
+	await physics_frame
+	var completed_state := player.held_visual_state()
+	_expect(emission_times.size() == 2, "one initial attack plus one buffered attack emits exactly two hit windows")
+	_expect(int(completed_state.accepted_attack_count) == 2 and not bool(completed_state.attack_buffered), "the one-slot buffer drains once without a hidden third attack")
+	if emission_times.size() == 2:
+		var hit_gap_seconds := float(emission_times[1] - emission_times[0]) / 1000.0
+		_expect(hit_gap_seconds >= cycle * 0.90, "buffered hit windows do not overlap")
 	player.queue_free()
 
 
