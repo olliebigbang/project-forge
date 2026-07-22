@@ -17,6 +17,7 @@ var weapon_visual: WeaponVisual
 var _attack_tween: Tween
 var _detached_visual_count := 0
 var _detached_generation := 0
+var _diagnostic_label_visible := true
 
 
 func _ready() -> void:
@@ -68,6 +69,11 @@ func set_combat_enabled(value: bool) -> void:
 	combat_enabled = value
 	if not combat_enabled:
 		set_touch_axis(0.0)
+
+
+func set_diagnostic_label_visible(value: bool) -> void:
+	_diagnostic_label_visible = value
+	queue_redraw()
 
 
 func attack() -> void:
@@ -160,4 +166,5 @@ func _draw() -> void:
 	draw_line(Vector2(-8, 32), Vector2(-15, 53), Color("#dce8ff"), 8.0, true)
 	draw_line(Vector2(8, 32), Vector2(15, 53), Color("#dce8ff"), 8.0, true)
 	draw_line(Vector2(-16, -12), Vector2(-32, 6), Color("#ffd6a3"), 7.0, true)
-	draw_string(ThemeDB.fallback_font, Vector2(-48, 78), "TEST PILOT", HORIZONTAL_ALIGNMENT_CENTER, 96, 14, Color("#aebed7"))
+	if _diagnostic_label_visible:
+		draw_string(ThemeDB.fallback_font, Vector2(-48, 78), "TEST PILOT", HORIZONTAL_ALIGNMENT_CENTER, 96, 14, Color("#aebed7"))

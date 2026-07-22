@@ -31,7 +31,7 @@ func _apply_damage() -> void:
 	var count := 0
 	var total := 0
 	for target: Node in get_tree().get_nodes_in_group("test_targets"):
-		if target is Node2D and global_position.distance_to(target.global_position) <= _spec.area_radius:
+		if target is Node2D and target.visible and global_position.distance_to(target.global_position) <= _spec.area_radius:
 			var actual: int = target.take_damage(_spec.damage, _spec.status_effect, "area_blast", _direction)
 			if actual > 0:
 				count += 1

@@ -34,7 +34,21 @@ assets, balance data, or development direction from Cat Battle or another projec
 Do not add paid AI, secrets, production levels or art, voice, accounts, cloud
 saves, sharing, monetization, multiplayer, or store submission in M1A.
 
-## Current scope: M1B1
+## Current scope: M1B1.1 Player UI Simplification
+
+- Base all work on accepted `main` / `v0.2.0-m1b1`; this is a presentation-only
+  follow-up and is not M1B2.
+- Preserve every M1B1 AI, Worker, D1, schema, PowerBudget, request/revision,
+  failure-recovery, and physical-iPhone input invariant below.
+- Normal Player Mode must use a quiet Forge/Combat hierarchy. Developer/Test
+  Mode retains the attack/element/target matrix and detailed audit without
+  placing all diagnostics over the combat centre.
+- Do not copy code, assets, names, or exact color values from
+  `project-forge-claude`. Original implementation may adopt only general layout
+  principles: fewer panels, clear whitespace, and edge-aligned HUD/actions.
+- The executable gate is `docs/M1B1_1_PLAYER_UI_ACCEPTANCE.md`.
+
+## Preserved M1B1 boundaries
 
 - Normal players enter free text; five attack-pattern buttons are hidden until
   Developer/Test Mode or MODIFY INTERPRETATION.

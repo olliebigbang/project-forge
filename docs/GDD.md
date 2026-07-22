@@ -1,7 +1,8 @@
 # Project Forge — Game Design Document
 
 Version: 0.1 (organized from the supplied GDD)  
-Current delivery milestone: **M1B1 real text-to-weapon interpreter — physical iPhone acceptance CONFIRMED; formal merge/deploy closure in progress**
+Stable delivery milestone: **M1B1 real text-to-weapon interpreter — released and physical iPhone acceptance CONFIRMED**
+Next isolated milestone: **M1B1.1 Player UI Simplification — planned; not M1B2**
 Stable mobile acceptance: **CONFIRMED on physical iPhone Safari with v9**
 
 ## 1. Product identity
@@ -315,6 +316,15 @@ rolling for a higher damage value.
   a stable Canvas with compact text entry, keeps bows held while arrows fly, and
   gives grenades a centred drawn flight copy plus independent explosion. These
   are **CONFIRMED in Chromium/WebKit and on physical iPhone Safari**.
+- **M1B1.1 — Player UI Simplification (planned):** retain the accepted Codex
+  repository, Godot/Web/backend architecture, AI safety boundaries, mobile input
+  behavior, five attack modules, four elements, and complete target lab while
+  separating a quiet player-facing Forge/Combat presentation from the complete
+  Developer/Test presentation. Player Combat places the player left, current
+  target right, readable attack space in the middle, and compact HUD/actions at
+  the edges. This presentation pass does not add drawing understanding, new AI,
+  production art, accounts, voice, or gameplay systems. Its executable contract
+  is `docs/M1B1_1_PLAYER_UI_ACCEPTANCE.md`.
 - **M1B2 — drawing semantic understanding (not started):** image/vision meaning
   is explicitly outside M1B1; only bounded `drawing_summary` metadata is sent.
 - **M2 — vertical slice:** production combat character, three normal monsters, one
