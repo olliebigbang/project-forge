@@ -204,6 +204,13 @@ Voice is an input method, not a separate weapon system.
   controlled short/long x light/heavy experiment will derive handling and the
   observable startup/active/recovery phases. Weapon mass remains independent
   from length, and length alone does not increase damage.
+- **CONFIRMED (Weapon Physics B0 contract)** Numeric authority is frozen as
+  `GeometryEvidence -> PhysicalProfile -> CombatDerived`; AI cannot author
+  numeric physics and the public Schema does not expand for B1.
+- **TO VALIDATE (Weapon Physics B1 prototype)** A bounded continuous reach ×
+  light/balanced/heavy matrix now drives observable startup, active, hit and
+  recovery timing plus existing Range/Speed PowerBudget components. Its curve
+  still requires Chromium/WebKit and physical-device combat-feel evidence.
 - **TO VALIDATE (Weapon Physics B2)** The current melee capsule applies one damage
   value from grip to visible tip. Grip/root low-effect zones, blade regions,
   outer sweet spots, tip damage, and their required visual/audio/hit-stop feedback
