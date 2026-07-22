@@ -34,19 +34,34 @@ assets, balance data, or development direction from Cat Battle or another projec
 Do not add paid AI, secrets, production levels or art, voice, accounts, cloud
 saves, sharing, monetization, multiplayer, or store submission in M1A.
 
-## Current scope: M1B1.1 Player UI Simplification
+## Current scope: M1B1.2 Absolute Weapon Reach closure
 
-- Base all work on accepted `main` / `v0.2.0-m1b1`; this is a presentation-only
-  follow-up and is not M1B2.
+- M1B1.1 player-interface simplification and M1B1.2 absolute held-melee reach are
+  accepted release candidates stacked as PR #5 then PR #6. They are not M1B2.
 - Preserve every M1B1 AI, Worker, D1, schema, PowerBudget, request/revision,
   failure-recovery, and physical-iPhone input invariant below.
-- Normal Player Mode must use a quiet Forge/Combat hierarchy. Developer/Test
-  Mode retains the attack/element/target matrix and detailed audit without
-  placing all diagnostics over the combat centre.
-- Do not copy code, assets, names, or exact color values from
-  `project-forge-claude`. Original implementation may adopt only general layout
-  principles: fewer panels, clear whitespace, and edge-aligned HUD/actions.
-- The executable gate is `docs/M1B1_1_PLAYER_UI_ACCEPTANCE.md`.
+- For held melee, frozen `effective_reach` remains the single source for visible
+  grip-to-tip length, hit boundary, HUD Range, swing timing, recovery, cooldown,
+  and facing lock. Do not restore fixed held size or hidden reach padding.
+- Drawing length does not determine damage. The current uniform grip-to-tip
+  damage and linear speed exchange are explicit follow-ups, not completion
+  claims. Do not add mass, sweet spots, tip multipliers, or new Schema fields to
+  the M1B1.2 closure.
+- The executable gates are `docs/M1B1_1_PLAYER_UI_ACCEPTANCE.md` and
+  `docs/M1B1_2_ABSOLUTE_REACH_ACCEPTANCE.md`.
+
+## Next authorized planning boundary
+
+- After M1B1.2 release closure, Weapon Physics B0 may specify the authority chain
+  `GeometryEvidence -> PhysicalProfile -> CombatDerived` and fixed budget order.
+- B1 implementation must use a controlled short/long x light/heavy melee matrix
+  before introducing weapon-role compensation. B1.5 handles role and near/ranged
+  relationships. B2 owns contact regions, sweet spots, interruption, shield,
+  multi-target behavior, and matching feedback.
+- Existing M1B1 AI remains stable and may select only allow-listed semantics.
+  Local deterministic code owns numeric physics. Do not expand the public Schema
+  until the controlled physicality experiments establish required fields.
+- Do not start B1 implementation or M1B2 from the closure branch.
 
 ## Preserved M1B1 boundaries
 
@@ -114,7 +129,8 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
 - Stable branch after release closure: `main`.
 - Stable M1B1 release tag after closure: `v0.2.0-m1b1`.
 - Retained M1A rollback tag: `v0.1.0-m1a`.
-- Current closure branch: `codex/fix/m1b1-input-aspect`.
+- Current UI branch: `codex/ui/player-interface-simplification` (PR #5).
+- Current reach closure branch: `codex/fix/absolute-weapon-reach` (PR #6).
 - Compact Landscape uses CSS `visualViewport` dimensions; do not size mobile
   touch controls from the 1280×720 logical viewport alone.
 - Web Description input is a bounded native HTML overlay synchronized with

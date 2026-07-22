@@ -1,6 +1,6 @@
 # M1B1.1 Player UI Simplification
 
-Status: **CONFIRMED scope; implementation not yet accepted**
+Status: **CONFIRMED scope and product-owner acceptance; release closure in progress**
 
 This is an isolated presentation milestone after stable M1B1. It keeps the
 current Project Forge repository and runtime. It is not M1B2 and does not add
@@ -118,7 +118,7 @@ Run:
 
 ## Delivery boundary
 
-- Development branch: `codex/feat/player-ui-simplification` from stable
+- Development branch: `codex/ui/player-interface-simplification` from stable
   `main` / `v0.2.0-m1b1`.
 - The existing accepted branches, tags, worktrees, evidence, and rollback files
   remain untouched.

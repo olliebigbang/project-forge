@@ -157,6 +157,14 @@ its saved range cost into a faster bounded cycle. The correction reason is
 retained in the generation audit. The prototype thresholds and curve are
 **TO VALIDATE**.
 
+M1B1.2 deliberately stops at one grip-to-tip capsule and one damage value. It
+does not infer mass, material density, balance point, moment of inertia, blade
+regions, or contact-position damage. Those future values must follow the fixed
+authority chain `GeometryEvidence -> PhysicalProfile -> CombatDerived`; AI may
+select only allow-listed semantics, while local deterministic code owns all
+numeric physics. Public Schema expansion is deferred until the controlled
+physicality experiments establish which fields are required.
+
 ## Attack and element behavior
 
 | Module | Visible and combat distinction |
