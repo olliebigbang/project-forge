@@ -264,8 +264,12 @@ async function runCase(kind) {
   assert(confirmation.stroke_geometry.padding_fraction >= 0.08 && confirmation.stroke_geometry.padding_fraction <= 0.12, `${kind}: padding outside 8-12%`);
   assert(confirmation.visual_transforms.review.absolute_delta <= 1e-6, `${kind}: confirmation preview parent is non-uniform`);
   for (const [field, expected] of Object.entries(specs[kind])) {
-    if (["name", "power_score"].includes(field)) continue;
+    if (["name", "power_score"].includes(field) || (kind === "sword" && ["attack_speed", "range"].includes(field))) continue;
     assert(confirmation.spec[field] === expected, `${kind}: ${field} mismatch; got ${confirmation.spec[field]}, expected ${expected}`);
+  }
+  if (kind === "sword") {
+    assert(confirmation.spec.range === confirmation.geometry_profile.effective_reach, "sword: HUD/runtime Range differs from frozen reach");
+    assert(confirmation.spec.damage === specs.sword.damage, "sword: drawing length changed damage");
   }
   await page.screenshot({ path: join(destination, `${browserName}-${kind}-confirmation.png`) });
 

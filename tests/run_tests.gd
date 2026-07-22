@@ -15,12 +15,13 @@ func _init() -> void:
 	_test_schema_runtime_parity()
 	_test_drawing_summary()
 	_test_stroke_fit()
+	_test_drawing_geometry_profiles()
 	_test_attack_pattern_touch_selector()
 	_test_mobile_layout_policy()
 	await _test_forge_reset_state()
 	await _test_weapon_interpreter_response_context()
 	_test_orientation_prompt_rule()
-	_test_player_combat_gate()
+	await _test_player_combat_gate()
 	_test_target_rules()
 	var result := {"matrix_cases": _matrix_cases, "passed": _passed, "failed": _failed}
 	var output := FileAccess.open("user://m1a_test_results.json", FileAccess.WRITE)
@@ -288,6 +289,72 @@ func _test_stroke_fit() -> void:
 		procedural.free()
 
 
+func _test_drawing_geometry_profiles() -> void:
+	var canvas_size := Vector2(640.0, 300.0)
+	var shapes := {
+		"dagger": PackedVector2Array([Vector2(20, 145), Vector2(105, 140), Vector2(112, 150), Vector2(105, 160), Vector2(20, 155)]),
+		"short sword": PackedVector2Array([Vector2(20, 145), Vector2(175, 135), Vector2(182, 150), Vector2(175, 165), Vector2(20, 155)]),
+		"standard sword": PackedVector2Array([Vector2(20, 145), Vector2(315, 132), Vector2(326, 150), Vector2(315, 168), Vector2(20, 155)]),
+		"full-canvas long sword": PackedVector2Array([Vector2(18, 145), Vector2(612, 130), Vector2(625, 150), Vector2(612, 170), Vector2(18, 155)]),
+		"wide bow": PackedVector2Array([Vector2(20, 150), Vector2(320, 80), Vector2(620, 150), Vector2(320, 220), Vector2(20, 150)]),
+		"long spear": PackedVector2Array([Vector2(18, 145), Vector2(620, 138), Vector2(635, 150), Vector2(620, 162), Vector2(18, 155)]),
+		"round grenade": PackedVector2Array([Vector2(260, 75), Vector2(335, 150), Vector2(260, 225), Vector2(185, 150), Vector2(260, 75)]),
+		"square shield": PackedVector2Array([Vector2(190, 75), Vector2(340, 75), Vector2(340, 225), Vector2(190, 225), Vector2(190, 75)]),
+	}
+	var profiles: Dictionary = {}
+	for shape_name: String in shapes:
+		var source: Array[PackedVector2Array] = [shapes[shape_name]]
+		var original := StrokeFit.duplicate_strokes(source)
+		var profile := DrawingGeometryProfile.from_snapshot(source, canvas_size)
+		profiles[shape_name] = profile
+		_expect(source == original, "%s geometry profiling preserves source strokes" % shape_name)
+		_expect(profile.effective_reach >= DrawingGeometryProfile.MIN_EFFECTIVE_REACH and profile.effective_reach <= DrawingGeometryProfile.MAX_EFFECTIVE_REACH, "%s effective reach is bounded" % shape_name)
+
+	var dagger: DrawingGeometryProfile = profiles["dagger"]
+	var short_sword: DrawingGeometryProfile = profiles["short sword"]
+	var standard: DrawingGeometryProfile = profiles["standard sword"]
+	var long_sword: DrawingGeometryProfile = profiles["full-canvas long sword"]
+	_expect(dagger.effective_reach < short_sword.effective_reach, "dagger is visibly shorter than short sword")
+	_expect(short_sword.effective_reach < standard.effective_reach, "short sword reach is below standard sword")
+	_expect(standard.effective_reach < long_sword.effective_reach, "standard sword reach is below full-canvas sword")
+	_expect(long_sword.reach_profile == "extreme_long", "full-canvas long sword deterministically enters extreme-long tier")
+
+	var specs: Array[WeaponSpec] = []
+	for profile_entry: Array in [
+		["short sword", short_sword],
+		["standard sword", standard],
+		["full-canvas long sword", long_sword],
+	]:
+		var shape_name: String = profile_entry[0]
+		var profile: DrawingGeometryProfile = profile_entry[1]
+		var spec := WeaponCompiler.new().compile("a plain steel sword")
+		var damage_before := spec.damage
+		profile.apply_to_spec(spec)
+		specs.append(spec)
+		var source: Array[PackedVector2Array] = [shapes[shape_name]]
+		var fitted := StrokeFit.map_strokes(source, profile.held_target_rect())
+		var bounds := StrokeFit.actual_bounds(fitted)
+		_expect(is_equal_approx(bounds.position.x, 0.0), "%s grip remains pinned at local x=0" % profile.reach_profile)
+		_expect(absf(bounds.end.x - spec.attack_range) <= 0.01, "%s visible tip equals effective range" % profile.reach_profile)
+		_expect(spec.damage == damage_before, "%s reach adjustment leaves damage unchanged" % profile.reach_profile)
+		_expect(float(spec.budget_breakdown.total) <= PowerBudget.MAX_POWER, "%s geometry stats remain inside PowerBudget" % profile.reach_profile)
+		_expect(_notes_contain(spec.corrections, "geometry: frozen"), "%s geometry/budget correction is audited" % profile.reach_profile)
+
+	_expect(specs[0].attack_range < specs[1].attack_range and specs[1].attack_range < specs[2].attack_range, "runtime melee ranges are strictly monotonic")
+	_expect(specs[0].attack_speed > specs[1].attack_speed and specs[1].attack_speed > specs[2].attack_speed, "runtime melee speeds are inversely monotonic")
+	var short_cycle := 1.25 / specs[0].attack_speed
+	var standard_cycle := 1.25 / specs[1].attack_speed
+	var long_cycle := 1.25 / specs[2].attack_speed
+	_expect(short_cycle < standard_cycle and standard_cycle < long_cycle, "complete attack cycles are short < standard < long")
+	var test_target := Vector2(170.0, 0.0)
+	_expect(not DrawingGeometryProfile.melee_reaches_point(Vector2.ZERO, test_target, Vector2.RIGHT, specs[0].attack_range), "short sword cannot hit a target beyond its visible tip")
+	_expect(DrawingGeometryProfile.melee_reaches_point(Vector2.ZERO, test_target, Vector2.RIGHT, specs[2].attack_range), "long sword hits the same target within its visible tip")
+
+	var frozen := long_sword.to_dict()
+	for _viewport_size in [Vector2(844, 390), Vector2(852, 393), Vector2(915, 412)]:
+		_expect(long_sword.to_dict() == frozen, "frozen reach does not drift across landscape resize")
+
+
 func _test_attack_pattern_touch_selector() -> void:
 	var selector := AttackPatternSelector.new()
 	selector._ready()
@@ -482,8 +549,23 @@ func _test_player_combat_gate() -> void:
 	player.attack()
 	_expect(emissions.is_empty(), "re-forge combat gate blocks the equipped weapon")
 	player.set_combat_enabled(true)
+	player.facing = 1.0
 	player.attack()
+	player.set_touch_axis(-1.0)
+	await physics_frame
+	var locked_state := player.held_visual_state()
+	_expect(is_equal_approx(float(locked_state.attack_facing), 1.0), "melee attack freezes its starting direction")
+	_expect(is_equal_approx(float(locked_state.visual_facing), 1.0), "reverse movement cannot flip the held weapon before the hit window")
+	await create_timer(player.attack_hit_delay_seconds() + 0.08).timeout
 	_expect(emissions.size() == 1, "closing re-forge restores the equipped weapon")
+	var during_hit_state := player.held_visual_state()
+	_expect(is_equal_approx(float(during_hit_state.visual_facing), 1.0), "melee hit direction stays aligned with the visible swing")
+	await create_timer(maxf(player.attack_cycle_seconds() - player.attack_hit_delay_seconds(), 0.0) + 0.08).timeout
+	await physics_frame
+	var recovered_state := player.held_visual_state()
+	_expect(is_zero_approx(float(recovered_state.attack_facing)), "melee direction lock clears after recovery")
+	_expect(is_equal_approx(float(recovered_state.visual_facing), -1.0), "held reverse input becomes the visible facing after recovery")
+	player.set_touch_axis(0.0)
 	player.queue_free()
 
 

@@ -11,9 +11,14 @@ var _configured := false
 var fit_target_rect := DEFAULT_TARGET_RECT
 var fit_padding := StrokeFit.DEFAULT_PADDING
 var show_gameplay_markers := true
+var geometry_profile: DrawingGeometryProfile
 
 
-func configure(strokes: Array[PackedVector2Array], spec: WeaponSpec) -> void:
+func configure(
+	strokes: Array[PackedVector2Array],
+	spec: WeaponSpec,
+	profile: DrawingGeometryProfile = null,
+) -> void:
 	_configured = true
 	_strokes.clear()
 	for stroke in strokes:
@@ -21,6 +26,12 @@ func configure(strokes: Array[PackedVector2Array], spec: WeaponSpec) -> void:
 	_element = spec.element
 	_attack_pattern = spec.attack_pattern
 	_main_color = _color_for_element(_element)
+	geometry_profile = profile
+	# A null profile is used by detached projectile visuals after they configure
+	# their own geometry-centred target rect. Do not overwrite that role-specific
+	# fit. Held/review visuals always pass the frozen profile explicitly.
+	if profile != null:
+		fit_target_rect = profile.held_target_rect(fit_padding) if profile.applies_to(spec) else DEFAULT_TARGET_RECT
 	queue_redraw()
 
 

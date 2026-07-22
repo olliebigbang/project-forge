@@ -1,8 +1,8 @@
 # Project Forge — Game Design Document
 
 Version: 0.1 (organized from the supplied GDD)  
-Stable delivery milestone: **M1B1 real text-to-weapon interpreter — released and physical iPhone acceptance CONFIRMED**
-Next isolated milestone: **M1B1.1 Player UI Simplification — planned; not M1B2**
+Stable delivery milestone: **M1B1.2 absolute weapon reach — physical iPhone scope acceptance CONFIRMED; release closure in progress**
+Next isolated milestone: **Weapon Physics B0 specification, followed by the controlled B1 physicality experiment; not M1B2**
 Stable mobile acceptance: **CONFIRMED on physical iPhone Safari with v9**
 
 ## 1. Product identity
@@ -190,6 +190,26 @@ Voice is an input method, not a separate weapon system.
   reuses player ink only when the validated form is itself thrown (grenade or
   boomerang). Bow, bullet, energy and piercing projectiles are deterministic
   program graphics, separate from the held weapon and impact effect.
+- **CONFIRMED (M1B1.2)** A held melee drawing's frozen absolute
+  horizontal span determines one bounded effective reach. The same reach drives
+  held rendering from grip to visible tip, melee hit distance, HUD Range, and an
+  inverse attack-speed tradeoff used by swing, hit timing, recovery, and
+  cooldown. Drawing length does not increase damage.
+- **CONFIRMED (M1B1.2 scope acceptance)** Physical iPhone testing confirmed that
+  short, standard, and full-canvas long melee drawings remain visibly and
+  mechanically different in combat. The current release candidate preserves the
+  same bounded reach in the held visual, hit boundary, and HUD.
+- **TO VALIDATE (Weapon Physics B1)** The prototype reach curve, tier thresholds,
+  72-228 px bounds, and linear range-to-speed exchange are provisional. A future
+  controlled short/long x light/heavy experiment will derive handling and the
+  observable startup/active/recovery phases. Weapon mass remains independent
+  from length, and length alone does not increase damage.
+- **TO VALIDATE (Weapon Physics B2)** The current melee capsule applies one damage
+  value from grip to visible tip. Grip/root low-effect zones, blade regions,
+  outer sweet spots, tip damage, and their required visual/audio/hit-stop feedback
+  are deferred as one contact-model feature; they are not part of M1B1.2.
+- **TO VALIDATE** Grip and attack direction remain the current deterministic
+  left-to-right prototype; semantic grip/orientation inference is still deferred.
 
 ## 7. Enemies and levels
 
@@ -299,7 +319,7 @@ rolling for a higher damage value.
   input, explicit power budget, runtime and JSON Schema validation/repair, five
   attack forms, four elements, target lab, 32 input cases, public Web deployment,
   and physical iPhone Safari acceptance.
-- **M1B1 — real text-to-weapon interpreter (acceptance candidate):** Anthropic
+- **M1B1 — real text-to-weapon interpreter (complete):** Anthropic
   Haiku 4.5 is configured server-side through the native Messages API and native
   Structured Outputs. The public blocker-fix candidate confirms the same-origin
   contract, explicit non-equipable failure flow, atomic request snapshots,
@@ -316,7 +336,7 @@ rolling for a higher damage value.
   a stable Canvas with compact text entry, keeps bows held while arrows fly, and
   gives grenades a centred drawn flight copy plus independent explosion. These
   are **CONFIRMED in Chromium/WebKit and on physical iPhone Safari**.
-- **M1B1.1 — Player UI Simplification (planned):** retain the accepted Codex
+- **M1B1.1 — Player UI Simplification (accepted; release closure in progress):** retain the accepted Codex
   repository, Godot/Web/backend architecture, AI safety boundaries, mobile input
   behavior, five attack modules, four elements, and complete target lab while
   separating a quiet player-facing Forge/Combat presentation from the complete
@@ -325,6 +345,13 @@ rolling for a higher damage value.
   the edges. This presentation pass does not add drawing understanding, new AI,
   production art, accounts, voice, or gameplay systems. Its executable contract
   is `docs/M1B1_1_PLAYER_UI_ACCEPTANCE.md`.
+- **M1B1.2 — Absolute Weapon Reach (accepted; release closure in progress):**
+  freeze one client-owned geometry profile per FORGE request and use its bounded
+  effective reach for held-melee grip-to-tip rendering, HUD Range, real hit
+  boundary, inverse cycle timing, and facing lock. Physical iPhone scope
+  acceptance is **CONFIRMED**. Mass/handling experiments and contact-position
+  damage remain the separately staged Weapon Physics B1 and B2 work. Its
+  executable contract is `docs/M1B1_2_ABSOLUTE_REACH_ACCEPTANCE.md`.
 - **M1B2 — drawing semantic understanding (not started):** image/vision meaning
   is explicitly outside M1B1; only bounded `drawing_summary` metadata is sent.
 - **M2 — vertical slice:** production combat character, three normal monsters, one
