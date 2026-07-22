@@ -83,10 +83,14 @@ deterministic held-melee physicality and does not start M1B2 or expand the publi
 | Reach independent from thickness/mass | **CONFIRMED** | Same longitudinal evidence produces identical Range across extreme thickness and two consecutive WebKit runs |
 | Chromium/WebKit mobile regression | **CONFIRMED** | Both engines pass the 12-case matrix plus keyboard, toolbar, orientation, bow, grenade, sword, and boomerang regressions with zero application console errors |
 | Physical iPhone combat feel | **CONFIRMED on 2026-07-22** | Product owner accepted the isolated Sites Version 2 preview and reported no new blocker |
-| PR #7 and stable deployment | **IN PROGRESS** | HEAD `e15e32d` matches the accepted preview code; final docs/tests/CI, merge, stable deployment, smoke, tag, and rollback verification are the remaining closure steps |
+| PR #7 and stable deployment | **CONFIRMED on 2026-07-22** | PR #7 CI passed and merged as `b37e524`; Sites v24 deployed that exact commit, production Chromium/WebKit and one-call Anthropic smoke passed, stable tag `v0.3.0-weapon-physics-b1` was pushed, and v23 / `v0.2.1-m1b1.2` remain rollback points |
 
 The accepted preview used deployment-only metadata commit `a81061f` to bind a
 separate Site and a USD 0.50 D1 lifetime cap. It did not mutate stable v23.
+The stable Site retained its original USD 5 D1 lifetime cap. Production smoke
+made exactly one provider attempt with the immutable Haiku snapshot, returned a
+schema/allow-list/runtime-valid electric boomerang, and recorded zero application
+console errors.
 
 ## Status vocabulary
 

@@ -27,14 +27,15 @@ assets, balance data, or development direction from Cat Battle or another projec
 - **CONFIRMED** M1B1 real text interpretation and its reopened P0 fixes passed
   physical iPhone Safari acceptance on 2026-07-20. Formal release closure uses
   PR #4 from `codex/fix/m1b1-input-aspect`.
-- Do not start M1B2 during M1B1 closure or move/delete either stable tag.
+- Weapon Physics B1 release closure is complete. Do not start M1B2 from the
+  B1 release or closeout branches, and do not move/delete either stable tag.
 - The M1A forge uses five persistent attack-pattern test buttons. Never restore
   an `OptionButton`, `PopupMenu`, or full-screen modal selector for this flow.
 
 Do not add paid AI, secrets, production levels or art, voice, accounts, cloud
 saves, sharing, monetization, multiplayer, or store submission in M1A.
 
-## Current scope: Weapon Physics B1 release closure
+## Current scope: stable Weapon Physics B1 baseline
 
 - M1B1.1 player-interface simplification and M1B1.2 absolute held-melee reach are
   stable on `main`; Weapon Physics B1 is PR #7 from
@@ -51,8 +52,8 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
   damage remains an explicit B2 follow-up; do not add contact regions, sweet
   spots, interruption, or new Schema fields during B1 closure.
 - The executable gate is `docs/WEAPON_PHYSICS_B1_ACCEPTANCE.md`. Physical-iPhone
-  cadence acceptance passed on 2026-07-22; PR/CI/merge/stable deployment and
-  rollback verification remain closure work.
+  cadence acceptance, PR #7, CI, merge, stable deployment, production smoke,
+  stable tag, and rollback verification completed on 2026-07-22.
 
 ## Next authorized planning boundary
 
@@ -130,9 +131,9 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
 - Stable branch after release closure: `main`.
 - Stable M1B1 release tag after closure: `v0.2.0-m1b1`.
 - Retained M1A rollback tag: `v0.1.0-m1a`.
-- Current B1 closure branch: `codex/feat/weapon-physics-b1` (PR #7).
-- Planned stable B1 tag after verified merge/deployment:
-  `v0.3.0-weapon-physics-b1`; retained rollback tag:
+- Completed B1 branch: `codex/feat/weapon-physics-b1` (merged PR #7; retained
+  until cleanup is separately approved).
+- Stable B1 tag: `v0.3.0-weapon-physics-b1`; retained rollback tag:
   `v0.2.1-m1b1.2`.
 - Compact Landscape uses CSS `visualViewport` dimensions; do not size mobile
   touch controls from the 1280×720 logical viewport alone.

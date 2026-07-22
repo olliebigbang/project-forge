@@ -1,5 +1,40 @@
 # Changelog
 
+## v0.3.0-weapon-physics-b1 — 2026-07-22
+
+### Added
+
+- A deterministic `GeometryEvidence -> PhysicalProfile -> CombatDerived`
+  authority chain for controlled held-melee physicality.
+- A 1/4/8/16-grid by light/balanced/heavy validation matrix, including an
+  internal ultra-short tier, one authoritative attack cycle, and one buffered
+  input slot.
+
+### Fixed
+
+- Kept visible grip-to-tip length, HUD Range, and executable hit reach on the
+  same frozen bounded value.
+- Made visible swing cadence and actual input acceptance reflect the same
+  startup/active/hit/recovery/cooldown cycle.
+- Removed cross-axis thickness from reach derivation while preserving mass as a
+  separate bounded handling proxy.
+
+### Verified
+
+- Physical-iPhone combat-feel acceptance on the isolated B1 preview.
+- PR #7 CI and merge commit `b37e524`.
+- Stable Sites Version 24 from that exact commit, HTTP 200, Chromium/WebKit
+  production regressions, and one successful guarded Anthropic smoke request.
+- Stable tag `v0.3.0-weapon-physics-b1`; rollback remains Sites v23 plus
+  `v0.2.1-m1b1.2`.
+
+### Deferred
+
+- B1.5 weapon-role and near/ranged compensation.
+- B2 contact regions, sweet spots, interruption, shield/multi-target behavior,
+  and matching feedback.
+- M1B2 visual interpretation and all production-scale features.
+
 ## v0.2.0-m1b1 — 2026-07-20
 
 ### Added
