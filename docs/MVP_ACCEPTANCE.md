@@ -1,7 +1,8 @@
-# M0/M1A Acceptance Record and M1B1 Gate
+# M0 through Weapon Physics B1 Acceptance Record
 
-This file preserves the completed M0 and M1A gates and points to the active M1B1
-acceptance contract in `docs/M1B1_ACCEPTANCE.md`.
+This file preserves the completed M0, M1A, M1B1, M1B1.1, M1B1.2, and Weapon
+Physics B1 gates. The detailed B1 contract and evidence are in
+`docs/WEAPON_PHYSICS_B1_ACCEPTANCE.md`.
 `docs/GDD.md` retains the broader product definition; later requirements remain
 visible without being silently pulled into the deterministic compiler milestone.
 **CONFIRMED:** the product owner completed the v9 physical iPhone Safari
@@ -40,14 +41,15 @@ CI, and the physical-device result together close this gate.
   the isolated `codex/feat/m1b1-real-text-interpreter` branch. The stable M1A tag
   and deployment remain unchanged.
 
-## M1B1 current gate
+## M1B1 accepted gate
 
 The detailed, executable criteria are in `docs/M1B1_ACCEPTANCE.md`. Provider,
 deployed D1 and controlled paid evidence remain valid. The previous public
 candidate was reopened for keyboard/Canvas and weapon-visual-role P0 failures.
-The replacement passes desktop browser automation and the product owner accepted
-it on physical iPhone Safari. Final PR CI, main deployment, production smoke, and
-rollback verification remain separate release-closure gates.
+The replacement passed desktop browser automation and the product owner accepted
+it on physical iPhone Safari. M1B1 subsequently closed on `main`; its schema,
+provider, D1, mobile-input, and failure-safety boundaries remain regression locks
+for later physicality work.
 
 | Area | Status | Evidence / remaining gate |
 | --- | --- | --- |
@@ -63,8 +65,28 @@ rollback verification remain separate release-closure gates.
 | Real-provider 40+ case accuracy, latency, P95, cost, and fallback evidence | **CONFIRMED** | 42/42 pass; pattern and element accuracy 100%; validity 100%; median 1.318 s; P95 4.846 s; matrix cost USD 0.033588 |
 | iOS compact text-entry Canvas stability | **CONFIRMED (Chromium + WebKit + physical iPhone)** | Stable Canvas; 16px Description, clear and Done; edit/delete/restore/toolbars/three rotations accepted |
 | Held/projectile/impact visual separation | **CONFIRMED (Godot + Chromium + WebKit + physical iPhone)** | Bow held through arrows; grenade arc/blast/restore; sword no projectile; boomerang return |
-| Public M1B1 blocker preview and CI/PR | **CONFIRMED for accepted preview; release closure in progress** | Runtime `6d5ba3a` / Sites v19 hashes and browser tests passed; PR #4 final CI and main deployment are closure steps |
+| Public M1B1 blocker preview and CI/PR | **CONFIRMED** | Runtime `6d5ba3a` / Sites v19 hashes and browser tests passed; PR #4 closed the M1B1 release line |
 | Physical iPhone Safari M1B1 acceptance | **CONFIRMED on 2026-07-20** | Product owner passed Description/keyboard, Bow, Grenade, Sword, Boomerang, orientation, and Safari toolbar checks |
+
+## Weapon Physics B1 release gate
+
+Weapon Physics B1 starts from stable `v0.2.1-m1b1.2`. It changes only local,
+deterministic held-melee physicality and does not start M1B2 or expand the public
+`WeaponSpec` Schema.
+
+| Area | Status | Evidence / remaining gate |
+| --- | --- | --- |
+| B0 numeric authority chain | **CONFIRMED** | `GeometryEvidence -> PhysicalProfile -> CombatDerived`; raw strokes preserved and AI cannot author numeric physics |
+| 1/4/8/16-grid x light/balanced/heavy deterministic matrix | **CONFIRMED** | 12/12 cases; damage fixed at 36; visible tip, HUD Range, and real hit boundary agree within 0.05 px |
+| Observable startup/active/hit/recovery/cooldown timing | **CONFIRMED** | One derived cycle drives animation and input; 1-grid/light .333 s through 16-grid/heavy 1.923 s |
+| Rapid input safety | **CONFIRMED** | One active attack plus one Boolean buffer; no overlapping windows or unbounded burst |
+| Reach independent from thickness/mass | **CONFIRMED** | Same longitudinal evidence produces identical Range across extreme thickness and two consecutive WebKit runs |
+| Chromium/WebKit mobile regression | **CONFIRMED** | Both engines pass the 12-case matrix plus keyboard, toolbar, orientation, bow, grenade, sword, and boomerang regressions with zero application console errors |
+| Physical iPhone combat feel | **CONFIRMED on 2026-07-22** | Product owner accepted the isolated Sites Version 2 preview and reported no new blocker |
+| PR #7 and stable deployment | **IN PROGRESS** | HEAD `e15e32d` matches the accepted preview code; final docs/tests/CI, merge, stable deployment, smoke, tag, and rollback verification are the remaining closure steps |
+
+The accepted preview used deployment-only metadata commit `a81061f` to bind a
+separate Site and a USD 0.50 D1 lifetime cap. It did not mutate stable v23.
 
 ## Status vocabulary
 

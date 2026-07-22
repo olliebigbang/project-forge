@@ -1,6 +1,7 @@
 # Weapon Physics B0 Contract and B1 Controlled Prototype
 
-Status: **CONFIRMED B0 authority contract; TO VALIDATE B1 balance curve**
+Status: **CONFIRMED B0 authority contract and accepted B1 controlled curve;
+production balance remains TO VALIDATE**
 
 This work begins at stable tag `v0.2.1-m1b1.2` and does not start M1B2. It
 preserves the accepted interpreter, Worker/D1 safety boundary, public
@@ -62,8 +63,9 @@ All values below are **TO VALIDATE**, not production balance:
   cycle retains a 0.25 s safety floor.
 - Startup and active shares rise modestly with reach and mass. Recovery receives
   the remaining cycle. Contact is sampled once 62% through active motion.
-- The 1-grid/light to 16-grid/heavy candidate cycle ratio is 4-6. Physical-device
-  review, not automation, decides the final curve.
+- The 1-grid/light to 16-grid/heavy candidate cycle ratio is 4-6. The product
+  owner accepted the round-two 5.775 ratio on physical iPhone on 2026-07-22;
+  broader role and production balance remain outside B1.
 - PowerBudget continues to price only public executable stats. Reach changes
   the existing `range / 45` component and handling changes the existing
   `attack_speed * 10` component; the audit records their combined delta.

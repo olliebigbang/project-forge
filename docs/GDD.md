@@ -1,9 +1,9 @@
 # Project Forge — Game Design Document
 
 Version: 0.1 (organized from the supplied GDD)  
-Stable delivery milestone: **M1B1.2 absolute weapon reach — physical iPhone scope acceptance CONFIRMED; release closure in progress**
-Next isolated milestone: **Weapon Physics B0 specification, followed by the controlled B1 physicality experiment; not M1B2**
-Stable mobile acceptance: **CONFIRMED on physical iPhone Safari with v9**
+Stable delivery milestone: **Weapon Physics B1 controlled melee physicality — physical iPhone acceptance CONFIRMED; PR #7 release closure in progress**
+Next isolated milestone: **B1.5 weapon-role and near/ranged compensation planning after B1 closure; not M1B2**
+Stable mobile acceptance: **CONFIRMED on physical iPhone Safari through the isolated B1 Sites Version 2 preview on 2026-07-22**
 
 ## 1. Product identity
 

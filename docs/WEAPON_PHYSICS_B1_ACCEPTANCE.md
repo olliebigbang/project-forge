@@ -1,7 +1,7 @@
 # Weapon Physics B1 Controlled Prototype Acceptance
 
-Status: **CONFIRMED automated round-two gate; TO VALIDATE physical-device
-combat-feel review**
+Status: **CONFIRMED automated and physical-iPhone round-two acceptance;
+release closure in progress**
 
 B1 is a local deterministic physicality experiment after accepted M1B1.2. It is
 not M1B2, B1.5, or B2 and does not expand the public `WeaponSpec` Schema.
@@ -139,10 +139,32 @@ For both runs, source-width spread, normalized-length spread, effective-reach
 spread, and maximum physical residual were all zero. Fix evidence is retained at
 `output/playwright/weapon-physics-b1-mass-reach-fix/`.
 
-## Remaining gates and limitations
+## Physical iPhone and isolated preview acceptance (2026-07-22)
 
-- **TO VALIDATE:** Product owner must judge round-two cadence on a physical
-  iPhone; automated evidence cannot close combat feel.
+The product owner accepted the round-two combat feel on a physical iPhone after
+testing the isolated Sites preview. The accepted product-code HEAD is
+`e15e32dd6fd16f76fc5a84f3622e2bef17e72191` (PR #7). Sites Version 2 uses the
+deployment-only metadata commit `a81061f0d37754cce28f547ffe4d20b98ab2eb3a`;
+the only intentional difference is binding `.openai/hosting.json` to the
+isolated preview project rather than the stable Site.
+
+- **CONFIRMED:** The visible and executable cadence difference between the
+  tested 1/4/8/16-grid swords is acceptable on the physical device.
+- **CONFIRMED:** The very short sword is limited primarily by the player's tap
+  cadence while the long sword remains visibly and mechanically slower.
+- **CONFIRMED:** No new mobile input, layout, keyboard, orientation, or combat
+  blocker was reported during this acceptance pass.
+- **CONFIRMED:** The isolated preview retained the Anthropic snapshot and D1
+  guard while using a separate USD 0.50 lifetime application cap. The stable
+  v23 Site was not mutated during device review.
+- **CONFIRMED:** Sites deployment Version 2 included both D1 migrations and
+  returned HTTP 200 through the authenticated Site boundary. Anonymous access
+  remained behind the expected Sign in with ChatGPT gate.
+
+## Remaining release gates and limitations
+
+- **CONFIRMED:** Product-owner physical-iPhone combat-feel review passed on
+  2026-07-22.
 - **TO VALIDATE:** The 72 px floor still loses sub-grid reach resolution.
 - **TO VALIDATE:** Whole-ink cross-axis load is only a mass proxy; material
   density, balance point, moment of inertia, and blade/handle separation are not
@@ -150,6 +172,26 @@ spread, and maximum physical residual were all zero. Fix evidence is retained at
 - **TO VALIDATE (B1.5):** Weapon-role and near/ranged compensation are absent.
 - **TO VALIDATE (B2):** Contact regions, sweet spots, interruption, shields,
   multi-target behavior, and matching feedback remain unimplemented.
-- **DEPLOYMENT GATE:** No independent test Site/URL was available in this task.
-  Keep stable v23 untouched; the integrator decides whether to provision a safe
-  isolated preview for the physical-device review.
+- **RELEASE GATE:** PR #7 final CI, merge, stable-main deployment, smoke test,
+  rollback verification, and release tag remain closure work. The isolated
+  preview is acceptance evidence, not the stable production release.
+
+## Release-closure rerun (2026-07-22)
+
+The integrator rebuilt and reran the accepted PR #7 state after recording the
+device result:
+
+- `./scripts/test.ps1`: PASS; Godot 4.7.1 import/parse, deterministic compiler,
+  Worker/interpreter, D1 idempotency, provider-budget, and hostile safety gates.
+- `./scripts/build_web.ps1`: PASS; fresh Godot Web export.
+- `./scripts/build_sites_preview.ps1`: PASS; fresh Worker/WASM Sites bundle.
+- Chromium: 12/12 physicality cases, console errors 0, extreme cycle ratio
+  5.7748, exactly two accepted attacks/damage events from three rapid taps, and
+  maximum physical reach residual 0 px.
+- WebKit: the same 12/12, zero errors, 5.7748 ratio, two-event input bound, and
+  0 px residual.
+
+The first two browser-launch attempts did not load the application because the
+bundled Playwright module path was incomplete. After resolving the actual pnpm
+module path, both complete browser runs passed; those launch-environment errors
+are not gameplay or test failures.
