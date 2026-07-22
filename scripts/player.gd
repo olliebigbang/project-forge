@@ -94,7 +94,7 @@ func attack() -> void:
 	_attack_generation += 1
 	var generation := _attack_generation
 	if current_spec.delivery == "held" and current_spec.attack_pattern == "melee_slash":
-		_play_melee_attack_motion(cycle_seconds, generation, direction)
+		_play_melee_attack_motion(generation, direction)
 		return
 	_restore_weapon_pose()
 	_emit_attack(generation, direction)
@@ -103,6 +103,9 @@ func attack() -> void:
 func attack_cycle_seconds() -> float:
 	if current_spec == null:
 		return 0.0
+	var timing := _melee_combat_derived()
+	if timing != null:
+		return timing.cycle_seconds
 	var drawback_multiplier: float = {
 		"slow_recovery": 1.25, "self_stagger": 1.30, "cooldown_lock": 1.45
 	}.get(current_spec.drawback, 1.0)
@@ -110,7 +113,25 @@ func attack_cycle_seconds() -> float:
 
 
 func attack_hit_delay_seconds() -> float:
-	return attack_cycle_seconds() * 0.38
+	var timing := _melee_combat_derived()
+	if timing != null:
+		return timing.hit_delay_seconds
+	return attack_startup_seconds() + attack_active_seconds() * CombatDerived.ACTIVE_HIT_FRACTION
+
+
+func attack_startup_seconds() -> float:
+	var timing := _melee_combat_derived()
+	return timing.startup_seconds if timing != null else attack_cycle_seconds() * 0.25
+
+
+func attack_active_seconds() -> float:
+	var timing := _melee_combat_derived()
+	return timing.active_seconds if timing != null else attack_cycle_seconds() * 0.21
+
+
+func attack_recovery_seconds() -> float:
+	var timing := _melee_combat_derived()
+	return timing.recovery_seconds if timing != null else maxf(attack_cycle_seconds() - attack_startup_seconds() - attack_active_seconds(), 0.0)
 
 
 func _emit_attack(generation: int, direction: Vector2) -> void:
@@ -124,19 +145,24 @@ func _emit_attack(generation: int, direction: Vector2) -> void:
 	attack_requested.emit(current_spec, origin, direction, current_strokes)
 
 
-func _play_melee_attack_motion(cycle_seconds: float, generation: int, direction: Vector2) -> void:
+func _play_melee_attack_motion(generation: int, direction: Vector2) -> void:
 	if _attack_tween and _attack_tween.is_valid():
 		_attack_tween.kill()
 	_restore_weapon_pose()
 	_melee_attack_facing = signf(direction.x)
 	weapon_visual.scale = Vector2(_melee_attack_facing, 1.0)
-	weapon_visual.rotation = -0.32 * _melee_attack_facing
+	weapon_visual.rotation = -0.18 * _melee_attack_facing
 	_attack_tween = create_tween()
 	_attack_tween.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
-	var hit_delay := cycle_seconds * 0.38
-	_attack_tween.tween_property(weapon_visual, "rotation", 0.42 * _melee_attack_facing, hit_delay)
+	var startup := attack_startup_seconds()
+	var active := attack_active_seconds()
+	var active_before_hit := active * CombatDerived.ACTIVE_HIT_FRACTION
+	var active_after_hit := active - active_before_hit
+	_attack_tween.tween_property(weapon_visual, "rotation", -0.48 * _melee_attack_facing, startup)
+	_attack_tween.tween_property(weapon_visual, "rotation", 0.30 * _melee_attack_facing, active_before_hit)
 	_attack_tween.tween_callback(func() -> void: _emit_attack(generation, direction))
-	_attack_tween.tween_property(weapon_visual, "rotation", 0.0, cycle_seconds - hit_delay)
+	_attack_tween.tween_property(weapon_visual, "rotation", 0.48 * _melee_attack_facing, active_after_hit)
+	_attack_tween.tween_property(weapon_visual, "rotation", 0.0, attack_recovery_seconds())
 	_attack_tween.tween_callback(_restore_weapon_pose)
 
 
@@ -189,7 +215,10 @@ func held_visual_state() -> Dictionary:
 		},
 		"attack_speed": current_spec.attack_speed if current_spec != null else 0.0,
 		"attack_cycle_seconds": attack_cycle_seconds(),
+		"startup_seconds": attack_startup_seconds(),
+		"active_seconds": attack_active_seconds(),
 		"hit_delay_seconds": attack_hit_delay_seconds(),
+		"recovery_seconds": attack_recovery_seconds(),
 		"facing": facing,
 		"attack_facing": _melee_attack_facing,
 		"visual_facing": _visual_facing(),
@@ -210,6 +239,17 @@ func _visual_facing() -> float:
 	if not is_zero_approx(_melee_attack_facing):
 		return _melee_attack_facing
 	return facing
+
+
+func _melee_combat_derived() -> CombatDerived:
+	if current_spec == null or current_geometry_profile == null:
+		return null
+	if current_spec.delivery != "held" or current_spec.attack_pattern != "melee_slash":
+		return null
+	var timing := current_geometry_profile.combat_derived
+	if timing == null or not is_equal_approx(timing.attack_speed, current_spec.attack_speed):
+		return null
+	return timing
 
 
 func _draw() -> void:

@@ -63,7 +63,7 @@ function responseFor(requestId) {
 
 const browser = await browserType.launch({ headless: true });
 const report = {
-  suite: "M1B1.1 absolute held-melee reach regression",
+  suite: "Weapon Physics B1 held-melee reach x mass regression",
   browser: browserName,
   target: targetUrl,
   provider_claim: "SIMULATED RESPONSE - no paid provider invocation",
@@ -72,7 +72,7 @@ const report = {
   console_errors: [],
 };
 
-async function runCase(caseName, startFraction, endFraction, expectHit) {
+async function runCase(caseName, startFraction, endFraction, crossAxisFraction, expectedMass, expectHit) {
   const context = await browser.newContext({
     ...playwright.devices["iPhone 15"],
     viewport: { width: 844, height: 390 },
@@ -113,26 +113,15 @@ async function runCase(caseName, startFraction, endFraction, expectHit) {
   await waitFor((value) => value.description === description, "description sync");
   const canvas = (await controls()).canvas;
   const y = canvas.y + canvas.height * 0.52;
+  const halfCrossAxis = crossAxisFraction * 0.5;
   const bladePoints = [
-    { x: canvas.x + canvas.width * startFraction, y: y - canvas.height * 0.025 },
-    { x: canvas.x + canvas.width * (endFraction - 0.015), y: y - canvas.height * 0.075 },
+    { x: canvas.x + canvas.width * startFraction, y: y - canvas.height * halfCrossAxis * 0.35 },
+    { x: canvas.x + canvas.width * (endFraction - 0.015), y: y - canvas.height * halfCrossAxis },
     { x: canvas.x + canvas.width * endFraction, y },
-    { x: canvas.x + canvas.width * (endFraction - 0.015), y: y + canvas.height * 0.075 },
-    { x: canvas.x + canvas.width * startFraction, y: y + canvas.height * 0.025 },
+    { x: canvas.x + canvas.width * (endFraction - 0.015), y: y + canvas.height * halfCrossAxis },
+    { x: canvas.x + canvas.width * startFraction, y: y + canvas.height * halfCrossAxis * 0.35 },
   ];
-  const strokes = caseName === "long"
-    ? [
-        bladePoints,
-        [
-          { x: canvas.x + canvas.width * (startFraction + 0.015), y: y - canvas.height * 0.27 },
-          { x: canvas.x + canvas.width * (startFraction + 0.015), y: y + canvas.height * 0.27 },
-        ],
-        [
-          { x: canvas.x + canvas.width * startFraction, y },
-          { x: canvas.x + canvas.width * (startFraction + 0.11), y },
-        ],
-      ]
-    : [bladePoints];
+  const strokes = [bladePoints];
   for (const stroke of strokes) {
     await page.mouse.move(stroke[0].x, stroke[0].y);
     await page.mouse.down();
@@ -146,11 +135,19 @@ async function runCase(caseName, startFraction, endFraction, expectHit) {
   await tap((await controls()).forge);
   const confirmation = await waitFor((value) => value.screen === "confirmation" && value.phase === "result", "confirmation");
   assert(confirmation.spec.damage === baseSword.damage, `${caseName}: damage changed`);
+  assert(confirmation.spec.power_score <= 100, `${caseName}: PowerBudget exceeded 100`);
+  assert(confirmation.result.corrections.some((entry) => entry.startsWith("physics B1:")), `${caseName}: physics correction reason missing`);
   assert(confirmation.spec.range === confirmation.geometry_profile.effective_reach, `${caseName}: Range differs from effective reach`);
+  assert(confirmation.geometry_profile.mass_profile === expectedMass, `${caseName}: expected mass ${expectedMass}, got ${confirmation.geometry_profile.mass_profile}`);
   assert(Math.abs(confirmation.stroke_geometry.visible_reach - confirmation.spec.range) <= 0.05, `${caseName}: visible tip differs from Range`);
   assert(confirmation.stroke_geometry.relative_aspect_error <= 0.02, `${caseName}: aspect error exceeds 2%`);
   assert(Math.abs(confirmation.stroke_geometry.scale_x - confirmation.stroke_geometry.scale_y) <= 1e-6, `${caseName}: fit is non-uniform`);
   assert(confirmation.stroke_geometry.padding_fraction >= 0.08 && confirmation.stroke_geometry.padding_fraction <= 0.12, `${caseName}: padding outside 8-12%`);
+  const derived = confirmation.geometry_profile.combat_derived;
+  assert(derived.startup_seconds > 0 && derived.active_seconds > 0 && derived.recovery_seconds > 0, `${caseName}: timing phases are not observable`);
+  assert(Number.isFinite(derived.budget_effects.combined_delta), `${caseName}: physics budget delta missing`);
+  assert(Math.abs(derived.attack_speed - confirmation.spec.attack_speed) <= 1e-6, `${caseName}: attack_speed differs from CombatDerived`);
+  assert(derived.contact_model.mode === "uniform_grip_to_tip" && derived.contact_model.regions.length === 0 && !derived.contact_model.sweet_spots_enabled, `${caseName}: B2 contact behavior leaked into B1`);
 
   await tap((await controls()).confirm);
   let combat = await waitFor((value) => value.screen === "combat", "combat");
@@ -181,12 +178,13 @@ async function runCase(caseName, startFraction, endFraction, expectHit) {
   assert(impact.active_projectiles === 0 && impact.projectile_spawn_count === 0, `${caseName}: sword emitted a projectile`);
   await page.screenshot({ path: join(destination, `${browserName}-${caseName}-impact.png`) });
 
-  if (caseName === "long") {
+  if (caseName === "long-heavy") {
     await waitFor((value) => value.held_visual?.cooldown <= 0.01, "melee recovery");
     const reverseStart = await state();
     const reverseStartX = reverseStart.player_position.x;
     const secondAttackBefore = reverseStart.attack_count;
     await tap((await controls()).attack);
+    await waitFor((value) => value.held_visual?.attack_facing === 1, "second swing start");
     const left = (await controls()).left;
     assert(left?.width > 0 && left?.height > 0, "long: LEFT control unavailable");
     await page.mouse.move(left.x + left.width / 2, left.y + left.height / 2);
@@ -243,7 +241,10 @@ async function runCase(caseName, startFraction, endFraction, expectHit) {
     health_after: targetAfter.health,
     hit: didHit,
     attack_cycle_seconds: combat.held_visual.attack_cycle_seconds,
+    startup_seconds: combat.held_visual.startup_seconds,
+    active_seconds: combat.held_visual.active_seconds,
     hit_delay_seconds: combat.held_visual.hit_delay_seconds,
+    recovery_seconds: combat.held_visual.recovery_seconds,
     measured_hit_delay_ms: measuredHitDelayMs,
     source_bounds: confirmation.geometry_profile.source_bounds,
   });
@@ -251,17 +252,25 @@ async function runCase(caseName, startFraction, endFraction, expectHit) {
 }
 
 try {
-  await runCase("short", 0.12, 0.30, false);
-  await runCase("standard", 0.10, 0.52, false);
-  await runCase("long", 0.035, 0.965, true);
-  const [shortCase, standardCase, longCase] = report.cases;
-  assert(shortCase.spec.range < standardCase.spec.range && standardCase.spec.range < longCase.spec.range, "visible/runtime reach is not strictly monotonic");
-  assert(shortCase.spec.attack_speed > standardCase.spec.attack_speed && standardCase.spec.attack_speed > longCase.spec.attack_speed, "attack speed is not inversely monotonic");
-  assert(shortCase.attack_cycle_seconds < standardCase.attack_cycle_seconds && standardCase.attack_cycle_seconds < longCase.attack_cycle_seconds, "full attack cycle is not short < standard < long");
+  await runCase("short-light", 0.12, 0.30, 0.05, "light", false);
+  await runCase("short-heavy", 0.12, 0.30, 0.28, "heavy", false);
+  await runCase("standard-balanced", 0.10, 0.52, 0.14, "balanced", false);
+  await runCase("long-light", 0.035, 0.965, 0.05, "light", true);
+  await runCase("long-heavy", 0.035, 0.965, 0.28, "heavy", true);
+  const byName = Object.fromEntries(report.cases.map((entry) => [entry.name, entry]));
+  assert(byName["short-light"].spec.range < byName["standard-balanced"].spec.range && byName["standard-balanced"].spec.range < byName["long-light"].spec.range, "visible/runtime reach is not strictly monotonic");
+  assert(byName["short-light"].spec.range === byName["short-heavy"].spec.range, "short reach changed with mass");
+  assert(byName["long-light"].spec.range === byName["long-heavy"].spec.range, "long reach changed with mass");
+  assert(byName["short-light"].attack_cycle_seconds < byName["short-heavy"].attack_cycle_seconds, "short mass does not slow the complete cycle");
+  assert(byName["long-light"].attack_cycle_seconds < byName["long-heavy"].attack_cycle_seconds, "long mass does not slow the complete cycle");
+  assert(byName["short-light"].hit_delay_seconds < byName["long-light"].hit_delay_seconds, "reach does not delay the light hit window");
+  assert(byName["short-heavy"].hit_delay_seconds < byName["long-heavy"].hit_delay_seconds, "reach does not delay the heavy hit window");
+  const extremeCycleRatio = byName["long-heavy"].attack_cycle_seconds / byName["short-light"].attack_cycle_seconds;
+  assert(extremeCycleRatio >= 1.35 && extremeCycleRatio < 3.0, `bounded extreme cycle ratio is ${extremeCycleRatio}`);
   await writeFile(join(destination, `${browserName}-report.json`), `${JSON.stringify(report, null, 2)}\n`, "utf8");
 
   if (browserName === "chromium") {
-    const comparisonContext = await browser.newContext({ viewport: { width: 1560, height: 620 } });
+    const comparisonContext = await browser.newContext({ viewport: { width: 1820, height: 980 } });
     const comparison = await comparisonContext.newPage();
     const cards = await Promise.all(report.cases.map(async (entry) => ({
       ...entry,
@@ -269,11 +278,12 @@ try {
     })));
     await comparison.setContent(`<!doctype html><style>
       body{margin:0;background:#07111f;color:#edf4ff;font:20px system-ui;padding:24px}h1{margin:0 0 18px;font-size:28px}
-      .row{display:flex;gap:18px}.card{width:490px;background:#0d1b2d;border:1px solid #536f8e;border-radius:12px;overflow:hidden}
+      .row{display:flex;flex-wrap:wrap;gap:18px}.card{width:560px;background:#0d1b2d;border:1px solid #536f8e;border-radius:12px;overflow:hidden}
       img{width:100%;display:block}.copy{padding:12px 16px;line-height:1.45}.name{font-size:24px;color:#65d9ff;text-transform:uppercase}
-    </style><h1>Project Forge — frozen absolute melee reach</h1><div class="row">${cards.map((entry) => `
+    </style><h1>Project Forge — Weapon Physics B1 reach × mass</h1><div class="row">${cards.map((entry) => `
       <div class="card"><img src="data:image/png;base64,${entry.image}"><div class="copy"><div class="name">${entry.name}</div>
-      Range ${entry.spec.range}px · Speed ${entry.spec.attack_speed.toFixed(2)} · Cycle ${entry.attack_cycle_seconds.toFixed(2)}s<br>
+      Range ${entry.spec.range}px · Mass ${entry.geometry_profile.mass_profile} · Speed ${entry.spec.attack_speed.toFixed(2)} · Cycle ${entry.attack_cycle_seconds.toFixed(2)}s<br>
+      Startup ${entry.startup_seconds.toFixed(2)}s · Active ${entry.active_seconds.toFixed(2)}s · Recovery ${entry.recovery_seconds.toFixed(2)}s<br>
       Same target gap ${entry.target_gap.toFixed(1)}px · ${entry.hit ? `HIT (${entry.health_before}→${entry.health_after})` : `MISS (${entry.health_before}→${entry.health_after})`}</div></div>`).join("")}</div>`);
     await comparison.screenshot({ path: join(destination, "chromium-short-standard-long-comparison.png"), fullPage: true });
     await comparisonContext.close();
