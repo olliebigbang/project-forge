@@ -1,9 +1,9 @@
 # Project Forge — Game Design Document
 
 Version: 0.1 (organized from the supplied GDD)  
-Stable delivery milestone: **Weapon Physics B1 controlled melee physicality — physical iPhone acceptance CONFIRMED; PR #7 release closure in progress**
-Next isolated milestone: **B1.5 weapon-role and near/ranged compensation planning after B1 closure; not M1B2**
-Stable mobile acceptance: **CONFIRMED on physical iPhone Safari through the isolated B1 Sites Version 2 preview on 2026-07-22**
+Stable delivery milestone: **Weapon Physics B1 controlled melee physicality — CONFIRMED and released as `v0.3.0-weapon-physics-b1`**
+Next isolated milestone: **B1.5 weapon-role and near/ranged compensation planning; not M1B2**
+Stable mobile acceptance: **CONFIRMED on physical iPhone Safari; accepted preview code merged by PR #7 and deployed to the stable Site on 2026-07-22**
 
 ## 1. Product identity
 

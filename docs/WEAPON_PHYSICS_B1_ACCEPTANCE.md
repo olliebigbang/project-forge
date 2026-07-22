@@ -1,7 +1,6 @@
 # Weapon Physics B1 Controlled Prototype Acceptance
 
-Status: **CONFIRMED automated and physical-iPhone round-two acceptance;
-release closure in progress**
+Status: **CONFIRMED automated, physical-iPhone, and stable release closure**
 
 B1 is a local deterministic physicality experiment after accepted M1B1.2. It is
 not M1B2, B1.5, or B2 and does not expand the public `WeaponSpec` Schema.
@@ -161,7 +160,7 @@ isolated preview project rather than the stable Site.
   returned HTTP 200 through the authenticated Site boundary. Anonymous access
   remained behind the expected Sign in with ChatGPT gate.
 
-## Remaining release gates and limitations
+## Release closure and remaining limitations
 
 - **CONFIRMED:** Product-owner physical-iPhone combat-feel review passed on
   2026-07-22.
@@ -172,9 +171,19 @@ isolated preview project rather than the stable Site.
 - **TO VALIDATE (B1.5):** Weapon-role and near/ranged compensation are absent.
 - **TO VALIDATE (B2):** Contact regions, sweet spots, interruption, shields,
   multi-target behavior, and matching feedback remain unimplemented.
-- **RELEASE GATE:** PR #7 final CI, merge, stable-main deployment, smoke test,
-  rollback verification, and release tag remain closure work. The isolated
-  preview is acceptance evidence, not the stable production release.
+- **CONFIRMED:** PR #7 final CI passed and merged to `main` as
+  `b37e524c206c5f4490ce612fb5e3d54838e8ebdd`.
+- **CONFIRMED:** stable Sites Version 24 deployed that exact source commit and
+  archive hash `sha256:13bec17c923b0476aacd1abef09718aebb91549205f0429e04487836de0b8922`.
+- **CONFIRMED:** production returned HTTP 200. Chromium and WebKit re-ran the
+  keyboard plus Bow/Grenade/Sword/Boomerang regression with zero application
+  console errors. A separate one-call production smoke used exactly one
+  Anthropic attempt, model `claude-haiku-4-5-20251001`, and returned a valid
+  electric boomerang through confirmation and combat.
+- **CONFIRMED:** stable tag `v0.3.0-weapon-physics-b1` points to the tested merge;
+  Sites Version 23 and Git tag `v0.2.1-m1b1.2` remain the verified rollback pair.
+- **CONFIRMED:** the isolated Version 2 preview remains acceptance evidence and
+  is not the stable production release.
 
 ## Release-closure rerun (2026-07-22)
 

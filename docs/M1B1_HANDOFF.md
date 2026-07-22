@@ -2,8 +2,8 @@
 
 Date: 2026-07-20 (Australia/Sydney)
 
-Status: **CONFIRMED on physical iPhone Safari; formal PR/main/Sites closure in
-progress**
+Status: **CONFIRMED and released; all M1B1 runtime/security boundaries remain
+locked through the later Weapon Physics B1 stable release**
 
 M1B2 has not started. This handoff records the accepted M1B1 product behavior
 and the exact release-closure boundary.
@@ -106,5 +106,12 @@ not delete the current stable tag, evidence, branches, or worktrees.
 - The provider budget is intentionally lifetime-capped at USD 5 and fails closed;
   exhaustion is a visible non-equipable error, not an automatic model fallback.
 
-After the stable main deployment and smoke test, stop and wait for the product
-owner's final online check. Do not start M1B2 in this branch.
+## Weapon Physics B1 release addendum (2026-07-22)
+
+M1B1 itself remained unchanged while the local deterministic held-melee
+physicality experiment closed. PR #7 merged as
+`b37e524c206c5f4490ce612fb5e3d54838e8ebdd`; stable Sites Version 24 deployed
+that exact commit and passed HTTP, Chromium, WebKit, keyboard, four weapon-role,
+and one-call real Anthropic smoke checks. Stable tag
+`v0.3.0-weapon-physics-b1` and rollback pair Sites v23 / `v0.2.1-m1b1.2` are
+retained. No M1B2 work started.
