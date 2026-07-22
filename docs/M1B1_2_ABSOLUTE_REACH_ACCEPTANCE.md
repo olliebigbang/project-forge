@@ -1,7 +1,9 @@
 # M1B1.2 Absolute Weapon Reach Acceptance
 
-Status: **CONFIRMED scope and physical iPhone acceptance on 2026-07-22;
-release closure in progress**
+Status: **CONFIRMED complete and released after physical iPhone acceptance on
+2026-07-22**
+
+Historical record — superseded by the v0.3.0 Weapon Physics B1 closure.
 
 M1B1.2 is an isolated correction after the accepted M1B1 interpreter and
 M1B1.1 player-interface simplification. It is not M1B2 and does not add visual
@@ -56,10 +58,10 @@ Run:
 
 ## Explicit known limitations
 
-- **TO VALIDATE (Weapon Physics B1):** The current linear speed exchange is a
-  bounded, budget-neutral prototype. It does not yet model mass, material
-  density, balance point, inertia, or separately observable startup, active, and
-  recovery sources.
+- **CONFIRMED superseded by Weapon Physics B1:** The M1B1.2 linear speed
+  exchange was replaced by the accepted B1 controlled curve with separately
+  observable startup, active, hit, recovery, cooldown, and bounded mass proxy.
+  Material density, balance point, and moment of inertia remain **TO VALIDATE**.
 - **TO VALIDATE (Weapon Physics B2):** The current grip-to-tip melee capsule
   applies one damage value. A handle/root should not automatically damage like a
   blade tip, but contact regions and sweet spots require collision plus matching
@@ -94,7 +96,7 @@ documentation update:
 
 ## Release and rollback boundary
 
-Merge PR `#5` before PR `#6`, rerun the complete gate from the final PR `#6`
-head, then deploy from the resulting `main` revision. Retain `v0.2.0-m1b1`, the
-v22 evidence, release archives, branches, and worktrees until the product owner
-reviews the final closeout report and separately authorizes cleanup.
+PR `#5` and PR `#6` were integrated in dependency order and the complete gate
+was rerun. Weapon Physics B1 later closed on `main` and the stable line is now
+`v0.3.0-weapon-physics-b1`. Retain `v0.2.0-m1b1`, v22 evidence, release archives,
+branches, and worktrees until the product owner separately authorizes cleanup.

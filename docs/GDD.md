@@ -2,7 +2,8 @@
 
 Version: 0.1 (organized from the supplied GDD)  
 Stable delivery milestone: **Weapon Physics B1 controlled melee physicality — CONFIRMED and released as `v0.3.0-weapon-physics-b1`**
-Next isolated milestone: **B1.5 weapon-role and near/ranged compensation planning; not M1B2**
+Current production: **CONFIRMED Sites Version 25 from `main` `2c7b8f5`; direct rollback is Sites Version 23 plus `v0.2.1-m1b1.2`**
+Next gameplay milestone: **TBD / TO VALIDATE — product-owner confirmation required; M1B2 has not started**
 Stable mobile acceptance: **CONFIRMED on physical iPhone Safari; accepted preview code merged by PR #7 and deployed to the stable Site on 2026-07-22**
 
 ## 1. Product identity
@@ -199,24 +200,26 @@ Voice is an input method, not a separate weapon system.
   short, standard, and full-canvas long melee drawings remain visibly and
   mechanically different in combat. The current release candidate preserves the
   same bounded reach in the held visual, hit boundary, and HUD.
-- **TO VALIDATE (Weapon Physics B1)** The reach curve, tier thresholds, 72-228 px
-  bounds, and nonlinear cycle anchors are provisional. The current controlled
+- **CONFIRMED (Weapon Physics B1) / TO VALIDATE (production balance)** The
+  reach curve, tier thresholds, 72-228 px bounds, and nonlinear cycle anchors
+  are accepted for the B1 release but remain provisional for production. The controlled
   1/4/8/16-grid x light/balanced/heavy experiment derives handling and observable
   startup/active/recovery phases. Weapon mass remains independent from length,
   and length alone does not increase damage.
 - **CONFIRMED (Weapon Physics B0 contract)** Numeric authority is frozen as
   `GeometryEvidence -> PhysicalProfile -> CombatDerived`; AI cannot author
   numeric physics and the public Schema does not expand for B1.
-- **TO VALIDATE (Weapon Physics B1 prototype)** A bounded continuous reach ×
+- **CONFIRMED (Weapon Physics B1 prototype)** A bounded continuous reach ×
   light/balanced/heavy matrix now drives observable startup, active, hit and
-  recovery timing plus existing Range/Speed PowerBudget components. Its curve
-  still requires Chromium/WebKit and physical-device combat-feel evidence.
-- **TO VALIDATE (Weapon Physics B1 round two)** Physical iPhone v23 evidence
+  recovery timing plus existing Range/Speed PowerBudget components. Chromium,
+  WebKit, and physical-device combat-feel evidence passed on 2026-07-22.
+- **CONFIRMED (Weapon Physics B1 round two)** Physical iPhone v23 evidence
   rejected the first prototype's compressed 1.874 cycle ratio. The current
   internal candidate uses 1/4/8/16-grid x light/balanced/heavy evidence, a
   bounded nonlinear cycle curve, a 0.25 s floor, and a one-slot attack buffer.
-  Its automated extreme ratio is 5.775; final feel remains a physical-device
-  decision. Reach reads longitudinal normalized length only; cross-axis mass and
+  Its automated extreme ratio is 5.775 and the product owner accepted its
+  physical-iPhone feel. Production balance remains **TO VALIDATE**. Reach reads
+  longitudinal normalized length only; cross-axis mass and
   ink aspect cannot alter it. No public Schema or contact-region behavior was added.
 - **TO VALIDATE (Weapon Physics B2)** The current melee capsule applies one damage
   value from grip to visible tip. Grip/root low-effect zones, blade regions,
@@ -350,7 +353,7 @@ rolling for a higher damage value.
   a stable Canvas with compact text entry, keeps bows held while arrows fly, and
   gives grenades a centred drawn flight copy plus independent explosion. These
   are **CONFIRMED in Chromium/WebKit and on physical iPhone Safari**.
-- **M1B1.1 — Player UI Simplification (accepted; release closure in progress):** retain the accepted Codex
+- **M1B1.1 — Player UI Simplification (completed and released):** retain the accepted Codex
   repository, Godot/Web/backend architecture, AI safety boundaries, mobile input
   behavior, five attack modules, four elements, and complete target lab while
   separating a quiet player-facing Forge/Combat presentation from the complete
@@ -359,7 +362,7 @@ rolling for a higher damage value.
   the edges. This presentation pass does not add drawing understanding, new AI,
   production art, accounts, voice, or gameplay systems. Its executable contract
   is `docs/M1B1_1_PLAYER_UI_ACCEPTANCE.md`.
-- **M1B1.2 — Absolute Weapon Reach (accepted; release closure in progress):**
+- **M1B1.2 — Absolute Weapon Reach (completed and released):**
   freeze one client-owned geometry profile per FORGE request and use its bounded
   effective reach for held-melee grip-to-tip rendering, HUD Range, real hit
   boundary, inverse cycle timing, and facing lock. Physical iPhone scope

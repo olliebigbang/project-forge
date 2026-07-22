@@ -1,0 +1,108 @@
+name: Feature or milestone proposal
+description: Propose one scoped Project Forge capability for product-owner decision.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A proposal is not authorization to start development. One Issue owns one
+        primary task. Mark uncertainty as CONFIRMED, ASSUMPTION, TO VALIDATE, or TBD.
+  - type: textarea
+    id: goal
+    attributes:
+      label: Product goal
+      description: Player problem, intended outcome, and why this belongs in Project Forge.
+    validations:
+      required: true
+  - type: input
+    id: baseline
+    attributes:
+      label: Formal baseline
+      description: Current origin/main SHA, stable tag, and production Sites version.
+    validations:
+      required: true
+  - type: textarea
+    id: allowed_scope
+    attributes:
+      label: Allowed modification scope
+      description: Systems, files, and behavior the task may change.
+    validations:
+      required: true
+  - type: textarea
+    id: prohibited_scope
+    attributes:
+      label: Prohibited modification scope
+      description: Systems, milestones, services, and behavior explicitly outside this task.
+    validations:
+      required: true
+  - type: textarea
+    id: regression_locks
+    attributes:
+      label: Forbidden regressions
+      description: Accepted runtime, mobile, security, cost, Schema, and gameplay behavior to preserve.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Concrete observable gates, including failure behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Test requirements
+      description: Unit, deterministic matrix, build, browser, security, and release checks.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Browser, screenshot, recording, and physical-device evidence
+      description: Required viewports, Chromium/WebKit, captures, and physical iPhone applicability.
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks and cost impact
+      description: Gameplay, architecture, security, provider, D1, Schema, PowerBudget, and financial risks.
+    validations:
+      required: true
+  - type: textarea
+    id: rollback
+    attributes:
+      label: Rollback method
+      description: Stable tag, Sites version, artifact, feature isolation, or revert path.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Required Issues, PRs, tags, product decisions, research, or external authority.
+  - type: dropdown
+    id: certainty
+    attributes:
+      label: Product status
+      options:
+        - CONFIRMED
+        - ASSUMPTION
+        - TO VALIDATE
+        - TBD
+    validations:
+      required: true
+  - type: checkboxes
+    id: authorization
+    attributes:
+      label: Authorization boundary
+      options:
+        - label: The product owner has explicitly authorized this milestone or the proposal remains TO VALIDATE/TBD.
+          required: true
+        - label: Development will use a new branch and isolated worktree from then-current origin/main.
+          required: true
+        - label: Deployment, real provider spend, and cleanup require their own explicit scope.
+          required: true

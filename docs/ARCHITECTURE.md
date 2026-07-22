@@ -1,5 +1,9 @@
 # Project Forge Architecture
 
+Current deployed revision, stable tag, Sites identity, and rollback chain live in
+`docs/PROJECT_STATUS.md`. This document owns durable runtime boundaries rather
+than mutable release status.
+
 ## Scope and principles
 
 - **CONFIRMED** Godot 4.7.1, GDScript, 2D landscape, Web-first prototype.
@@ -289,6 +293,7 @@ COOP/COEP/CORP and cache headers and owns `POST /api/compile-weapon`.
   back to the DOM value. Compilation always pulls the latest DOM value first.
 - **CONFIRMED** iOS/Android native exports continue to use Godot `LineEdit`.
   Only Web uses the HTML overlay needed for dependable mobile keyboard focus.
-- **TO VALIDATE** Physical iPhone Safari still owns the final keyboard, safe-area,
-  and toolbar acceptance because desktop WebKit emulation cannot display or prove
-  the real system keyboard.
+- **CONFIRMED through Weapon Physics B1** Physical iPhone Safari passed the
+  Description keyboard, stable Canvas, safe-area, toolbar, orientation, and
+  recovery gates. Desktop WebKit emulation still cannot replace the physical
+  device gate for any future change to those paths.

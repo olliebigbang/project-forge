@@ -64,6 +64,8 @@ This log records current decisions without turning untested defaults into facts.
 | D-056 | **CONFIRMED (B1 invariant fix)** Effective reach reads only frozen longitudinal `normalized_length`; cross-axis thickness, inferred mass, and ink aspect cannot cap or grant reach. Browser evidence separately reports source-coordinate sampling spread and physical reach residual | PR #7 WebKit review exposed pointer coalescing in a single far-tip sample and a separate latent ink-aspect coupling; deterministic extreme-thickness tests and two consecutive WebKit runs close both paths |
 | D-057 | **CONFIRMED (Weapon Physics B1 physical acceptance)** The product owner accepted the round-two 1/4/8/16-grid melee cadence on a physical iPhone on 2026-07-22. The accepted product code is PR #7 HEAD `e15e32d`; the isolated Sites Version 2 uses deployment-only metadata commit `a81061f` and a separate USD 0.50 D1 hard cap. This closes B1 combat-feel validation but does not validate B1.5 role compensation, B2 contact regions, or production balance | Product-owner device report: "我觉得ok的" after testing the isolated B1 preview; automated 12-case Chromium/WebKit evidence and authenticated HTTP 200 deployment smoke |
 | D-058 | **CONFIRMED (Weapon Physics B1 release)** PR #7 merged as `b37e524`; stable Sites Version 24 deployed that exact commit under the unchanged USD 5 D1 cap; `v0.3.0-weapon-physics-b1` is the stable tag and Sites v23 plus `v0.2.1-m1b1.2` are the retained rollback pair. B1 branches, worktrees, preview, reports, and archives remain retained until cleanup is separately approved | Final CI/build rerun, HTTP 200, production Chromium/WebKit regression, one-attempt real Anthropic smoke, deployment provenance, and rollback audit on 2026-07-22 |
+| D-059 | **CONFIRMED (current production identity)** Sites Version 25 records final `main` `2c7b8f5` and has the same verified archive hash as smoke-tested Version 24: `sha256:13bec17c923b0476aacd1abef09718aebb91549205f0429e04487836de0b8922`. Version 23 plus `v0.2.1-m1b1.2` remain the direct rollback pair; `v0.2.0-m1b1` and `v0.1.0-m1a` remain historical stable points | Read-only GitHub/Sites/tag audit on 2026-07-23 reconciled the final documentation merge with the tested runtime bundle |
+| D-060 | **CONFIRMED (workflow governance)** `docs/PROJECT_STATUS.md` is the current runtime-status entry and `docs/DEVELOPMENT_WORKFLOW.md` defines Issue -> isolated worktree -> Draft PR -> CI/review/acceptance -> main build/deploy/smoke/tag/rollback. Historical acceptance reports remain immutable evidence. B1.5, B2, and M1B2 are roadmap candidates, not authorization; the next gameplay milestone is **TBD / TO VALIDATE** until the product owner confirms it | Prevent Source-of-Truth drift and new work from starting on an old closure branch |
 
 ## Assumptions
 
@@ -90,12 +92,13 @@ This log records current decisions without turning untested defaults into facts.
 | V-009 | **CONFIRMED (automated/live/physical iPhone)** The public blocker-fix candidate preserves request input, rejects false-success fallbacks, interprets real Claude grenade/bow semantics correctly, and keeps real wide-bow/round-grenade aspect error far below 2% | Two-call guarded live run, D1 settlement logs, Godot 629 assertions, public browser regression, retained screenshots, and owner device pass |
 | V-010 | **CONFIRMED in local/public Chromium/WebKit and physical iPhone** The reopened P0 candidate keeps the Canvas visible during keyboard use, restores it after Done/toolbars/rotation, keeps bow held, lands and explodes a grenade, emits no sword projectile, and returns the boomerang | Sites v19 hashes, local/public v20 reports/screenshots, and owner device pass |
 | V-011 | **CONFIRMED (automated/public/physical iPhone for M1B1.2 scope)** Short, standard, and full-canvas long melee drawings preserve strictly increasing visible reach and real hit distance; HUD Range, visible tip, attack timing, recovery, cooldown, and facing lock use the same frozen geometry profile | v22 at source commit `5567eeb`, automated geometry/browser regression, and product-owner physical iPhone scope acceptance on 2026-07-22 |
-| V-012 | **TO VALIDATE (Weapon Physics B1)** The current 72-228 px reach bounds, tier boundaries, 0.18/0.92 span anchors, 104 px cross-axis cap, and linear 450 px-per-1.0-speed exchange are prototype values. Replace or retain them only after the short/long x light/heavy controlled experiment; attack speed must derive from observable startup + active + recovery | Deterministic 2x2 preset matrix, monotonicity checks, budget audit, browser captures, and physical-device combat-feel comparison |
+| V-012 | **CONFIRMED historical prototype — superseded by Weapon Physics B1** The M1B1.2 linear exchange and ink-aspect/cross-axis reach cap were evaluated and replaced by the accepted controlled B1 curve. The 72 px floor and production balance remain **TO VALIDATE** | Weapon Physics B1 12-case matrix, browser evidence, and physical-device acceptance |
 | V-013 | **TO VALIDATE (Weapon Physics B2)** Contact position along a melee weapon should distinguish a grip/root low-effect region, ordinary blade/body contact, and weapon-form-specific outer/tip sweet spots. Collision, damage, VFX, sound, hit stop, damage-number style, and debug visualization must ship and be tested together | Contact-position matrix after B1 handling is stable; do not ship invisible multipliers without player-readable feedback |
-| V-014 | **TO VALIDATE (Weapon Physics B1)** Cross-axis load thresholds 0.08/0.20, mass loads -0.14/0/+0.22, handling cap 0.70–1.58, phase shares and the 1.35–3.0 extreme cycle-ratio gate make short/long x light/heavy readable without granting length-based damage | 3×3 deterministic matrix, Chromium/WebKit reports and screenshots, then physical-device combat-feel review |
+| V-014 | **CONFIRMED historical round-one experiment — rejected and superseded** The first B1 handling clamp and 1.874 extreme cycle ratio were not readable enough on physical iPhone. The accepted round-two 5.775 ratio is recorded in V-015; production balance remains **TO VALIDATE** | Physical iPhone rejection followed by round-two Godot/Chromium/WebKit/device evidence |
 
 | V-015 | **CONFIRMED for Weapon Physics B1 controlled scope** Candidate cycles are .333 s 1-grid/light, .549 s 4-grid/light, 1.042 s 8-grid/balanced, and 1.695-1.923 s 16-grid balanced/heavy. The product owner accepted the 5.775 extreme ratio on physical iPhone; mass thresholds, whole-bounds mass proxy, 72 px floor, and production balance remain **TO VALIDATE** | 12-case Godot + Chromium + WebKit matrix, rapid-touch/hit-count evidence, retained comparison screenshots, isolated Sites Version 2, and physical-device acceptance on 2026-07-22 |
 | V-016 | **CONFIRMED (stable production smoke)** The stable B1 release serves, preserves the accepted mobile keyboard and four weapon-visual roles, and reaches Anthropic through the guarded same-origin path without client credentials or fallback success | Sites v24 source `b37e524`, production Chromium/WebKit reports, one live `claude-haiku-4-5-20251001` request with one attempt and all validity flags true, zero application console errors, and zero recent Worker error events |
+| V-017 | **CONFIRMED (production provenance)** Sites Version 25 records runtime source `main` `2c7b8f5` and is content-equivalent to smoke-tested Version 24; later governance-only Git commits do not imply a deployment | Matching archive hash `sha256:13bec17c923b0476aacd1abef09718aebb91549205f0429e04487836de0b8922` |
 
 ## TBD
 
@@ -104,6 +107,7 @@ This log records current decisions without turning untested defaults into facts.
 | T-001 | **CONFIRMED** Dedicated Anthropic workspace provider-side spend limit at or below USD 5 was configured before controlled paid traffic; the USD 5 Worker + D1 application cap is also **CONFIRMED** |
 | T-002 | **TBD** Production authentication, provider-side moderation/rate controls, cache policy, observability destination, and telemetry retention. The provider/model/secret boundary, same-origin Worker and D1 guards are **CONFIRMED** |
 | T-003 | **TBD** Voice implementation and exact milestone after weapon validation |
+| T-007 | **TBD / TO VALIDATE** Next gameplay milestone and acceptance boundary; B1.5, B2, and M1B2 remain candidates until the product owner explicitly selects one |
 | T-004 | **TBD** Production art pipeline, smoothing threshold, grip inference, and card rendering |
 | T-005 | **TBD** Final production balance curves; M1A numeric costs are confirmed only as deterministic prototype values |
 | T-006 | **TBD** Data retention, privacy policy, and moderation vendor |
@@ -111,12 +115,13 @@ This log records current decisions without turning untested defaults into facts.
 ## Deferred without deletion
 
 The five attack forms, four elements, target lab, and deterministic compiler are
-complete in M1A. M1B1 now contains the Anthropic text interpreter, secure
+complete in M1A. M1B1 contains the released Anthropic text interpreter, secure
 same-origin boundary, USD 5 D1 hard cap, controlled real-provider evidence, and
-the public blocker-fix candidate. Physical iPhone Safari acceptance and the
+the accepted blocker fixes. Physical iPhone Safari acceptance and the
 Weapon Physics B1 PR/CI, stable deployment, smoke, tag, and rollback verification
 are closed.
 Formal levels, complete win/loss/restart, voice, image understanding, production
 moderation policy, accounts, community, monetization, and native-store delivery
 remain deferred without deletion. See `docs/GDD.md` and
-`docs/MVP_ACCEPTANCE.md` for milestone traceability.
+`docs/MVP_ACCEPTANCE.md` for milestone traceability and
+`docs/PROJECT_STATUS.md` for the current production state.

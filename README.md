@@ -1,66 +1,66 @@
-# Project Forge — M1B1 Text-to-Weapon Interpreter
+# Project Forge
 
-Project Forge is an independent Godot 4 experiment that turns a player's drawing
-and free-form weapon description into a validated, power-budgeted `WeaponSpec`,
-preserves the original strokes as the weapon visual, and executes the result with
-five distinct combat modules.
+Project Forge is an independent Godot 4 Web-first experiment that turns a
+player's drawing and free-form weapon description into a validated,
+power-budgeted `WeaponSpec`, preserves the original strokes as the weapon
+visual, and executes the result through five distinct combat modules.
 
-The accepted M1A release remains the stable rollback baseline. The current M1B1
-branch adds a same-origin text interpretation boundary backed by Anthropic's
-native Messages API and native Structured Outputs. The model is pinned to
-`claude-haiku-4-5-20251001`; the Sites secret is configured server-side, and the
-Worker + D1 lifetime application budget fails closed at USD 5.
+This repository does not reuse code, settings, art, names, balance data, or
+direction from Cat Battle or any previous game.
 
-This repository does not reuse code, settings, art, names, or direction from Cat
-Battle or any previous game.
+## Current stable release
 
-## Public preview and rollback
+- **CONFIRMED:** the current production runtime was built from `main` at
+  `2c7b8f5021506bece6b60cb2c649ae7f3fbb961e`.
+- **CONFIRMED:** the stable tag is `v0.3.0-weapon-physics-b1`.
+- **CONFIRMED:** M1B1, M1B1.1, M1B1.2, and Weapon Physics B1 are complete.
+- **CONFIRMED:** the production Site is Version 25 at
+  <https://project-forge-weapon-lab.hongningliu0130.chatgpt.site>.
+- **CONFIRMED:** Sites Version 25 and the smoke-tested Version 24 have the same
+  archive hash:
+  `sha256:13bec17c923b0476aacd1abef09718aebb91549205f0429e04487836de0b8922`.
+- **CONFIRMED:** the direct rollback pair is Sites Version 23 plus Git tag
+  `v0.2.1-m1b1.2`. Historical stable tags `v0.2.0-m1b1` and
+  `v0.1.0-m1a` remain retained.
+- **CONFIRMED:** M1B2 has not started.
+- **TBD / TO VALIDATE:** no next gameplay milestone may start until the product
+  owner confirms its scope.
 
-[Open the physically accepted M1B1 P0 v20 build](https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?qa=m1b1&release=p0-v20-6d5ba3a)
-
-Sites exposes one mutable public origin, so a query parameter is a diagnostic
-label and does not pin an old build. The immutable M1A rollback points are Git tag
-`v0.1.0-m1a`, its release archive, and retained test evidence. The current M1B1
-preview passed the reopened physical-iPhone gate on 2026-07-20. PR/CI review,
-stable deployment, production smoke, and rollback verification are now the only
-M1B1 closure steps; M1B2 has not started.
+See [Project status](docs/PROJECT_STATUS.md) for the current runtime, branch,
+worktree, rollback, and governance state. Query parameters on the mutable Sites
+origin are diagnostic labels; they do not pin an older deployment.
 
 Source: [GitHub repository](https://github.com/olliebigbang/project-forge)
 
-## M1B1 implementation
+## Stable system boundaries
 
-- Normal players draw and enter one free-form description without preselecting an
-  attack pattern.
-- Godot calls only same-origin `POST /api/compile-weapon`; it never contacts an AI
-  vendor or holds a provider key.
-- The backend limits and safety-checks input, normalizes structured semantic
-  output, applies schema and allow-list repair, calculates deterministic power,
-  and returns privacy-minimized audit metadata.
-- Executable stats remain deterministic and capped at Power Score 100. AI output
-  is untrusted data and cannot generate or execute gameplay code.
-- The five M1A pattern buttons are hidden in the normal flow and appear only in
-  Developer/Test Mode or `MODIFY INTERPRETATION`; corrections are revalidated.
-- Loading, duplicate-request locking, cancellation, one explicitly safe retry,
-  stale-response rejection, aborting timeout, and explicit non-equipable error
-  recovery preserve text and strokes. Wrapper timeouts are not automatically
-  retried, and a failed/non-invoked provider cannot enter confirmation or combat.
-- Random client/request IDs, D1 cross-isolate idempotency/quota, strict response-ID
-  matching, SHA-256 namespaces, and provider-metadata stripping close duplicate
-  charge, stale-response, collision, and response/log disclosure paths.
-- M1B1 sends bounded `drawing_summary` metadata only. Image understanding is
-  explicitly deferred to M1B2.
+- Normal players draw and enter one free-form description without preselecting
+  an attack pattern.
+- Godot calls only same-origin `POST /api/compile-weapon`; it never contacts an
+  AI vendor or holds a provider key.
+- Production interpretation uses Anthropic native Messages API and native
+  Structured Outputs with immutable model
+  `claude-haiku-4-5-20251001`.
+- Worker + D1 enforce idempotency, quota, and a lifetime USD 5 application cap
+  before provider invocation. Guard uncertainty fails closed.
+- Provider output remains untrusted semantic data. Project-owned Schema,
+  allow-list, repair, and `PowerBudget` gates own executable results.
+- Provider failure cannot create an equipable fallback. Drawing and Description
+  survive cancellation, timeout, retry, and explicit error recovery.
 - Five attack patterns, four elements, and stationary, moving, shielded, and
-  grouped targets continue to use the accepted M1A runtime.
-- WeaponSpec v2 separates form, delivery, trajectory, impact, and area effect;
-  grenades visibly travel on an arc before the landing blast.
-- Review and held visuals preserve actual stroke bounds with 10% padding and one
-  uniform scale. Only semantically thrown objects reuse player ink in flight;
-  bows fire procedural arrows and other ranged forms use deterministic projectiles.
+  grouped targets remain executable.
+- Weapon form, delivery, trajectory, impact, and area effect stay independent.
+  Bows keep player ink held while firing procedural arrows; grenades reuse ink
+  only as a centred thrown copy and play a separate explosion.
+- Held-melee geometry preserves bounded absolute reach. One frozen reach value
+  owns visible grip-to-tip length, HUD Range, and hit boundary; one derived
+  cycle owns animation timing, hit time, recovery, cooldown, and input gating.
+- Web mobile input retains the stable Canvas, native HTML Description overlay,
+  `visualViewport`, safe areas, portrait gate, keyboard recovery, and
+  physical-iPhone acceptance.
 
-Production Sites uses Anthropic's native Messages/Structured Outputs API with
-the fixed `claude-haiku-4-5-20251001` snapshot and a Worker + D1 lifetime USD 5
-hard cap. Local/offline regression uses the deterministic adapter and never
-requires a provider secret.
+M1B1 sends only bounded numeric `drawing_summary` metadata. Drawing-image
+understanding is not implemented and remains outside the current milestone.
 
 ## Run locally
 
@@ -72,22 +72,22 @@ Requirements: Godot 4.7.1. Scripts use
 ./scripts/run_game.ps1
 ```
 
-For the same-origin Web client and deterministic backend:
+For the same-origin Web client and deterministic local backend:
 
 ```powershell
 ./scripts/build_web.ps1
 ./scripts/serve_web.ps1
 ```
 
-Open [http://localhost:8060](http://localhost:8060) on the development computer.
-`localhost` is not a phone delivery address; the public link above is the accepted
-M1B1 device build. Until formal closure finishes, use tag `v0.1.0-m1a` and its
-retained archive for the accepted M1A rollback build.
+Open <http://localhost:8060> on the development computer. `localhost` is not a
+phone delivery address; use the production Sites address above for the current
+publicly reachable build.
 
 Controls:
 
-- Forge: draw, type a description, then select `FORGE WEAPON`.
-- Review: `CONFIRM`, `MODIFY INTERPRETATION`, `TRY AGAIN`, or report `NOT SUITABLE`.
+- Forge: draw, enter a description, then select `FORGE`.
+- Review: `CONFIRM`, `MODIFY INTERPRETATION`, `TRY AGAIN`, or
+  `NOT SUITABLE`.
 - Move: `A` / `D`, arrow keys, or on-screen `LEFT` / `RIGHT`.
 - Attack: `Space` or on-screen `ATTACK`.
 - Return to creation: `REFORGE`.
@@ -100,23 +100,29 @@ Controls:
 ./scripts/build_sites_preview.ps1
 ```
 
-The full provider-neutral gate also runs the checked-in Chromium and WebKit mobile
-regressions documented in `artifacts/M1B1_TEST_RESULTS.md`.
+CI runs the provider-free Godot, Worker, WASM, interpreter, D1, Anthropic
+adapter, budget, security, canonical Sites bundle, hash, and Chromium smoke
+gates. Complete WebKit, physical iPhone, and any explicitly approved real
+provider check remain release-candidate human gates.
 
 ## Documentation
 
+- Current runtime and delivery state: `docs/PROJECT_STATUS.md`
+- Development workflow: `docs/DEVELOPMENT_WORKFLOW.md`
+- Release and rollback checklist: `docs/RELEASE_CHECKLIST.md`
+- Workflow-hardening audit and test evidence:
+  `docs/WORKFLOW_HARDENING_REPORT.md`
 - Product scope: `docs/GDD.md`
-- Milestone traceability: `docs/MVP_ACCEPTANCE.md`
-- M1B1 executable acceptance: `docs/M1B1_ACCEPTANCE.md`
-- Final M1B1 handoff: `docs/M1B1_HANDOFF.md`
-- Version history: `CHANGELOG.md`
-- Reopened iOS keyboard P0 evidence: `docs/M1B1_IOS_KEYBOARD_P0_EVIDENCE.md`
-- Reopened weapon visual-role P0 evidence: `docs/M1B1_WEAPON_VISUAL_ROLES_P0_EVIDENCE.md`
-- M1B1 implementation plan: `docs/M1B1_IMPLEMENTATION_PLAN.md`
-- Real-provider options and required decision: `docs/M1B1_PROVIDER_DECISION.md`
 - Technical boundaries: `docs/ARCHITECTURE.md`
 - Decisions and open questions: `docs/DECISIONS.md`
-- Independent M1B1 safety review: `docs/M1B1_RED_TEAM_REPORT.md`
-- Mobile/browser regression: `artifacts/M1B1_TEST_RESULTS.md`
-- Stable M1A delivery: `docs/M1A_DELIVERY_SUMMARY.md`
+- Milestone traceability: `docs/MVP_ACCEPTANCE.md`
+- M1B1 acceptance and handoff: `docs/M1B1_ACCEPTANCE.md`,
+  `docs/M1B1_HANDOFF.md`
+- M1B1.1 and M1B1.2 historical acceptance:
+  `docs/M1B1_1_PLAYER_UI_ACCEPTANCE.md`,
+  `docs/M1B1_2_ABSOLUTE_REACH_ACCEPTANCE.md`
+- Weapon Physics B0/B1 contract and acceptance:
+  `docs/WEAPON_PHYSICS_B0_B1.md`,
+  `docs/WEAPON_PHYSICS_B1_ACCEPTANCE.md`
+- Version history: `CHANGELOG.md`
 - Repository guidance: `AGENTS.md`

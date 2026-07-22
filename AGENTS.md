@@ -7,10 +7,13 @@ assets, balance data, or development direction from Cat Battle or another projec
 
 ## Source of truth
 
+- `docs/PROJECT_STATUS.md` is the current runtime and delivery-status entry point.
 - `docs/GDD.md` preserves the product vision and milestone scope.
 - `docs/MVP_ACCEPTANCE.md` defines the current gate.
 - `docs/ARCHITECTURE.md` defines the data and runtime boundaries.
 - `docs/DECISIONS.md` records settled and unsettled decisions.
+- Milestone acceptance documents preserve their historical evidence and do not
+  get rewritten as current status pages.
 - Uncertainty must be marked exactly `CONFIRMED`, `ASSUMPTION`, `TO VALIDATE`, or
   `TBD`; do not silently resolve product questions.
 
@@ -25,10 +28,12 @@ assets, balance data, or development direction from Cat Battle or another projec
 - Test against stationary, moving, shield, and grouped targets.
 - Physical iPhone Safari acceptance for v9 is complete and recorded.
 - **CONFIRMED** M1B1 real text interpretation and its reopened P0 fixes passed
-  physical iPhone Safari acceptance on 2026-07-20. Formal release closure uses
-  PR #4 from `codex/fix/m1b1-input-aspect`.
+  physical iPhone Safari acceptance on 2026-07-20 and are released.
 - Weapon Physics B1 release closure is complete. Do not start M1B2 from the
-  B1 release or closeout branches, and do not move/delete either stable tag.
+  B1 release or closeout branches, and do not move/delete any stable tag.
+- **CONFIRMED** Current stable runtime delivery was built from `main` at `2c7b8f5`, tag
+  `v0.3.0-weapon-physics-b1`, and Sites Version 25. Sites Version 23 plus
+  `v0.2.1-m1b1.2` are the direct rollback pair.
 - The M1A forge uses five persistent attack-pattern test buttons. Never restore
   an `OptionButton`, `PopupMenu`, or full-screen modal selector for this flow.
 
@@ -55,15 +60,15 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
   cadence acceptance, PR #7, CI, merge, stable deployment, production smoke,
   stable tag, and rollback verification completed on 2026-07-22.
 
-## Next authorized planning boundary
+## Next milestone boundary
 
-- After B1 release closure, B1.5 may plan weapon-role and near/ranged
-  compensation. B2 owns contact regions, sweet spots, interruption, shield,
-  multi-target behavior, and matching feedback.
+- **TBD / TO VALIDATE:** the product owner has not authorized the next gameplay
+  milestone. Earlier B1.5 and B2 proposals remain roadmap candidates only.
 - Existing M1B1 AI remains stable and may select only allow-listed semantics.
   Local deterministic code owns numeric physics. Do not expand the public Schema
   until the controlled physicality experiments establish required fields.
-- Do not start B1.5 or M1B2 from the B1 closure branch.
+- Do not start B1.5, B2, or M1B2 without a new product-owner decision and a new
+  issue, branch, and isolated worktree from current `origin/main`.
 
 ## Preserved M1B1 boundaries
 
@@ -128,9 +133,13 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
 
 ## Git and agent workflow
 
-- Stable branch after release closure: `main`.
-- Stable M1B1 release tag after closure: `v0.2.0-m1b1`.
-- Retained M1A rollback tag: `v0.1.0-m1a`.
+- Follow `docs/DEVELOPMENT_WORKFLOW.md`; every major task starts from a scoped
+  issue and an isolated worktree based on current `origin/main`.
+- Stable runtime source: `main` at `2c7b8f5` when this guide was last reconciled;
+  governance-only commits may advance the branch without a Sites deployment.
+- Current stable tag: `v0.3.0-weapon-physics-b1`.
+- Direct rollback tag: `v0.2.1-m1b1.2`; historical stable tags
+  `v0.2.0-m1b1` and `v0.1.0-m1a` remain retained.
 - Completed B1 branch: `codex/feat/weapon-physics-b1` (merged PR #7; retained
   until cleanup is separately approved).
 - Stable B1 tag: `v0.3.0-weapon-physics-b1`; retained rollback tag:
@@ -144,3 +153,5 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
 - Only the main integrator selects changes into the delivery branch.
 - Never merge, delete branches/worktrees, or clean user work without confirmation.
 - Push/open a PR only when a normal Git remote is configured.
+- Release and rollback work follows `docs/RELEASE_CHECKLIST.md` and must update
+  `docs/PROJECT_STATUS.md` after the final deployed state is known.

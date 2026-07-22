@@ -1,10 +1,13 @@
 # M1B1 acceptance plan
 
-Status: **CONFIRMED — product owner passed the public M1B1 build on physical iPhone Safari; release closure is in progress**
+Status: **CONFIRMED complete and released**
 
-M1A remains the stable rollback baseline until the M1B1 merge, stable deployment,
-smoke test, tag, and rollback verification finish. The product owner accepted the
-public preview on a real iPhone Safari session on 2026-07-20. M1B2 remains paused.
+Historical record — superseded by the v0.3.0 Weapon Physics B1 closure.
+
+The product owner accepted the public M1B1 preview on a real iPhone Safari
+session on 2026-07-20. PR #4, CI, stable deployment, smoke, tag, and rollback
+verification subsequently completed. M1B1.1 and M1B1.2 also completed; M1B2 has
+not started.
 
 The prior public candidate was reopened after physical-iPhone discovery of two
 P0 failures: keyboard focus could move the Canvas outside the visible viewport,
@@ -64,7 +67,7 @@ on the physical device.
 | M1B1-24 | All M1A compiler, five-attack, four-element and target-lab tests remain green | **CONFIRMED (629 assertions)** |
 | M1B1-25 | 844×390, 852×393, 915×412, 844×343 toolbar stress, portrait gate, keyboard and Safari-toolbar flows remain usable | **CONFIRMED (Chromium + WebKit + physical iPhone Safari)** |
 | M1B1-26 | Godot parse, unit, worker, both D1 guards, Web build, Chromium and WebKit regression pass without new application errors | **CONFIRMED (Godot 629, Worker/WASM/Interpreter/D1/Anthropic/security suites, canonical Sites bundle, Chromium/WebKit app console 0)** |
-| M1B1-27 | PR and CI pass; a new uncached public deployment is verified by HTTP and resource hash | **CONFIRMED for accepted runtime `6d5ba3a` / Sites v19; final PR #4 HEAD CI and post-merge stable deployment remain release-closure steps** |
+| M1B1-27 | PR and CI pass; a new uncached public deployment is verified by HTTP and resource hash | **CONFIRMED: runtime `6d5ba3a` / Sites v19 acceptance evidence, PR #4 release, and later stable deployment/rollback closure completed** |
 | M1B1-28 | Product owner accepts the new public build on physical iPhone Safari | **CONFIRMED on 2026-07-20 using the Sites v19 / runtime `6d5ba3a` public build** |
 | M1B1-29 | Description and numeric drawing state are atomically frozen with a visible request ID; the POST and confirmation snapshot match | **CONFIRMED (Chromium/WebKit + two live blocker cases)** |
 | M1B1-30 | Grenade is visibly thrown on an arc before a landing explosion; bow remains held and emits a separate velocity-facing arrow | **CONFIRMED (Godot + Chromium/WebKit + physical iPhone)** |
