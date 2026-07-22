@@ -63,7 +63,7 @@ function responseFor(requestId) {
 
 const browser = await browserType.launch({ headless: true });
 const report = {
-  suite: "Weapon Physics B1 held-melee reach x mass regression",
+  suite: "Weapon Physics B1 round-two 1/4/8/16-grid reach x mass regression",
   browser: browserName,
   target: targetUrl,
   provider_claim: "SIMULATED RESPONSE - no paid provider invocation",
@@ -115,11 +115,11 @@ async function runCase(caseName, startFraction, endFraction, crossAxisFraction, 
   const y = canvas.y + canvas.height * 0.52;
   const halfCrossAxis = crossAxisFraction * 0.5;
   const bladePoints = [
-    { x: canvas.x + canvas.width * startFraction, y: y - canvas.height * halfCrossAxis * 0.35 },
+    { x: canvas.x + canvas.width * startFraction, y: y - canvas.height * halfCrossAxis },
     { x: canvas.x + canvas.width * (endFraction - 0.015), y: y - canvas.height * halfCrossAxis },
     { x: canvas.x + canvas.width * endFraction, y },
     { x: canvas.x + canvas.width * (endFraction - 0.015), y: y + canvas.height * halfCrossAxis },
-    { x: canvas.x + canvas.width * startFraction, y: y + canvas.height * halfCrossAxis * 0.35 },
+    { x: canvas.x + canvas.width * startFraction, y: y + canvas.height * halfCrossAxis },
   ];
   const strokes = [bladePoints];
   for (const stroke of strokes) {
@@ -178,7 +178,58 @@ async function runCase(caseName, startFraction, endFraction, crossAxisFraction, 
   assert(impact.active_projectiles === 0 && impact.projectile_spawn_count === 0, `${caseName}: sword emitted a projectile`);
   await page.screenshot({ path: join(destination, `${browserName}-${caseName}-impact.png`) });
 
-  if (caseName === "long-heavy") {
+  let rapidInput = null;
+  if (caseName === "1-grid-light") {
+    await waitFor((value) => value.held_visual?.cooldown <= 0.01 && value.held_visual?.attack_facing === 0, "initial recovery");
+    const rapidGap = 40;
+    await page.evaluate((gap) => window.__forgeM1B1Test.setPlayerTargetGap(gap), rapidGap);
+    const rapidStart = await waitFor((value) => {
+      const target = value.targets?.find((entry) => entry.visible);
+      return target && Math.abs(target.position.x - value.held_visual.global_position.x - rapidGap) <= 0.1;
+    }, "rapid-input target gap");
+    const rapidTargetBefore = rapidStart.targets.find((entry) => entry.visible);
+    const rapidAttackBefore = rapidStart.attack_count;
+    const acceptedBefore = rapidStart.held_visual.accepted_attack_count;
+    const attackControl = (await controls()).attack;
+    const rapidTapCount = 3;
+    for (let index = 0; index < rapidTapCount; index += 1) await tap(attackControl);
+    const queued = await waitFor(
+      (value) => value.held_visual?.attack_buffered === true,
+      "one-slot rapid attack buffer",
+    );
+    assert(queued.held_visual.max_buffered_attacks === 1, `${caseName}: buffer is not bounded to one`);
+    assert(queued.held_visual.accepted_attack_count === acceptedBefore + 1, `${caseName}: rapid taps re-entered the active attack`);
+    const rapidComplete = await waitFor(
+      (value) => value.attack_count === rapidAttackBefore + 2,
+      "initial plus buffered hit windows",
+    );
+    const hitWindows = (rapidComplete.attack_events || [])
+      .filter((entry) => entry.kind === "hit_window_open" && entry.sequence > (rapidStart.attack_events?.at(-1)?.sequence || 0));
+    assert(hitWindows.length === 2, `${caseName}: expected exactly two rapid hit windows, got ${hitWindows.length}`);
+    const hitWindowGapSeconds = (hitWindows[1].time_msec - hitWindows[0].time_msec) / 1000;
+    assert(hitWindowGapSeconds >= rapidStart.held_visual.attack_cycle_seconds * 0.90, `${caseName}: rapid hit windows overlap`);
+    await sleep(rapidStart.held_visual.attack_cycle_seconds * 1000 + 120);
+    const rapidSettled = await state();
+    const rapidTargetAfter = rapidSettled.targets.find((entry) => entry.visible);
+    assert(rapidSettled.attack_count === rapidAttackBefore + 2, `${caseName}: repeated taps leaked a third attack`);
+    assert(rapidSettled.held_visual.accepted_attack_count === acceptedBefore + 2, `${caseName}: authoritative gate accepted more than one buffered attack`);
+    assert(!rapidSettled.held_visual.attack_buffered, `${caseName}: buffer did not drain`);
+    assert(rapidTargetBefore.health - rapidTargetAfter.health === baseSword.damage * 2, `${caseName}: rapid sequence did not apply exactly two damage events`);
+    rapidInput = {
+      taps: rapidTapCount,
+      accepted_attacks: 2,
+      emitted_hit_windows: hitWindows.length,
+      damage_events: (rapidTargetBefore.health - rapidTargetAfter.health) / baseSword.damage,
+      hit_window_gap_seconds: hitWindowGapSeconds,
+      cycle_seconds: rapidStart.held_visual.attack_cycle_seconds,
+      buffer_capacity: rapidSettled.held_visual.max_buffered_attacks,
+      final_buffered: rapidSettled.held_visual.attack_buffered,
+    };
+    report.rapid_input = rapidInput;
+    await page.screenshot({ path: join(destination, `${browserName}-${caseName}-rapid-input.png`) });
+  }
+
+  if (caseName === "16-grid-heavy") {
     await waitFor((value) => value.held_visual?.cooldown <= 0.01, "melee recovery");
     const reverseStart = await state();
     const reverseStartX = reverseStart.player_position.x;
@@ -245,28 +296,55 @@ async function runCase(caseName, startFraction, endFraction, crossAxisFraction, 
     active_seconds: combat.held_visual.active_seconds,
     hit_delay_seconds: combat.held_visual.hit_delay_seconds,
     recovery_seconds: combat.held_visual.recovery_seconds,
+    startup_angular_speed_rad_per_second: combat.held_visual.startup_angular_speed_rad_per_second,
+    active_angular_speed_rad_per_second: combat.held_visual.active_angular_speed_rad_per_second,
     measured_hit_delay_ms: measuredHitDelayMs,
+    rapid_input: rapidInput,
     source_bounds: confirmation.geometry_profile.source_bounds,
   });
   await context.close();
 }
 
 try {
-  await runCase("short-light", 0.12, 0.30, 0.05, "light", false);
-  await runCase("short-heavy", 0.12, 0.30, 0.28, "heavy", false);
-  await runCase("standard-balanced", 0.10, 0.52, 0.14, "balanced", false);
-  await runCase("long-light", 0.035, 0.965, 0.05, "light", true);
-  await runCase("long-heavy", 0.035, 0.965, 0.28, "heavy", true);
+  const lengths = [
+    { name: "1-grid", start: 0.10, end: 0.28, hit: false },
+    { name: "4-grid", start: 0.10, end: 0.374872, hit: false },
+    { name: "8-grid", start: 0.10, end: 0.507692, hit: false },
+    { name: "16-grid", start: 0.10, end: 0.882436, hit: true },
+  ];
+  const masses = [
+    { name: "light", crossAxis: 0.05 },
+    { name: "balanced", crossAxis: 0.17 },
+    { name: "heavy", crossAxis: 0.36 },
+  ];
+  for (const length of lengths) {
+    for (const mass of masses) {
+      await runCase(`${length.name}-${mass.name}`, length.start, length.end, mass.crossAxis, mass.name, length.hit);
+    }
+  }
   const byName = Object.fromEntries(report.cases.map((entry) => [entry.name, entry]));
-  assert(byName["short-light"].spec.range < byName["standard-balanced"].spec.range && byName["standard-balanced"].spec.range < byName["long-light"].spec.range, "visible/runtime reach is not strictly monotonic");
-  assert(byName["short-light"].spec.range === byName["short-heavy"].spec.range, "short reach changed with mass");
-  assert(byName["long-light"].spec.range === byName["long-heavy"].spec.range, "long reach changed with mass");
-  assert(byName["short-light"].attack_cycle_seconds < byName["short-heavy"].attack_cycle_seconds, "short mass does not slow the complete cycle");
-  assert(byName["long-light"].attack_cycle_seconds < byName["long-heavy"].attack_cycle_seconds, "long mass does not slow the complete cycle");
-  assert(byName["short-light"].hit_delay_seconds < byName["long-light"].hit_delay_seconds, "reach does not delay the light hit window");
-  assert(byName["short-heavy"].hit_delay_seconds < byName["long-heavy"].hit_delay_seconds, "reach does not delay the heavy hit window");
-  const extremeCycleRatio = byName["long-heavy"].attack_cycle_seconds / byName["short-light"].attack_cycle_seconds;
-  assert(extremeCycleRatio >= 1.35 && extremeCycleRatio < 3.0, `bounded extreme cycle ratio is ${extremeCycleRatio}`);
+  for (const mass of masses) {
+    assert(byName[`1-grid-${mass.name}`].spec.range < byName[`4-grid-${mass.name}`].spec.range, `${mass.name}: 1/4-grid reach is not monotonic`);
+    assert(byName[`4-grid-${mass.name}`].spec.range < byName[`8-grid-${mass.name}`].spec.range, `${mass.name}: 4/8-grid reach is not monotonic`);
+    assert(byName[`8-grid-${mass.name}`].spec.range < byName[`16-grid-${mass.name}`].spec.range, `${mass.name}: 8/16-grid reach is not monotonic`);
+    assert(byName[`1-grid-${mass.name}`].attack_cycle_seconds < byName[`4-grid-${mass.name}`].attack_cycle_seconds, `${mass.name}: 1/4-grid cycle is not monotonic`);
+    assert(byName[`4-grid-${mass.name}`].attack_cycle_seconds < byName[`8-grid-${mass.name}`].attack_cycle_seconds, `${mass.name}: 4/8-grid cycle is not monotonic`);
+    assert(byName[`8-grid-${mass.name}`].attack_cycle_seconds < byName[`16-grid-${mass.name}`].attack_cycle_seconds, `${mass.name}: 8/16-grid cycle is not monotonic`);
+  }
+  for (const length of lengths) {
+    const sampledRanges = masses.map((mass) => byName[`${length.name}-${mass.name}`].spec.range);
+    assert(Math.max(...sampledRanges) - Math.min(...sampledRanges) <= 1.0, `${length.name}: mass changed reach beyond one sampled pixel`);
+    assert(byName[`${length.name}-light`].attack_cycle_seconds < byName[`${length.name}-balanced`].attack_cycle_seconds && byName[`${length.name}-balanced`].attack_cycle_seconds < byName[`${length.name}-heavy`].attack_cycle_seconds, `${length.name}: mass does not slow the cycle monotonically`);
+  }
+  assert(byName["1-grid-light"].attack_cycle_seconds >= 0.25 && byName["1-grid-light"].attack_cycle_seconds <= 0.40, "1-grid/light misses target cycle window");
+  assert(byName["4-grid-light"].attack_cycle_seconds >= 0.45 && byName["4-grid-light"].attack_cycle_seconds <= 0.65, "4-grid/light misses target cycle window");
+  assert(byName["8-grid-balanced"].attack_cycle_seconds >= 0.90 && byName["8-grid-balanced"].attack_cycle_seconds <= 1.20, "8-grid/balanced misses target cycle window");
+  assert(byName["16-grid-balanced"].attack_cycle_seconds >= 1.50 && byName["16-grid-balanced"].attack_cycle_seconds <= 2.0, "16-grid/balanced misses target cycle window");
+  assert(byName["16-grid-heavy"].attack_cycle_seconds >= 1.50 && byName["16-grid-heavy"].attack_cycle_seconds <= 2.0, "16-grid/heavy misses target cycle window");
+  const extremeCycleRatio = byName["16-grid-heavy"].attack_cycle_seconds / byName["1-grid-light"].attack_cycle_seconds;
+  assert(extremeCycleRatio >= 4.0 && extremeCycleRatio <= 6.0, `bounded extreme cycle ratio is ${extremeCycleRatio}`);
+  assert(byName["1-grid-light"].active_angular_speed_rad_per_second > byName["16-grid-heavy"].active_angular_speed_rad_per_second * 4.0, "visible swing angular velocity did not reflect the cadence gap");
+  report.extreme_cycle_ratio = extremeCycleRatio;
   await writeFile(join(destination, `${browserName}-report.json`), `${JSON.stringify(report, null, 2)}\n`, "utf8");
 
   if (browserName === "chromium") {
@@ -285,7 +363,7 @@ try {
       Range ${entry.spec.range}px · Mass ${entry.geometry_profile.mass_profile} · Speed ${entry.spec.attack_speed.toFixed(2)} · Cycle ${entry.attack_cycle_seconds.toFixed(2)}s<br>
       Startup ${entry.startup_seconds.toFixed(2)}s · Active ${entry.active_seconds.toFixed(2)}s · Recovery ${entry.recovery_seconds.toFixed(2)}s<br>
       Same target gap ${entry.target_gap.toFixed(1)}px · ${entry.hit ? `HIT (${entry.health_before}→${entry.health_after})` : `MISS (${entry.health_before}→${entry.health_after})`}</div></div>`).join("")}</div>`);
-    await comparison.screenshot({ path: join(destination, "chromium-short-standard-long-comparison.png"), fullPage: true });
+    await comparison.screenshot({ path: join(destination, "chromium-1-4-8-16-grid-matrix.png"), fullPage: true });
     await comparisonContext.close();
   }
   console.log(JSON.stringify(report, null, 2));

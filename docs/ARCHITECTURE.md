@@ -174,6 +174,13 @@ facade consumed by accepted M1B1.2 call sites. These QA dictionaries never enter
 provider Structured Output or the public Schema. B1 still uses one uniform
 grip-to-tip contact sample; its empty contact-region interface is reserved for B2.
 
+B1 round two maps 72/92/120/199/228 px reach anchors to bounded complete-cycle
+anchors with piecewise smoothstep interpolation. Independent mass and existing
+drawback multipliers then produce the final cycle; `attack_speed = 1 / cycle`
+drives every animation phase, hit time, cooldown, and the one-slot input buffer.
+The 72 px minimum, complete-ink bounding box, and cross-axis mass proxy remain
+explicit `TO VALIDATE` limitations rather than inferred blade/handle regions.
+
 ## Attack and element behavior
 
 | Module | Visible and combat distinction |

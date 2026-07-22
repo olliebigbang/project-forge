@@ -5,6 +5,7 @@ signal attack_requested(spec: WeaponSpec, origin: Vector2, direction: Vector2, s
 
 const MOVE_SPEED := 310.0
 const WEAPON_REST_POSITION := Vector2(18.0, -12.0)
+const MAX_BUFFERED_ATTACKS := 1
 
 var touch_axis := 0.0
 var facing := 1.0
@@ -17,6 +18,8 @@ var movement_bounds := Vector2(80.0, 1200.0)
 var weapon_visual: WeaponVisual
 var _attack_tween: Tween
 var _attack_generation := 0
+var _attack_buffered := false
+var _accepted_attack_count := 0
 var _melee_attack_facing := 0.0
 var _detached_visual_count := 0
 var _detached_generation := 0
@@ -42,6 +45,13 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	attack_cooldown = maxf(attack_cooldown - delta, 0.0)
+	if (
+		attack_cooldown <= 0.0
+		and _attack_buffered
+		and is_zero_approx(_melee_attack_facing)
+	):
+		_attack_buffered = false
+		_start_attack()
 	var keyboard_axis := Input.get_axis("move_left", "move_right")
 	var axis := clampf(keyboard_axis + touch_axis, -1.0, 1.0)
 	velocity = Vector2(axis * MOVE_SPEED, 0.0)
@@ -63,6 +73,7 @@ func equip(
 	current_spec = spec
 	current_geometry_profile = geometry_profile
 	attack_cooldown = 0.0
+	_attack_buffered = false
 	current_strokes.clear()
 	for stroke in strokes:
 		current_strokes.append(stroke.duplicate())
@@ -78,6 +89,7 @@ func set_combat_enabled(value: bool) -> void:
 	combat_enabled = value
 	if not combat_enabled:
 		set_touch_axis(0.0)
+		_attack_buffered = false
 
 
 func set_diagnostic_label_visible(value: bool) -> void:
@@ -86,11 +98,24 @@ func set_diagnostic_label_visible(value: bool) -> void:
 
 
 func attack() -> void:
+	if not combat_enabled or current_spec == null:
+		return
+	if attack_cooldown > 0.0 or not is_zero_approx(_melee_attack_facing):
+		if _is_held_melee():
+			# A boolean is the complete one-slot queue: repeated taps while busy
+			# cannot create overlapping hit windows or an unbounded attack burst.
+			_attack_buffered = true
+		return
+	_start_attack()
+
+
+func _start_attack() -> void:
 	if not combat_enabled or current_spec == null or attack_cooldown > 0.0:
 		return
 	var direction := Vector2(facing, 0.0)
 	var cycle_seconds := attack_cycle_seconds()
 	attack_cooldown = cycle_seconds
+	_accepted_attack_count += 1
 	_attack_generation += 1
 	var generation := _attack_generation
 	if current_spec.delivery == "held" and current_spec.attack_pattern == "melee_slash":
@@ -186,6 +211,7 @@ func complete_detached_weapon_attack() -> void:
 
 func restore_held_weapon_now() -> void:
 	_attack_generation += 1
+	_attack_buffered = false
 	_detached_generation += 1
 	_detached_visual_count = 0
 	if is_instance_valid(weapon_visual):
@@ -206,6 +232,9 @@ func held_visual_state() -> Dictionary:
 		"rotation": weapon_visual.rotation,
 		"detached_count": _detached_visual_count,
 		"cooldown": attack_cooldown,
+		"attack_buffered": _attack_buffered,
+		"max_buffered_attacks": MAX_BUFFERED_ATTACKS,
+		"accepted_attack_count": _accepted_attack_count,
 		"visible_reach": bounds.position.x + bounds.size.x,
 		"fitted_bounds": {
 			"x": bounds.position.x,
@@ -219,6 +248,8 @@ func held_visual_state() -> Dictionary:
 		"active_seconds": attack_active_seconds(),
 		"hit_delay_seconds": attack_hit_delay_seconds(),
 		"recovery_seconds": attack_recovery_seconds(),
+		"startup_angular_speed_rad_per_second": 0.30 / maxf(attack_startup_seconds(), 0.001),
+		"active_angular_speed_rad_per_second": 0.96 / maxf(attack_active_seconds(), 0.001),
 		"facing": facing,
 		"attack_facing": _melee_attack_facing,
 		"visual_facing": _visual_facing(),
@@ -250,6 +281,14 @@ func _melee_combat_derived() -> CombatDerived:
 	if timing == null or not is_equal_approx(timing.attack_speed, current_spec.attack_speed):
 		return null
 	return timing
+
+
+func _is_held_melee() -> bool:
+	return (
+		current_spec != null
+		and current_spec.delivery == "held"
+		and current_spec.attack_pattern == "melee_slash"
+	)
 
 
 func _draw() -> void:

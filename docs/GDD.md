@@ -199,11 +199,11 @@ Voice is an input method, not a separate weapon system.
   short, standard, and full-canvas long melee drawings remain visibly and
   mechanically different in combat. The current release candidate preserves the
   same bounded reach in the held visual, hit boundary, and HUD.
-- **TO VALIDATE (Weapon Physics B1)** The prototype reach curve, tier thresholds,
-  72-228 px bounds, and linear range-to-speed exchange are provisional. A future
-  controlled short/long x light/heavy experiment will derive handling and the
-  observable startup/active/recovery phases. Weapon mass remains independent
-  from length, and length alone does not increase damage.
+- **TO VALIDATE (Weapon Physics B1)** The reach curve, tier thresholds, 72-228 px
+  bounds, and nonlinear cycle anchors are provisional. The current controlled
+  1/4/8/16-grid x light/balanced/heavy experiment derives handling and observable
+  startup/active/recovery phases. Weapon mass remains independent from length,
+  and length alone does not increase damage.
 - **CONFIRMED (Weapon Physics B0 contract)** Numeric authority is frozen as
   `GeometryEvidence -> PhysicalProfile -> CombatDerived`; AI cannot author
   numeric physics and the public Schema does not expand for B1.
@@ -211,6 +211,12 @@ Voice is an input method, not a separate weapon system.
   light/balanced/heavy matrix now drives observable startup, active, hit and
   recovery timing plus existing Range/Speed PowerBudget components. Its curve
   still requires Chromium/WebKit and physical-device combat-feel evidence.
+- **TO VALIDATE (Weapon Physics B1 round two)** Physical iPhone v23 evidence
+  rejected the first prototype's compressed 1.874 cycle ratio. The current
+  internal candidate uses 1/4/8/16-grid x light/balanced/heavy evidence, a
+  bounded nonlinear cycle curve, a 0.25 s floor, and a one-slot attack buffer.
+  Its automated extreme ratio is 5.775; final feel remains a physical-device
+  decision. No public Schema or contact-region behavior was added.
 - **TO VALIDATE (Weapon Physics B2)** The current melee capsule applies one damage
   value from grip to visible tip. Grip/root low-effect zones, blade regions,
   outer sweet spots, tip damage, and their required visual/audio/hit-stop feedback

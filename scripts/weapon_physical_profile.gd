@@ -9,6 +9,7 @@ const NOMINAL_EFFECTIVE_REACH := 132.0
 const MAX_EFFECTIVE_REACH := 228.0
 const CURVE_START_SPAN := 0.18
 const CURVE_END_SPAN := 0.92
+const ULTRA_SHORT_MAX_REACH := 84.0
 const SHORT_MAX_REACH := 104.0
 const STANDARD_MAX_REACH := 160.0
 const LONG_MAX_REACH := 202.0
@@ -18,7 +19,7 @@ const BALANCED_MAX_CROSS_AXIS := 0.20
 const MASS_FACTORS := {"light": 0.82, "balanced": 1.0, "heavy": 1.22}
 
 var evidence: GeometryEvidence
-var reach_profile := "short"
+var reach_profile := "ultra_short"
 var effective_reach := MIN_EFFECTIVE_REACH
 var mass_profile := "light"
 var mass_factor := 0.82
@@ -62,6 +63,8 @@ func to_dict() -> Dictionary:
 
 
 func _profile_for_reach(reach: float) -> String:
+	if reach < ULTRA_SHORT_MAX_REACH:
+		return "ultra_short"
 	if reach < SHORT_MAX_REACH:
 		return "short"
 	if reach < STANDARD_MAX_REACH:

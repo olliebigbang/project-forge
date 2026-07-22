@@ -1,14 +1,24 @@
 class_name CombatDerived
 extends RefCounted
 
-# B1 controlled handling curve. The caps prevent the short/light to long/heavy
-# matrix from degenerating into a raw three-times inverse-reach speed rule.
-const MIN_HANDLING_MULTIPLIER := 0.70
-const MAX_HANDLING_MULTIPLIER := 1.58
+# B1 round-two controlled handling curve. These reach/cycle anchors are joined
+# with smoothstep interpolation, so cadence is bounded and nonlinear rather
+# than a raw inverse of reach. Values remain TO VALIDATE on physical hardware.
+const REACH_CYCLE_ANCHORS := [
+	Vector2(72.0, 0.38),
+	Vector2(92.0, 0.64),
+	Vector2(120.0, 0.95),
+	Vector2(199.0, 1.54),
+	Vector2(228.0, 1.68),
+]
+const MASS_CYCLE_MULTIPLIERS := {"light": 0.78, "balanced": 1.0, "heavy": 1.14}
+const MIN_CYCLE_SECONDS := 0.25
+const MAX_CYCLE_SECONDS := 2.40
 const ACTIVE_HIT_FRACTION := 0.62
 
 var attack_speed := 1.0
 var handling_multiplier := 1.0
+var base_cycle_seconds := 1.0
 var cycle_seconds := 1.0
 var startup_seconds := 0.24
 var active_seconds := 0.18
@@ -21,7 +31,7 @@ var budget_effects: Dictionary = {}
 
 static func derive(
 	physical: WeaponPhysicalProfile,
-	base_attack_speed: float,
+	_base_attack_speed: float,
 	drawback: String,
 ) -> CombatDerived:
 	var derived := CombatDerived.new()
@@ -31,31 +41,36 @@ static func derive(
 		0.0,
 		1.0,
 	)
-	derived.reach_load = snappedf(lerpf(-0.18, 0.28, reach_t), 0.001)
-	derived.mass_load = float({"light": -0.14, "balanced": 0.0, "heavy": 0.22}.get(physical.mass_profile, 0.0))
-	derived.handling_multiplier = snappedf(clampf(
-		0.86 + 0.46 * reach_t + derived.mass_load + 0.05 * reach_t * derived.mass_load,
-		MIN_HANDLING_MULTIPLIER,
-		MAX_HANDLING_MULTIPLIER,
-	), 0.001)
-	var requested_speed := base_attack_speed / derived.handling_multiplier
-	derived.attack_speed = snappedf(clampf(requested_speed, 0.2, _drawback_speed_cap(drawback)), 0.01)
+	derived.base_cycle_seconds = snappedf(_cycle_anchor_for_reach(physical.effective_reach), 0.001)
+	derived.reach_load = snappedf(derived.base_cycle_seconds - 0.95, 0.001)
+	var mass_multiplier := float(MASS_CYCLE_MULTIPLIERS.get(physical.mass_profile, 1.0))
+	derived.mass_load = snappedf(mass_multiplier - 1.0, 0.001)
 	var drawback_multiplier: float = {
-		"slow_recovery": 1.25,
-		"self_stagger": 1.30,
-		"cooldown_lock": 1.45,
+		"slow_recovery": 1.10,
+		"self_stagger": 1.16,
+		"cooldown_lock": 1.25,
 	}.get(drawback, 1.0)
-	derived.cycle_seconds = snappedf(drawback_multiplier / maxf(derived.attack_speed, 0.2), 0.001)
+	derived.handling_multiplier = snappedf(mass_multiplier * drawback_multiplier, 0.001)
+	var requested_cycle := clampf(
+		derived.base_cycle_seconds * derived.handling_multiplier,
+		MIN_CYCLE_SECONDS,
+		MAX_CYCLE_SECONDS,
+	)
+	# attack_speed remains the single public executable timing value. Rounding it
+	# first and deriving the final cycle back from it keeps HUD, animation, hit,
+	# recovery, cooldown, and input acceptance on exactly one authority.
+	derived.attack_speed = snappedf(clampf(1.0 / requested_cycle, 0.2, 3.0), 0.01)
+	derived.cycle_seconds = snappedf(1.0 / derived.attack_speed, 0.001)
 
 	var startup_fraction := clampf(
-		0.20 + reach_t * 0.07 + float({"light": -0.025, "heavy": 0.045}.get(physical.mass_profile, 0.0)),
-		0.16,
-		0.34,
+		0.18 + reach_t * 0.06 + float({"light": -0.015, "heavy": 0.025}.get(physical.mass_profile, 0.0)),
+		0.15,
+		0.31,
 	)
 	var active_fraction := clampf(
-		0.16 + reach_t * 0.035 + float({"light": -0.015, "heavy": 0.02}.get(physical.mass_profile, 0.0)),
-		0.13,
-		0.23,
+		0.18 + reach_t * 0.03 + float({"light": -0.01, "heavy": 0.015}.get(physical.mass_profile, 0.0)),
+		0.15,
+		0.235,
 	)
 	derived.startup_seconds = snappedf(derived.cycle_seconds * startup_fraction, 0.001)
 	derived.active_seconds = snappedf(derived.cycle_seconds * active_fraction, 0.001)
@@ -109,6 +124,7 @@ func to_dict() -> Dictionary:
 	return {
 		"attack_speed": attack_speed,
 		"handling_multiplier": handling_multiplier,
+		"base_cycle_seconds": base_cycle_seconds,
 		"cycle_seconds": cycle_seconds,
 		"startup_seconds": startup_seconds,
 		"active_seconds": active_seconds,
@@ -124,13 +140,23 @@ func to_dict() -> Dictionary:
 			"status": "TO VALIDATE (Weapon Physics B2)",
 		},
 		"authority": "CombatDerived",
+		"curve_model": "bounded_piecewise_smoothstep",
+		"safety_floor_seconds": MIN_CYCLE_SECONDS,
 		"curve_status": "TO VALIDATE",
 	}
 
 
-static func _drawback_speed_cap(drawback: String) -> float:
-	return float({
-		"slow_recovery": 1.2,
-		"self_stagger": 1.0,
-		"cooldown_lock": 0.85,
-	}.get(drawback, 3.0))
+static func _cycle_anchor_for_reach(reach: float) -> float:
+	var bounded_reach := clampf(
+		reach,
+		float(REACH_CYCLE_ANCHORS[0].x),
+		float(REACH_CYCLE_ANCHORS[REACH_CYCLE_ANCHORS.size() - 1].x),
+	)
+	for index in REACH_CYCLE_ANCHORS.size() - 1:
+		var start: Vector2 = REACH_CYCLE_ANCHORS[index]
+		var finish: Vector2 = REACH_CYCLE_ANCHORS[index + 1]
+		if bounded_reach <= finish.x:
+			var linear_t := inverse_lerp(start.x, finish.x, bounded_reach)
+			var smooth_t := linear_t * linear_t * (3.0 - 2.0 * linear_t)
+			return lerpf(start.y, finish.y, smooth_t)
+	return float(REACH_CYCLE_ANCHORS[REACH_CYCLE_ANCHORS.size() - 1].y)
