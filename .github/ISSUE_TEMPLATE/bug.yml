@@ -1,0 +1,114 @@
+name: Bug report
+description: Report a reproducible Project Forge defect without expanding scope.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One Issue owns one primary defect. Use CONFIRMED, ASSUMPTION,
+        TO VALIDATE, or TBD for every uncertain statement.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is broken, where, and why it matters.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction and evidence
+      description: Exact steps, device/browser, screenshots, logs, request ID, or build identity.
+    validations:
+      required: true
+  - type: input
+    id: baseline
+    attributes:
+      label: Formal baseline
+      description: origin/main SHA, stable tag, Sites version/URL, and tested release marker.
+      placeholder: "main SHA; tag; Sites version"
+    validations:
+      required: true
+  - type: textarea
+    id: allowed_scope
+    attributes:
+      label: Allowed modification scope
+      description: Files, systems, and behavior this fix may change.
+    validations:
+      required: true
+  - type: textarea
+    id: prohibited_scope
+    attributes:
+      label: Prohibited modification scope
+      description: Systems and product behavior this fix must not change.
+    validations:
+      required: true
+  - type: textarea
+    id: regression_locks
+    attributes:
+      label: Forbidden regressions
+      description: Accepted behavior that must remain unchanged.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Observable pass/fail requirements.
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Test requirements
+      description: Deterministic, Godot, Worker, browser, security, and build checks.
+    validations:
+      required: true
+  - type: textarea
+    id: device_evidence
+    attributes:
+      label: Browser, screenshot, and physical-device evidence
+      description: Chromium/WebKit applicability, required captures, and whether physical iPhone is authoritative.
+    validations:
+      required: true
+  - type: textarea
+    id: risk
+    attributes:
+      label: Risks
+      description: Security, cost, data, compatibility, gameplay, or release risks.
+    validations:
+      required: true
+  - type: textarea
+    id: rollback
+    attributes:
+      label: Rollback method
+      description: Exact version, tag, artifact, or revert path.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Related Issues, PRs, tags, Sites versions, or decisions.
+  - type: dropdown
+    id: certainty
+    attributes:
+      label: Current certainty
+      options:
+        - CONFIRMED
+        - ASSUMPTION
+        - TO VALIDATE
+        - TBD
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Boundary confirmation
+      options:
+        - label: I identified the precise baseline and did not assume the newest local worktree is production.
+          required: true
+        - label: This Issue does not silently authorize deployment, real provider calls, cleanup, or a new milestone.
+          required: true

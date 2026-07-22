@@ -3,6 +3,10 @@
 This file preserves the completed M0, M1A, M1B1, M1B1.1, M1B1.2, and Weapon
 Physics B1 gates. The detailed B1 contract and evidence are in
 `docs/WEAPON_PHYSICS_B1_ACCEPTANCE.md`.
+**CONFIRMED:** M1B1.1 and M1B1.2 are completed, PR #7 and PR #8 are merged,
+`v0.3.0-weapon-physics-b1` is the stable tag, and production Sites Version 25
+records current `main` `2c7b8f5`. Sites Version 23 plus `v0.2.1-m1b1.2` are the
+direct rollback pair. M1B2 has not started.
 `docs/GDD.md` retains the broader product definition; later requirements remain
 visible without being silently pulled into the deterministic compiler milestone.
 **CONFIRMED:** the product owner completed the v9 physical iPhone Safari
@@ -83,7 +87,7 @@ deterministic held-melee physicality and does not start M1B2 or expand the publi
 | Reach independent from thickness/mass | **CONFIRMED** | Same longitudinal evidence produces identical Range across extreme thickness and two consecutive WebKit runs |
 | Chromium/WebKit mobile regression | **CONFIRMED** | Both engines pass the 12-case matrix plus keyboard, toolbar, orientation, bow, grenade, sword, and boomerang regressions with zero application console errors |
 | Physical iPhone combat feel | **CONFIRMED on 2026-07-22** | Product owner accepted the isolated Sites Version 2 preview and reported no new blocker |
-| PR #7 and stable deployment | **CONFIRMED on 2026-07-22** | PR #7 CI passed and merged as `b37e524`; Sites v24 deployed that exact commit, production Chromium/WebKit and one-call Anthropic smoke passed, stable tag `v0.3.0-weapon-physics-b1` was pushed, and v23 / `v0.2.1-m1b1.2` remain rollback points |
+| PR #7, PR #8, and stable deployment | **CONFIRMED** | PR #7 merged as `b37e524`; v24 deployed and passed production Chromium/WebKit plus one-call Anthropic smoke; PR #8/current `main` is `2c7b8f5`; v25 records that source with the same archive hash as v24; stable tag `v0.3.0-weapon-physics-b1` and rollback v23 / `v0.2.1-m1b1.2` are retained |
 
 The accepted preview used deployment-only metadata commit `a81061f` to bind a
 separate Site and a USD 0.50 D1 lifetime cap. It did not mutate stable v23.
@@ -159,8 +163,9 @@ scope and become later gates:
 | Special ability, dodge, health/cooldowns | M2 vertical slice | **ASSUMPTION** |
 | Voice input and device builds | M3 | **CONFIRMED** |
 
-## M1 recommendation gate
+## Historical M1 recommendation gate
 
+This gate is preserved as historical evidence and is **CONFIRMED complete**.
 Proceed to M1 only if M0 proves: drawing is usable on touch, player strokes remain
 recognizable, both attack families are legible, `WeaponSpec` is a stable boundary,
 Web performance is acceptable, and no architecture blocker requires replacing the

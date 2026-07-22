@@ -67,6 +67,60 @@ jobs:
         shell: pwsh
         run: ./scripts/build_sites_preview.ps1
 
+      - name: Install provider-free Chromium smoke dependency
+        run: |
+          npm install --no-save --package-lock=false --ignore-scripts \
+            playwright-core@1.61.1
+
+      - name: Run provider-free Chromium mobile smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          browser="$(command -v google-chrome || command -v google-chrome-stable || true)"
+          test -n "$browser"
+
+          mkdir -p output/ci-browser/screenshots
+          node scripts/serve_web.mjs --root build/web --port 8060 \
+            > output/ci-browser/server.stdout.log \
+            2> output/ci-browser/server.stderr.log &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+
+          ready=0
+          for _ in $(seq 1 30); do
+            if curl --fail --silent --show-error \
+              http://127.0.0.1:8060/ > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" -eq 1
+
+          PLAYWRIGHT_MODULE_PATH="$GITHUB_WORKSPACE/node_modules/playwright-core" \
+          M1B1_QA_BROWSER_EXECUTABLE="$browser" \
+          M1B1_QA_SCREENSHOT_DIR="$GITHUB_WORKSPACE/output/ci-browser/screenshots" \
+            node tests/browser/run_m1b1_anthropic_mobile_regression.mjs \
+              chromium \
+              http://127.0.0.1:8060/ \
+              output/ci-browser/chromium-report.json \
+              simulated
+
+          node -e '
+            const report = require("./output/ci-browser/chromium-report.json");
+            if (report.mode !== "simulated") throw new Error("Smoke was not provider-free");
+            if (report.applicationConsoleErrors !== 0) throw new Error("Application console errors found");
+          '
+
+      - name: Upload Chromium smoke failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: project-forge-chromium-smoke-failure-${{ github.sha }}
+          path: output/ci-browser
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Verify canonical Sites bundle
         shell: bash
         run: |

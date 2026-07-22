@@ -3,6 +3,11 @@
 Status: **CONFIRMED B0 authority contract and accepted B1 controlled curve;
 production balance remains TO VALIDATE**
 
+Weapon Physics B1 is complete and released as
+`v0.3.0-weapon-physics-b1`. B1.5/B2 labels below preserve roadmap boundaries;
+the next gameplay milestone is **TBD / TO VALIDATE** until the product owner
+authorizes it.
+
 This work begins at stable tag `v0.2.1-m1b1.2` and does not start M1B2. It
 preserves the accepted interpreter, Worker/D1 safety boundary, public
 `WeaponSpec`, five attack modules, four elements, player UI, mobile input, and

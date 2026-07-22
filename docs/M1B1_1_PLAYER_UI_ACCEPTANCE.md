@@ -1,6 +1,8 @@
 # M1B1.1 Player UI Simplification
 
-Status: **CONFIRMED scope and product-owner acceptance; release closure in progress**
+Status: **CONFIRMED complete and released**
+
+Historical record — superseded by the v0.3.0 Weapon Physics B1 closure.
 
 This is an isolated presentation milestone after stable M1B1. It keeps the
 current Project Forge repository and runtime. It is not M1B2 and does not add
@@ -118,10 +120,11 @@ Run:
 
 ## Delivery boundary
 
-- Development branch: `codex/ui/player-interface-simplification` from stable
+- The completed development branch was
+  `codex/ui/player-interface-simplification` from stable
   `main` / `v0.2.0-m1b1`.
-- The existing accepted branches, tags, worktrees, evidence, and rollback files
-  remain untouched.
-- Do not merge, delete a branch/worktree, or deploy without product-owner
-  confirmation after reviewing the three required presentation captures and
-  complete regression results.
+- Product-owner acceptance and release integration completed. The current stable
+  line is `v0.3.0-weapon-physics-b1`; this document preserves the M1B1.1 gate as
+  historical evidence.
+- Existing accepted branches, tags, worktrees, evidence, and rollback files
+  remain retained until cleanup is separately approved.

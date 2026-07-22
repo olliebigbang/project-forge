@@ -4,6 +4,8 @@ Status: **CONFIRMED automated, physical-iPhone, and stable release closure**
 
 B1 is a local deterministic physicality experiment after accepted M1B1.2. It is
 not M1B2, B1.5, or B2 and does not expand the public `WeaponSpec` Schema.
+Roadmap references to B1.5 or B2 are not authorization to start them; the next
+gameplay milestone remains **TBD / TO VALIDATE**.
 
 ## Why round one was rejected
 
@@ -175,6 +177,9 @@ isolated preview project rather than the stable Site.
   `b37e524c206c5f4490ce612fb5e3d54838e8ebdd`.
 - **CONFIRMED:** stable Sites Version 24 deployed that exact source commit and
   archive hash `sha256:13bec17c923b0476aacd1abef09718aebb91549205f0429e04487836de0b8922`.
+- **CONFIRMED:** Sites Version 25 records final `main` `2c7b8f5` and has the same
+  verified archive hash as Version 24; Version 25 is the current production
+  Sites version.
 - **CONFIRMED:** production returned HTTP 200. Chromium and WebKit re-ran the
   keyboard plus Bow/Grenade/Sword/Boomerang regression with zero application
   console errors. A separate one-call production smoke used exactly one

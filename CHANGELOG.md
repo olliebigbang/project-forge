@@ -25,15 +25,17 @@
 - PR #7 CI and merge commit `b37e524`.
 - Stable Sites Version 24 from that exact commit, HTTP 200, Chromium/WebKit
   production regressions, and one successful guarded Anthropic smoke request.
+- Sites Version 25 re-bound the final documentation-only `main` commit
+  `2c7b8f5` with the same verified archive hash as Version 24:
+  `sha256:13bec17c923b0476aacd1abef09718aebb91549205f0429e04487836de0b8922`.
 - Stable tag `v0.3.0-weapon-physics-b1`; rollback remains Sites v23 plus
   `v0.2.1-m1b1.2`.
 
-### Deferred
+### Deferred roadmap candidates
 
-- B1.5 weapon-role and near/ranged compensation.
-- B2 contact regions, sweet spots, interruption, shield/multi-target behavior,
-  and matching feedback.
-- M1B2 visual interpretation and all production-scale features.
+- **TBD / TO VALIDATE:** the product owner has not authorized the next gameplay
+  milestone. Earlier B1.5 weapon-role compensation, B2 contact-region work, and
+  M1B2 visual interpretation remain candidates rather than active development.
 
 ## v0.2.0-m1b1 — 2026-07-20
 

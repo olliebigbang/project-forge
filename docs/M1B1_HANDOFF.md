@@ -114,4 +114,7 @@ physicality experiment closed. PR #7 merged as
 that exact commit and passed HTTP, Chromium, WebKit, keyboard, four weapon-role,
 and one-call real Anthropic smoke checks. Stable tag
 `v0.3.0-weapon-physics-b1` and rollback pair Sites v23 / `v0.2.1-m1b1.2` are
-retained. No M1B2 work started.
+retained. Final documentation merge `2c7b8f5` is current `main`; Sites Version 25
+records that source and has the same verified archive hash as Version 24:
+`sha256:13bec17c923b0476aacd1abef09718aebb91549205f0429e04487836de0b8922`.
+No M1B2 work started.
