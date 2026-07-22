@@ -434,6 +434,37 @@ func _test_weapon_physics_b1_matrix(canvas_size: Vector2) -> void:
 	_expect(fastest.combat_derived.cycle_seconds >= CombatDerived.MIN_CYCLE_SECONDS, "ultra-short cadence retains the safety floor")
 	var public_fields: Dictionary = matrix["16_grid"].heavy.spec.to_dict()
 	_expect(not public_fields.has("mass_profile") and not public_fields.has("combat_derived") and not public_fields.has("geometry_evidence"), "B1 does not expand the public WeaponSpec")
+	_test_longitudinal_reach_mass_independence(canvas_size)
+
+
+func _test_longitudinal_reach_mass_independence(canvas_size: Vector2) -> void:
+	# All three inputs have the exact same x extrema. Only cross-axis thickness
+	# changes, including a deliberately extreme heavy case that activated the old
+	# ink-aspect reach cap. This test contains no browser/pointer sampling.
+	var cross_axis_pixels := {"light": 12.0, "balanced": 45.0, "heavy": 280.0}
+	var profiles: Dictionary = {}
+	for expected_mass: String in cross_axis_pixels:
+		var half_height := float(cross_axis_pixels[expected_mass]) * 0.5
+		var center_y := canvas_size.y * 0.5
+		var stroke := PackedVector2Array([
+			Vector2(20.0, center_y - half_height),
+			Vector2(520.0, center_y - half_height),
+			Vector2(520.0, center_y + half_height),
+			Vector2(20.0, center_y + half_height),
+		])
+		var source: Array[PackedVector2Array] = [stroke]
+		var profile := DrawingGeometryProfile.from_snapshot(source, canvas_size)
+		profiles[expected_mass] = profile
+		_expect(profile.mass_profile == expected_mass, "%s cross-axis evidence selects its mass without Playwright" % expected_mass)
+		_expect(is_equal_approx(profile.source_bounds.size.x, 500.0), "%s fixture preserves the identical longitudinal bound" % expected_mass)
+		_expect(str(profile.physical_profile.to_dict().reach_basis) == "normalized_length_only", "%s reach declares longitudinal-only authority" % expected_mass)
+		_expect(not bool(profile.physical_profile.to_dict().cross_axis_affects_reach), "%s cross-axis is excluded from reach" % expected_mass)
+
+	var light: DrawingGeometryProfile = profiles.light
+	var balanced: DrawingGeometryProfile = profiles.balanced
+	var heavy: DrawingGeometryProfile = profiles.heavy
+	_expect(is_equal_approx(light.normalized_length, balanced.normalized_length) and is_equal_approx(balanced.normalized_length, heavy.normalized_length), "identical longitudinal evidence stays identical across mass inputs")
+	_expect(light.effective_reach == balanced.effective_reach and balanced.effective_reach == heavy.effective_reach, "light/balanced/heavy cannot change effective reach for identical longitudinal evidence")
 
 
 func _test_attack_pattern_touch_selector() -> void:

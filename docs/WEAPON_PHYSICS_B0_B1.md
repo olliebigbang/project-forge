@@ -49,8 +49,9 @@ those fields enter the provider request or public JSON Schema.
 All values below are **TO VALIDATE**, not production balance:
 
 - Reach remains continuous and bounded at 72-228 px. The accepted 0.18-0.92
-  horizontal-span anchors and broad-shape safety cap remain for comparison. An
-  internal `ultra_short` tier identifies the 72-class floor without Schema work.
+  horizontal-span anchors remain for comparison. The former ink-aspect safety
+  cap was removed because it coupled cross-axis thickness into reach. An internal
+  `ultra_short` tier identifies the 72-class floor without Schema work.
 - Cross-axis canvas load maps to `light < 0.08`, `balanced < 0.20`, otherwise
   `heavy`. Controlled tests may inject the same internal class directly; no
   player-facing or provider field is added.

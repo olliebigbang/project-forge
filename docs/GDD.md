@@ -216,7 +216,8 @@ Voice is an input method, not a separate weapon system.
   internal candidate uses 1/4/8/16-grid x light/balanced/heavy evidence, a
   bounded nonlinear cycle curve, a 0.25 s floor, and a one-slot attack buffer.
   Its automated extreme ratio is 5.775; final feel remains a physical-device
-  decision. No public Schema or contact-region behavior was added.
+  decision. Reach reads longitudinal normalized length only; cross-axis mass and
+  ink aspect cannot alter it. No public Schema or contact-region behavior was added.
 - **TO VALIDATE (Weapon Physics B2)** The current melee capsule applies one damage
   value from grip to visible tip. Grip/root low-effect zones, blade regions,
   outer sweet spots, tip damage, and their required visual/audio/hit-stop feedback

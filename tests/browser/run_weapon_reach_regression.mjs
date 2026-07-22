@@ -14,6 +14,10 @@ const destination = resolve(outputRoot);
 await mkdir(destination, { recursive: true });
 const sleep = (ms) => new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
+const expectedReachFromSample = (normalizedLength) => {
+  const curveT = Math.max(0, Math.min(1, (normalizedLength - 0.18) / (0.92 - 0.18)));
+  return Math.round(72 + (228 - 72) * curveT);
+};
 
 const baseSword = {
   name: "Ink Sketchsword",
@@ -70,6 +74,7 @@ const report = {
   captured_at: new Date().toISOString(),
   cases: [],
   console_errors: [],
+  sampling_diagnostics: {},
 };
 
 async function runCase(caseName, startFraction, endFraction, crossAxisFraction, expectedMass, expectHit) {
@@ -116,9 +121,9 @@ async function runCase(caseName, startFraction, endFraction, crossAxisFraction, 
   const halfCrossAxis = crossAxisFraction * 0.5;
   const bladePoints = [
     { x: canvas.x + canvas.width * startFraction, y: y - canvas.height * halfCrossAxis },
-    { x: canvas.x + canvas.width * (endFraction - 0.015), y: y - canvas.height * halfCrossAxis },
+    { x: canvas.x + canvas.width * endFraction, y: y - canvas.height * halfCrossAxis },
     { x: canvas.x + canvas.width * endFraction, y },
-    { x: canvas.x + canvas.width * (endFraction - 0.015), y: y + canvas.height * halfCrossAxis },
+    { x: canvas.x + canvas.width * endFraction, y: y + canvas.height * halfCrossAxis },
     { x: canvas.x + canvas.width * startFraction, y: y + canvas.height * halfCrossAxis },
   ];
   const strokes = [bladePoints];
@@ -139,6 +144,10 @@ async function runCase(caseName, startFraction, endFraction, crossAxisFraction, 
   assert(confirmation.result.corrections.some((entry) => entry.startsWith("physics B1:")), `${caseName}: physics correction reason missing`);
   assert(confirmation.spec.range === confirmation.geometry_profile.effective_reach, `${caseName}: Range differs from effective reach`);
   assert(confirmation.geometry_profile.mass_profile === expectedMass, `${caseName}: expected mass ${expectedMass}, got ${confirmation.geometry_profile.mass_profile}`);
+  const sampledExpectedReach = expectedReachFromSample(confirmation.geometry_profile.normalized_length);
+  assert(confirmation.spec.range === sampledExpectedReach, `${caseName}: sampled length predicts ${sampledExpectedReach}, physics returned ${confirmation.spec.range}`);
+  assert(confirmation.geometry_profile.physical_profile.reach_basis === "normalized_length_only", `${caseName}: reach basis is not longitudinal-only`);
+  assert(confirmation.geometry_profile.physical_profile.cross_axis_affects_reach === false, `${caseName}: cross-axis still affects reach`);
   assert(Math.abs(confirmation.stroke_geometry.visible_reach - confirmation.spec.range) <= 0.05, `${caseName}: visible tip differs from Range`);
   assert(confirmation.stroke_geometry.relative_aspect_error <= 0.02, `${caseName}: aspect error exceeds 2%`);
   assert(Math.abs(confirmation.stroke_geometry.scale_x - confirmation.stroke_geometry.scale_y) <= 1e-6, `${caseName}: fit is non-uniform`);
@@ -301,6 +310,8 @@ async function runCase(caseName, startFraction, endFraction, crossAxisFraction, 
     measured_hit_delay_ms: measuredHitDelayMs,
     rapid_input: rapidInput,
     source_bounds: confirmation.geometry_profile.source_bounds,
+    sampled_expected_reach: sampledExpectedReach,
+    physics_reach_residual: confirmation.spec.range - sampledExpectedReach,
   });
   await context.close();
 }
@@ -332,8 +343,27 @@ try {
     assert(byName[`8-grid-${mass.name}`].attack_cycle_seconds < byName[`16-grid-${mass.name}`].attack_cycle_seconds, `${mass.name}: 8/16-grid cycle is not monotonic`);
   }
   for (const length of lengths) {
-    const sampledRanges = masses.map((mass) => byName[`${length.name}-${mass.name}`].spec.range);
-    assert(Math.max(...sampledRanges) - Math.min(...sampledRanges) <= 1.0, `${length.name}: mass changed reach beyond one sampled pixel`);
+    const samples = masses.map((mass) => byName[`${length.name}-${mass.name}`]);
+    const sampledWidths = samples.map((entry) => entry.source_bounds.width);
+    const sampledLengths = samples.map((entry) => entry.geometry_profile.normalized_length);
+    const sampledRanges = samples.map((entry) => entry.spec.range);
+    const residuals = samples.map((entry) => entry.physics_reach_residual);
+    const widthSpread = Math.max(...sampledWidths) - Math.min(...sampledWidths);
+    const normalizedSpread = Math.max(...sampledLengths) - Math.min(...sampledLengths);
+    const rangeSpread = Math.max(...sampledRanges) - Math.min(...sampledRanges);
+    const maxResidual = Math.max(...residuals.map(Math.abs));
+    assert(maxResidual === 0, `${length.name}: physical reach differs from sampled longitudinal evidence`);
+    if (rangeSpread > 0) assert(normalizedSpread > 0, `${length.name}: same sampled length produced mass-dependent reach`);
+    report.sampling_diagnostics[length.name] = {
+      source_widths: Object.fromEntries(samples.map((entry) => [entry.geometry_profile.mass_profile, entry.source_bounds.width])),
+      normalized_lengths: Object.fromEntries(samples.map((entry) => [entry.geometry_profile.mass_profile, entry.geometry_profile.normalized_length])),
+      effective_reaches: Object.fromEntries(samples.map((entry) => [entry.geometry_profile.mass_profile, entry.spec.range])),
+      source_width_spread_px: widthSpread,
+      normalized_length_spread: normalizedSpread,
+      effective_reach_spread_px: rangeSpread,
+      max_physics_residual_px: maxResidual,
+      diagnosis: widthSpread > 0 ? "input_sampling_variance_only" : "identical_longitudinal_input",
+    };
     assert(byName[`${length.name}-light`].attack_cycle_seconds < byName[`${length.name}-balanced`].attack_cycle_seconds && byName[`${length.name}-balanced`].attack_cycle_seconds < byName[`${length.name}-heavy`].attack_cycle_seconds, `${length.name}: mass does not slow the cycle monotonically`);
   }
   assert(byName["1-grid-light"].attack_cycle_seconds >= 0.25 && byName["1-grid-light"].attack_cycle_seconds <= 0.40, "1-grid/light misses target cycle window");

@@ -31,24 +31,27 @@ static func from_evidence(
 ) -> WeaponPhysicalProfile:
 	var profile := WeaponPhysicalProfile.new()
 	profile.evidence = geometry
+	profile.effective_reach = effective_reach_from_evidence(geometry)
+	profile.reach_profile = profile._profile_for_reach(profile.effective_reach)
+	profile.mass_profile = controlled_mass_profile if controlled_mass_profile in MASS_FACTORS else profile._mass_from_evidence()
+	profile.mass_factor = float(MASS_FACTORS[profile.mass_profile])
+	return profile
+
+
+static func effective_reach_from_evidence(geometry: GeometryEvidence) -> float:
 	var curve_t := clampf(
 		(geometry.normalized_length - CURVE_START_SPAN) / (CURVE_END_SPAN - CURVE_START_SPAN),
 		0.0,
 		1.0,
 	)
 	var span_reach := lerpf(MIN_EFFECTIVE_REACH, MAX_EFFECTIVE_REACH, curve_t)
-	# Preserve the accepted broad-shape safety cap without using mass to grant
-	# reach. Within the controlled melee matrix, horizontal span remains the
-	# reach axis and cross-axis load can vary independently.
-	var aspect_safe_reach := maxf(MIN_EFFECTIVE_REACH, MAX_HELD_CROSS_AXIS * geometry.ink_aspect)
-	profile.effective_reach = snappedf(
-		clampf(minf(span_reach, aspect_safe_reach), MIN_EFFECTIVE_REACH, MAX_EFFECTIVE_REACH),
+	# Reach has exactly one geometry input: longitudinal span. The former
+	# ink-aspect safety cap coupled cross-axis thickness back into reach and made
+	# identical-length heavy evidence shorter than light evidence.
+	return snappedf(
+		clampf(span_reach, MIN_EFFECTIVE_REACH, MAX_EFFECTIVE_REACH),
 		1.0,
 	)
-	profile.reach_profile = profile._profile_for_reach(profile.effective_reach)
-	profile.mass_profile = controlled_mass_profile if controlled_mass_profile in MASS_FACTORS else profile._mass_from_evidence()
-	profile.mass_factor = float(MASS_FACTORS[profile.mass_profile])
-	return profile
 
 
 func to_dict() -> Dictionary:
@@ -57,6 +60,8 @@ func to_dict() -> Dictionary:
 		"effective_reach": effective_reach,
 		"mass_profile": mass_profile,
 		"mass_factor": mass_factor,
+		"reach_basis": "normalized_length_only",
+		"cross_axis_affects_reach": false,
 		"authority": "PhysicalProfile",
 		"threshold_status": "TO VALIDATE",
 	}

@@ -178,8 +178,10 @@ B1 round two maps 72/92/120/199/228 px reach anchors to bounded complete-cycle
 anchors with piecewise smoothstep interpolation. Independent mass and existing
 drawback multipliers then produce the final cycle; `attack_speed = 1 / cycle`
 drives every animation phase, hit time, cooldown, and the one-slot input buffer.
-The 72 px minimum, complete-ink bounding box, and cross-axis mass proxy remain
-explicit `TO VALIDATE` limitations rather than inferred blade/handle regions.
+Reach reads only `GeometryEvidence.normalized_length`; cross-axis and ink aspect
+cannot cap or grant reach. The 72 px minimum, complete-ink bounding box, and
+cross-axis mass proxy remain explicit `TO VALIDATE` limitations rather than
+inferred blade/handle regions.
 
 ## Attack and element behavior
 

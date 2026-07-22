@@ -54,9 +54,9 @@ rejected as acceptance evidence. Three flattening causes are recorded:
 
 ## Round-two automated evidence (2026-07-22)
 
-The deterministic suite passed 32 existing compiler cases and 863 assertions.
+The deterministic suite passed 32 existing compiler cases and 877 assertions.
 The values below are from the final Chromium report; WebKit reproduced the same
-bounded timing (its synthetic stroke coordinates can quantize Range by 1 px).
+bounded timing.
 
 | Case | Reach | Speed | Startup | Active | Hit | Recovery | Cycle | Power | Range+Speed delta |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -101,6 +101,43 @@ zero application console errors. Evidence is retained outside Git under
 `output/playwright/weapon-physics-b1-round2/`, including JSON reports, individual
 combat/impact/rapid-input screenshots, blocker reports, and
 `chromium-1-4-8-16-grid-matrix.png`.
+
+## WebKit mass/reach blocker diagnosis and closure
+
+The PR review failure was not caused by mass entering the 4-grid reach formula.
+WebKit coalesced the only far-tip pointer sample differently between otherwise
+equivalent drawings. Pre-fix retained evidence was:
+
+| Case | source_bounds `(x, y, w, h)` | normalized_length | effective_reach |
+| --- | --- | ---: | ---: |
+| 4-grid light | `(152.445496, 225.077286, 415.343567, 24.000000)` | .271466383591 | 91 |
+| 4-grid balanced | `(152.445496, 197.384964, 420.881470, 79.384628)` | .275085927926 | 92 |
+| 4-grid heavy | `(152.445496, 154.923431, 415.343567, 164.307709)` | .271466383591 | 91 |
+
+The varying source width fully predicts the varying reach. The old physical
+calculation also contained a separate latent coupling: an ink-aspect safety cap
+could shorten extremely thick evidence even when longitudinal bounds matched.
+It did not activate in the failing 4-grid samples, but violated the B0 invariant.
+
+The fix gives every controlled browser outline three far-side points at the same
+x extremum, removes the ink-aspect cap, and makes `normalized_length` the only
+reach input. A non-Playwright test uses identical 500 px longitudinal bounds with
+12/45/280 px cross-axis thickness and proves light/balanced/heavy all derive the
+same reach. Browser reports now retain input-coordinate spread separately from
+the physical residual; a same normalized length with different reach still
+fails.
+
+Two consecutive post-fix WebKit runs produced the same 4-grid evidence:
+
+| Case | source_bounds `(x, y, w, h)` | normalized_length | effective_reach |
+| --- | --- | ---: | ---: |
+| 4-grid light | `(152.445496, 225.077286, 420.881470, 24.000000)` | .275085927926 | 92 |
+| 4-grid balanced | `(152.445496, 197.384964, 420.881470, 79.384628)` | .275085927926 | 92 |
+| 4-grid heavy | `(152.445496, 154.923431, 420.881470, 164.307709)` | .275085927926 | 92 |
+
+For both runs, source-width spread, normalized-length spread, effective-reach
+spread, and maximum physical residual were all zero. Fix evidence is retained at
+`output/playwright/weapon-physics-b1-mass-reach-fix/`.
 
 ## Remaining gates and limitations
 
