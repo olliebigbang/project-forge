@@ -1,8 +1,10 @@
 # Weapon Physics B1.5 Candidate Report
 
-Date: 2026-07-23 (Australia/Sydney)  
-Issue: [#10](https://github.com/olliebigbang/project-forge/issues/10)  
-Branch: `codex/feat/weapon-role-balance-b1-5`  
+Date: 2026-07-23 (Australia/Sydney)
+
+Issue: [#10](https://github.com/olliebigbang/project-forge/issues/10)
+
+Branch: `codex/feat/weapon-role-balance-b1-5`
 Baseline: `82d0a399462f63d2a18f671306c36b0e3451b6fa`
 
 ## Current decision
