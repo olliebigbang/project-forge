@@ -90,6 +90,9 @@ var _qa_last_visual_bundle: Dictionary = {}
 var _qa_last_finished_projectile: Dictionary = {}
 var _qa_attack_events: Array[Dictionary] = []
 var _qa_attack_event_sequence := 0
+var _qa_damage_events: Array[Dictionary] = []
+var _qa_damage_event_sequence := 0
+var _qa_target_scenario := "default"
 var _last_try_again_msec := -10000
 var _review_ui_ready := false
 var _combat_ui_ready := false
@@ -1113,7 +1116,11 @@ func _apply_geometry_to_pending_spec() -> void:
 	if pending_spec == null or request_geometry_profile == null:
 		return
 	request_geometry_profile.apply_to_spec(pending_spec)
+	var role_profile := WeaponRoleProfile.derive(pending_spec, request_geometry_profile)
 	pending_result.weapon_spec = pending_spec.to_dict()
+	pending_result.weapon_role = role_profile.to_dict()
+	pending_result.role_profile = role_profile.to_dict()
+	pending_result.role_audit = role_profile.audit_reasons.duplicate()
 	pending_result.corrections = pending_spec.corrections.duplicate()
 	pending_result.power_budget = pending_spec.budget_breakdown.duplicate(true)
 	pending_result.power_valid = pending_spec.power_score <= PowerBudget.MAX_POWER
@@ -1278,8 +1285,10 @@ func _clear_transient_combat() -> void:
 func _on_player_attack(spec: WeaponSpec, origin: Vector2, direction: Vector2, strokes: Array[PackedVector2Array]) -> void:
 	_qa_attack_count += 1
 	_qa_last_attack_pattern = spec.attack_pattern
+	var role_profile := player.weapon_role_state()
 	_record_attack_event("hit_window_open", {
 		"pattern": spec.attack_pattern,
+		"role_id": str(role_profile.get("role_id", "")),
 		"direction_x": direction.x,
 		"effective_reach": spec.attack_range,
 		"attack_speed": spec.attack_speed,
@@ -1288,6 +1297,7 @@ func _on_player_attack(spec: WeaponSpec, origin: Vector2, direction: Vector2, st
 		"active_seconds": player.attack_active_seconds(),
 		"hit_delay_seconds": player.attack_hit_delay_seconds(),
 		"recovery_seconds": player.attack_recovery_seconds(),
+		"commit_delay_seconds": player.attack_hit_delay_seconds(),
 	})
 	_update_qa_bridge()
 	if spec.delivery == "thrown" and spec.trajectory == "arc":
@@ -1380,6 +1390,25 @@ func _launch_projectile(spec: WeaponSpec, origin: Vector2, direction: Vector2, s
 
 
 func _on_target_damage(label_text: String, amount: int, note: String) -> void:
+	var damaged_target: TrainingDummy = null
+	for target: TrainingDummy in targets:
+		if target.target_label == label_text:
+			damaged_target = target
+			break
+	_qa_damage_event_sequence += 1
+	var damage_event := {
+		"sequence": _qa_damage_event_sequence,
+		"time_msec": Time.get_ticks_msec(),
+		"target": label_text,
+		"target_kind": damaged_target.target_kind if damaged_target != null else "unknown",
+		"amount": amount,
+		"note": note,
+		"pattern": damaged_target.last_damage_pattern if damaged_target != null else _qa_last_attack_pattern,
+		"direction": _vector_dictionary(damaged_target.last_damage_direction) if damaged_target != null else {},
+	}
+	_qa_damage_events.append(damage_event)
+	if _qa_damage_events.size() > 128:
+		_qa_damage_events.pop_front()
 	if forge_overlay and forge_overlay.visible:
 		_refresh_target_health()
 		return
@@ -1501,7 +1530,45 @@ func _on_qa_command(command: String, payload: Dictionary) -> void:
 						player.facing = 1.0
 						player.restore_held_weapon_now()
 						break
+		"target_scenario":
+			_apply_qa_target_scenario(payload)
 	_update_qa_bridge()
+
+
+func _apply_qa_target_scenario(payload: Dictionary) -> void:
+	if not is_instance_valid(player):
+		return
+	var kind := str(payload.get("kind", "stationary"))
+	if kind not in ["stationary", "moving", "shield", "group"]:
+		kind = "stationary"
+	var gap := clampf(float(payload.get("gap", 220.0)), 40.0, 700.0)
+	var spacing := clampf(float(payload.get("spacing", 54.0)), 36.0, 180.0)
+	_clear_transient_combat()
+	_qa_attack_events.clear()
+	_qa_attack_event_sequence = 0
+	_qa_damage_events.clear()
+	_qa_damage_event_sequence = 0
+	_qa_attack_count = 0
+	_qa_last_attack_pattern = ""
+	_qa_projectile_spawn_count = 0
+	_qa_projectile_finish_count = 0
+	_qa_impact_spawn_count = 0
+	_qa_peak_active_projectiles = 0
+	_qa_last_visual_bundle = {}
+	_qa_target_scenario = kind
+	player.facing = 1.0
+	player.reset_qa_attack_state()
+	var selected: Array[TrainingDummy] = []
+	for target: TrainingDummy in targets:
+		target.reset_target()
+		if target.target_kind == kind:
+			selected.append(target)
+	for target: TrainingDummy in targets:
+		target.set_presentation_active(target in selected, developer_mode)
+	var grip_x := player.global_position.x + ForgePlayer.WEAPON_REST_POSITION.x
+	for index in selected.size():
+		selected[index].set_arena_position(Vector2(grip_x + gap + spacing * index, player.global_position.y - 4.0))
+	_refresh_target_health()
 
 
 func _update_qa_bridge() -> void:
@@ -1541,20 +1608,17 @@ func _update_qa_bridge() -> void:
 	var active_projectiles := 0
 	var active_area_blasts := 0
 	var projectile_states: Array[Dictionary] = []
+	var area_blast_states: Array[Dictionary] = []
 	for transient: Node in get_tree().get_nodes_in_group("forge_transient_attack"):
 		if transient is ForgeProjectile:
 			active_projectiles += 1
 			projectile_states.append((transient as ForgeProjectile).qa_visual_state())
 		elif transient is ForgeAreaBlast:
 			active_area_blasts += 1
+			area_blast_states.append((transient as ForgeAreaBlast).qa_state())
 	var target_states: Array[Dictionary] = []
 	for target: TrainingDummy in targets:
-		target_states.append({
-			"label": target.target_label,
-			"health": target.health,
-			"position": _vector_dictionary(target.global_position),
-			"visible": target.visible,
-		})
+		target_states.append(target.qa_state())
 	var state := {
 		"screen": screen,
 		"phase": phase,
@@ -1596,11 +1660,17 @@ func _update_qa_bridge() -> void:
 		"peak_active_projectiles": _qa_peak_active_projectiles,
 		"visual_bundle": _qa_last_visual_bundle,
 		"held_visual": player.held_visual_state() if is_instance_valid(player) else {},
+		"weapon_role": player.weapon_role_state() if is_instance_valid(player) and current_spec != null else (pending_result.get("weapon_role", {}) as Dictionary).duplicate(true),
+		"role_profile": player.weapon_role_state() if is_instance_valid(player) and current_spec != null else (pending_result.get("role_profile", {}) as Dictionary).duplicate(true),
+		"role_audit": (player.weapon_role_state().get("audit_reasons", []) as Array).duplicate() if is_instance_valid(player) and current_spec != null else (pending_result.get("role_audit", []) as Array).duplicate(),
+		"target_scenario": _qa_target_scenario,
 		"player_position": _vector_dictionary(player.global_position) if is_instance_valid(player) else {},
 		"targets": target_states,
 		"projectiles": projectile_states,
+		"area_blasts": area_blast_states,
 		"last_finished_projectile": _qa_last_finished_projectile,
 		"attack_events": _qa_attack_events.duplicate(true),
+		"damage_events": _qa_damage_events.duplicate(true),
 		"projectile_origin": _vector_dictionary(_qa_projectile_origin) if _qa_has_projectile_origin else {},
 		"area_impact_position": _vector_dictionary(_qa_area_impact_position) if _qa_has_area_impact else {},
 		"area_impact_distance": _qa_projectile_origin.distance_to(_qa_area_impact_position) if _qa_has_projectile_origin and _qa_has_area_impact else 0.0,

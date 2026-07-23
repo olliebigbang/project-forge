@@ -6,6 +6,7 @@ signal finished(pattern: String)
 signal area_impact(impact_position: Vector2, direction: Vector2, impact_reason: String)
 
 var _spec: WeaponSpec
+var _role_profile: WeaponRoleProfile
 var _bundle: Dictionary = {}
 var _direction := Vector2.RIGHT
 var _distance_travelled := 0.0
@@ -40,6 +41,7 @@ func configure(
 	landing_surface_y: float = INF,
 ) -> void:
 	_spec = spec
+	_role_profile = WeaponRoleProfile.derive(spec)
 	_bundle = bundle.duplicate(true) if not bundle.is_empty() else WeaponVisualBundle.from_spec(spec)
 	_direction = direction.normalized()
 	_player = player
@@ -53,7 +55,7 @@ func _ready() -> void:
 	monitoring = true
 	var collider := CollisionShape2D.new()
 	var shape := CircleShape2D.new()
-	shape.radius = 22.0 if str(_bundle.get("projectile_kind", "")) in ["boomerang", "grenade"] else 11.0
+	shape.radius = _role_profile.projectile_hit_radius
 	collider.shape = shape
 	add_child(collider)
 	body_entered.connect(_on_body_entered)
@@ -193,6 +195,8 @@ func qa_visual_state() -> Dictionary:
 		"landing_center_y": _landing_center_y,
 		"landing_radius": _landing_radius,
 		"landing_error": absf(global_position.y - _landing_center_y) if _landed_on_ground else -1.0,
+		"weapon_role": _role_profile.to_dict() if _role_profile != null else {},
+		"role_profile": _role_profile.to_dict() if _role_profile != null else {},
 	}, true)
 	return visual_state
 

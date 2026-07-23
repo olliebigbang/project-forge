@@ -187,6 +187,19 @@ cannot cap or grant reach. The 72 px minimum, complete-ink bounding box, and
 cross-axis mass proxy remain explicit `TO VALIDATE` limitations rather than
 inferred blade/handle regions.
 
+Weapon Physics B1.5 adds an internal, deterministic role-profile layer after
+validated semantics and the existing geometry/physical derivation. It may
+describe role identity, advantage/cost labels, executed timing, projectile travel,
+collision width, bounded hit opportunities and QA audit values. It must not add
+provider-authored numeric physics or public Schema fields. The accepted B1
+melee profile remains authoritative; B1.5 consumes it rather than re-deriving or
+normalizing melee reach and cadence. Exact role thresholds remain **TO VALIDATE**
+under `docs/WEAPON_ROLE_BALANCE_B1_5_ACCEPTANCE.md`.
+The existing held/direct `area_blast` is explicitly classified as the internal
+`direct_blast` compatibility path; only thrown + arc + explosion semantics may
+claim the `thrown_blast` role. This prevents attack effect from being mistaken
+for delivery again.
+
 ## Attack and element behavior
 
 | Module | Visible and combat distinction |

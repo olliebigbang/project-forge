@@ -12,6 +12,7 @@ var facing := 1.0
 var current_spec: WeaponSpec
 var current_strokes: Array[PackedVector2Array] = []
 var current_geometry_profile: DrawingGeometryProfile
+var current_role_profile: WeaponRoleProfile
 var attack_cooldown := 0.0
 var combat_enabled := true
 var movement_bounds := Vector2(80.0, 1200.0)
@@ -72,6 +73,7 @@ func equip(
 	_attack_generation += 1
 	current_spec = spec
 	current_geometry_profile = geometry_profile
+	current_role_profile = WeaponRoleProfile.derive(spec, geometry_profile)
 	attack_cooldown = 0.0
 	_attack_buffered = false
 	current_strokes.clear()
@@ -100,6 +102,9 @@ func set_diagnostic_label_visible(value: bool) -> void:
 func attack() -> void:
 	if not combat_enabled or current_spec == null:
 		return
+	var role_profile := _active_role_profile()
+	if role_profile != null and role_profile.role_id == "boomerang" and _detached_visual_count > 0:
+		return
 	if attack_cooldown > 0.0 or not is_zero_approx(_melee_attack_facing):
 		if _is_held_melee():
 			# A boolean is the complete one-slot queue: repeated taps while busy
@@ -121,42 +126,34 @@ func _start_attack() -> void:
 	if current_spec.delivery == "held" and current_spec.attack_pattern == "melee_slash":
 		_play_melee_attack_motion(generation, direction)
 		return
-	_restore_weapon_pose()
-	_emit_attack(generation, direction)
+	_play_role_attack_motion(generation, direction)
 
 
 func attack_cycle_seconds() -> float:
 	if current_spec == null:
 		return 0.0
-	var timing := _melee_combat_derived()
-	if timing != null:
-		return timing.cycle_seconds
-	var drawback_multiplier: float = {
-		"slow_recovery": 1.25, "self_stagger": 1.30, "cooldown_lock": 1.45
-	}.get(current_spec.drawback, 1.0)
-	return (1.0 / maxf(current_spec.attack_speed, 0.2)) * drawback_multiplier
+	var role_profile := _active_role_profile()
+	return role_profile.cycle_seconds if role_profile != null else 1.0 / maxf(current_spec.attack_speed, 0.2)
 
 
 func attack_hit_delay_seconds() -> float:
-	var timing := _melee_combat_derived()
-	if timing != null:
-		return timing.hit_delay_seconds
-	return attack_startup_seconds() + attack_active_seconds() * CombatDerived.ACTIVE_HIT_FRACTION
+	var role_profile := _active_role_profile()
+	return role_profile.commit_delay_seconds if role_profile != null else attack_startup_seconds()
 
 
 func attack_startup_seconds() -> float:
-	var timing := _melee_combat_derived()
-	return timing.startup_seconds if timing != null else attack_cycle_seconds() * 0.25
+	var role_profile := _active_role_profile()
+	return role_profile.startup_seconds if role_profile != null else attack_cycle_seconds() * 0.25
 
 
 func attack_active_seconds() -> float:
-	var timing := _melee_combat_derived()
-	return timing.active_seconds if timing != null else attack_cycle_seconds() * 0.21
+	var role_profile := _active_role_profile()
+	return role_profile.active_seconds if role_profile != null else attack_cycle_seconds() * 0.21
 
 
 func attack_recovery_seconds() -> float:
-	var timing := _melee_combat_derived()
-	return timing.recovery_seconds if timing != null else maxf(attack_cycle_seconds() - attack_startup_seconds() - attack_active_seconds(), 0.0)
+	var role_profile := _active_role_profile()
+	return role_profile.recovery_seconds if role_profile != null else maxf(attack_cycle_seconds() - attack_startup_seconds() - attack_active_seconds(), 0.0)
 
 
 func _emit_attack(generation: int, direction: Vector2) -> void:
@@ -191,6 +188,23 @@ func _play_melee_attack_motion(generation: int, direction: Vector2) -> void:
 	_attack_tween.tween_callback(_restore_weapon_pose)
 
 
+func _play_role_attack_motion(generation: int, direction: Vector2) -> void:
+	if _attack_tween and _attack_tween.is_valid():
+		_attack_tween.kill()
+	_restore_weapon_pose()
+	var attack_facing := signf(direction.x)
+	_attack_tween = create_tween()
+	_attack_tween.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
+	_attack_tween.tween_property(weapon_visual, "rotation", -0.20 * attack_facing, attack_startup_seconds())
+	_attack_tween.tween_callback(func() -> void: _emit_attack(generation, direction))
+	_attack_tween.tween_property(weapon_visual, "rotation", 0.10 * attack_facing, attack_active_seconds())
+	_attack_tween.tween_property(weapon_visual, "rotation", 0.0, attack_recovery_seconds())
+	_attack_tween.tween_callback(func() -> void:
+		if generation == _attack_generation:
+			_restore_weapon_pose()
+	)
+
+
 func begin_detached_weapon_attack() -> void:
 	_detached_visual_count += 1
 	_detached_generation += 1
@@ -212,6 +226,8 @@ func complete_detached_weapon_attack() -> void:
 func restore_held_weapon_now() -> void:
 	_attack_generation += 1
 	_attack_buffered = false
+	if _attack_tween and _attack_tween.is_valid():
+		_attack_tween.kill()
 	_detached_generation += 1
 	_detached_visual_count = 0
 	if is_instance_valid(weapon_visual):
@@ -254,7 +270,25 @@ func held_visual_state() -> Dictionary:
 		"attack_facing": _melee_attack_facing,
 		"visual_facing": _visual_facing(),
 		"geometry_profile": current_geometry_profile.to_dict() if current_geometry_profile != null else {},
+		"weapon_role": weapon_role_state(),
 	}
+
+
+func weapon_role_state() -> Dictionary:
+	var role_profile := _active_role_profile()
+	return role_profile.to_dict() if role_profile != null else {}
+
+
+func reset_qa_attack_state() -> void:
+	restore_held_weapon_now()
+	attack_cooldown = 0.0
+	_accepted_attack_count = 0
+
+
+func _active_role_profile() -> WeaponRoleProfile:
+	if current_role_profile == null and current_spec != null:
+		current_role_profile = WeaponRoleProfile.derive(current_spec, current_geometry_profile)
+	return current_role_profile
 
 
 func _restore_weapon_pose() -> void:

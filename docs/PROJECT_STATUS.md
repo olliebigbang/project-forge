@@ -52,16 +52,19 @@ rollback readiness. No cleanup is authorized by this governance task.
 | M1B1.2 absolute held-melee reach | **CONFIRMED complete** |
 | Weapon Physics B0 authority contract | **CONFIRMED complete** |
 | Weapon Physics B1 controlled melee physicality | **CONFIRMED complete and released** |
+| Weapon Physics B1.5 role balance | **CONFIRMED authorized; implementation in progress under Issue #10** |
 | M1B2 | **CONFIRMED not started** |
-| Next gameplay milestone | **TBD / TO VALIDATE: product-owner decision required** |
+| Next gameplay milestone | **CONFIRMED: Weapon Physics B1.5** |
 
-Earlier B1.5, B2, and M1B2 descriptions are roadmap candidates only. They are not
+B2 and M1B2 descriptions remain roadmap candidates only. They are not
 authorization to begin development.
 
 ## Work currently allowed
 
 - **CONFIRMED:** documentation reconciliation and engineering governance.
 - **CONFIRMED:** provider-free local tests, builds, CI, and browser automation.
+- **CONFIRMED:** scoped deterministic Weapon Physics B1.5 role derivation,
+  execution and QA evidence under `docs/WEAPON_ROLE_BALANCE_B1_5_ACCEPTANCE.md`.
 - **CONFIRMED:** read-only audits of Git, GitHub, Sites metadata, retained
   evidence, branches, and worktrees.
 - **CONFIRMED:** scoped fixes to this workflow-hardening branch when they do not
@@ -69,9 +72,10 @@ authorization to begin development.
 
 ## Work currently prohibited
 
-- Starting B1.5, B2, M1B2, or any other gameplay milestone.
-- Changing gameplay, player UI, `WeaponSpec`, Schema, `PowerBudget`, weapon
-  physics, combat balance, Provider, D1, or deployment business logic.
+- Starting B2, M1B2, or any other gameplay milestone beyond B1.5.
+- Changing player UI, public `WeaponSpec` Schema, `PowerBudget` pricing,
+  Provider, D1, or deployment business logic. Gameplay and weapon-physics changes
+  are limited to the approved B1.5 acceptance contract.
 - Reading or exposing `ANTHROPIC_API_KEY`, or making a real provider call.
 - Deploying, rolling back, moving/deleting tags, merging without explicit
   approval, or changing repository visibility.
@@ -147,11 +151,13 @@ worktrees. Their exact paths remain discoverable through
   density, balance point, or moment of inertia.
 - **TO VALIDATE:** contact regions, tip/root damage, sweet spots, interruption,
   shield/multi-target physical response, and matching feedback are absent.
-- **TO VALIDATE:** weapon-role and near/ranged compensation are absent.
+- **TO VALIDATE (active B1.5):** weapon-role and near/ranged compensation now
+  require deterministic execution, automated evidence and physical-iPhone review.
 - **TBD:** authentication, production moderation policy, telemetry retention,
   and traffic-scale validation.
-- **TBD:** the next gameplay milestone, its scope, acceptance gate, and owner.
+- **CONFIRMED:** B1.5 is the active milestone; B2 and M1B2 remain **TBD**.
 
-The next action requiring product-owner confirmation is selection of the next
-gameplay milestone. It must begin with a new Issue and isolated worktree from
-then-current `origin/main`; this status page must be updated at that point.
+The next action is to complete B1.5 implementation and provider-free regression,
+open a Draft PR, deploy an isolated preview, and obtain physical-iPhone
+acceptance. Merge, stable deployment, cleanup, B2 and M1B2 each require a later
+explicit decision.

@@ -16,6 +16,10 @@ func _init() -> void:
 	_test_drawing_summary()
 	_test_stroke_fit()
 	_test_drawing_geometry_profiles()
+	_test_weapon_role_balance_matrix()
+	_test_role_entry_path_parity()
+	await _test_role_runtime_behavior_oracles()
+	await _test_element_combat_effect_events()
 	_test_attack_pattern_touch_selector()
 	_test_mobile_layout_policy()
 	await _test_forge_reset_state()
@@ -465,6 +469,332 @@ func _test_longitudinal_reach_mass_independence(canvas_size: Vector2) -> void:
 	var heavy: DrawingGeometryProfile = profiles.heavy
 	_expect(is_equal_approx(light.normalized_length, balanced.normalized_length) and is_equal_approx(balanced.normalized_length, heavy.normalized_length), "identical longitudinal evidence stays identical across mass inputs")
 	_expect(light.effective_reach == balanced.effective_reach and balanced.effective_reach == heavy.effective_reach, "light/balanced/heavy cannot change effective reach for identical longitudinal evidence")
+
+
+func _test_weapon_role_balance_matrix() -> void:
+	var file := FileAccess.open("res://tests/weapon_role_balance_matrix.json", FileAccess.READ)
+	_expect(file != null, "B1.5 weapon-role matrix is readable")
+	if file == null:
+		return
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	_expect(parsed is Dictionary, "B1.5 weapon-role matrix parses as an object")
+	if parsed is not Dictionary:
+		return
+	var matrix: Dictionary = parsed
+	var scenarios: Array = matrix.get("scenario_order", [])
+	_expect(scenarios == ["stationary", "moving", "shield", "group"], "B1.5 records each required target scenario independently")
+	var cases: Array = matrix.get("role_cases", [])
+	_expect(cases.size() == 7, "B1.5 matrix contains the seven authorized weapon roles")
+	var roles: Dictionary = {}
+	var patterns: Dictionary = {}
+	var runtime_by_role: Dictionary = {}
+	var canvas_size := Vector2(640.0, 300.0)
+	for case: Dictionary in cases:
+		var case_id := str(case.get("id", "missing-id"))
+		var role_id := str(case.get("role_id", ""))
+		var expected_pattern := str(case.get("attack_pattern", ""))
+		var compiler := WeaponCompiler.new()
+		var spec: WeaponSpec
+		if case.has("validated_overrides"):
+			var raw := WeaponSpec.fallback().to_dict()
+			raw.merge(case.validated_overrides, true)
+			spec = compiler.compile_raw(raw)
+		else:
+			spec = compiler.compile(str(case.get("description", "")), {"aspect_ratio": 2.0, "point_count": 12})
+		_expect(spec.attack_pattern == expected_pattern, "%s executes the expected attack module" % case_id)
+		_expect(spec.weapon_form == str(case.get("weapon_form", "")), "%s preserves its weapon-form semantics" % case_id)
+		_expect(spec.element == str(case.get("element", "")), "%s preserves its element" % case_id)
+		var geometry: Dictionary = case.get("geometry", {})
+		var geometry_profile: DrawingGeometryProfile = null
+		if spec.attack_pattern == "melee_slash":
+			var normalized_span := float(geometry.get("normalized_span", 0.40))
+			var cross_axis_load := float(geometry.get("cross_axis_load", 0.14))
+			var start_x := canvas_size.x * 0.03
+			var end_x := start_x + canvas_size.x * normalized_span
+			var half_height := canvas_size.y * cross_axis_load * 0.5
+			var center_y := canvas_size.y * 0.5
+			var stroke := PackedVector2Array([
+				Vector2(start_x, center_y - half_height),
+				Vector2(end_x - 8.0, center_y - half_height),
+				Vector2(end_x, center_y),
+				Vector2(end_x - 8.0, center_y + half_height),
+				Vector2(start_x, center_y + half_height),
+			])
+			var source: Array[PackedVector2Array] = [stroke]
+			geometry_profile = DrawingGeometryProfile.from_snapshot(source, canvas_size)
+			geometry_profile.apply_to_spec(spec)
+			_expect(geometry_profile.mass_profile == str(geometry.get("mass_profile", "")), "%s keeps mass independent and auditable" % case_id)
+		var role_profile := WeaponRoleProfile.derive(spec, geometry_profile)
+		var role := role_profile.to_dict()
+		var cycle_seconds := float(role.cycle_seconds)
+		var travel_seconds := float(role.projectile_travel_seconds)
+		_expect(spec.is_valid() and bool(compiler.last_record.runtime_valid), "%s remains runtime-valid" % case_id)
+		_expect(spec.power_score <= PowerBudget.MAX_POWER, "%s remains within the explicit PowerBudget" % case_id)
+		_expect(str(role.role_id) == role_id, "%s derives the expected internal role family" % case_id)
+		_expect(str(role.authority) == "WeaponRoleProfile" and str(role.status) == "TO VALIDATE" and str(role.role_family_status) == "authorized_b1_5_role", "%s labels internal role authority without a production-balance claim" % case_id)
+		_expect(is_finite(cycle_seconds) and cycle_seconds > 0.0, "%s exposes a finite positive complete cycle" % case_id)
+		_expect(is_finite(spec.attack_range) and spec.attack_range > 0.0, "%s exposes finite positive reach/travel range" % case_id)
+		_expect(is_finite(travel_seconds) and travel_seconds >= 0.0, "%s exposes finite auditable projectile travel" % case_id)
+		_expect(Array(role.advantages).size() > 0 and Array(case.get("advantages", [])).size() > 0, "%s derives at least one role advantage" % case_id)
+		_expect(Array(role.deterministic_costs).size() > 0 and Array(case.get("costs", [])).size() > 0 and spec.drawback != "none", "%s derives and executes at least one deterministic cost" % case_id)
+		_expect(Array(role.audit_reasons).size() > 0 and str(role.audit_reasons[0]).contains(role_id), "%s retains its role derivation reason" % case_id)
+		_expect(int(role.power_score) == spec.power_score and is_equal_approx(float(role.power_components.total), float(PowerBudget.calculate(spec.to_dict()).total)), "%s role audit agrees with the unchanged public PowerBudget" % case_id)
+		var phase_sum := float(role.startup_seconds) + float(role.active_seconds) + float(role.recovery_seconds)
+		_expect(is_equal_approx(phase_sum, cycle_seconds), "%s startup + active + recovery owns the complete cycle" % case_id)
+		_expect(float(role.commit_delay_seconds) > 0.0 and float(role.commit_delay_seconds) <= cycle_seconds, "%s commit timing is finite and bounded by the cycle" % case_id)
+		var repeated := WeaponRoleProfile.derive(WeaponSpec.from_dict(spec.to_dict()), geometry_profile).to_dict()
+		_expect(role == repeated, "%s identical validated semantics and geometry derive identical serialized role output" % case_id)
+		var public_spec := spec.to_dict()
+		_expect(not public_spec.has("role_id") and not public_spec.has("weapon_role") and not public_spec.has("role_profile"), "%s keeps the internal role layer out of public WeaponSpec" % case_id)
+		var case_scenarios: Dictionary = case.get("scenarios", {})
+		for scenario: String in scenarios:
+			_expect(case_scenarios.has(scenario) and Array(case_scenarios[scenario].get("evidence", [])).size() > 0, "%s records %s evidence without an aggregate substitute" % [case_id, scenario])
+		_expect(str(role.moving_target_risk) in ["low", "medium", "high"], "%s moving-target risk is explicit and bounded" % case_id)
+		_expect(str(role.shield_rule) in ["blocked_to_20_percent", "bypassed_by_area_blast", "outbound_blocked_return_bypasses", "bypassed_by_piercing"], "%s shield behavior is explicit" % case_id)
+		_expect(int(role.body_hit_limit) == -1 or int(role.body_hit_limit) >= 1, "%s grouped-target body limit is explicit" % case_id)
+		roles[role_id] = true
+		patterns[spec.attack_pattern] = true
+		runtime_by_role[role_id] = {
+			"spec": spec,
+			"role": role,
+			"cycle_seconds": cycle_seconds,
+			"travel_seconds": travel_seconds,
+		}
+
+	_expect(roles.keys().all(func(role: Variant) -> bool: return not str(role).is_empty()) and roles.size() == 7, "B1.5 role IDs are unique and non-empty")
+	_expect(patterns.size() == 5, "B1.5 role cases retain all five executable attack modules")
+	if runtime_by_role.has("short_melee") and runtime_by_role.has("standard_melee") and runtime_by_role.has("long_melee"):
+		var short: WeaponSpec = runtime_by_role.short_melee.spec
+		var standard: WeaponSpec = runtime_by_role.standard_melee.spec
+		var long: WeaponSpec = runtime_by_role.long_melee.spec
+		_expect(short.attack_range < standard.attack_range and standard.attack_range < long.attack_range, "B1.5 melee roles retain short < standard < long reach")
+		_expect(float(runtime_by_role.short_melee.cycle_seconds) < float(runtime_by_role.standard_melee.cycle_seconds) and float(runtime_by_role.standard_melee.cycle_seconds) < float(runtime_by_role.long_melee.cycle_seconds), "B1.5 melee roles trade cadence for reach")
+		_expect(short.damage == standard.damage and standard.damage == long.damage, "B1.5 does not leak length into melee damage or B2 contact behavior")
+	if runtime_by_role.has("straight_ranged") and runtime_by_role.has("short_melee"):
+		var ranged: WeaponSpec = runtime_by_role.straight_ranged.spec
+		var short_melee: WeaponSpec = runtime_by_role.short_melee.spec
+		_expect(ranged.attack_range > short_melee.attack_range, "straight ranged gains safety/range over short melee")
+		_expect(ranged.damage * ranged.attack_speed < short_melee.damage * short_melee.attack_speed and ranged.drawback == "low_impact", "straight ranged does not also gain the highest sustained single-target value for free")
+	if runtime_by_role.has("thrown_blast"):
+		var blast: WeaponSpec = runtime_by_role.thrown_blast.spec
+		_expect(blast.area_radius > 0.0 and blast.delivery == "thrown" and blast.trajectory == "arc", "thrown blast retains delayed arc delivery plus explicit group radius")
+		_expect(float(runtime_by_role.thrown_blast.role.blast_damage_delay_seconds) > 0.0 and float(runtime_by_role.thrown_blast.cycle_seconds) > float(runtime_by_role.straight_ranged.cycle_seconds), "thrown blast pays explicit detonation delay and a slower complete cycle")
+		_expect(int(runtime_by_role.thrown_blast.role.body_hit_limit) == -1, "thrown blast group value remains radius-limited rather than body-count limited")
+	if runtime_by_role.has("boomerang"):
+		var boomerang: WeaponSpec = runtime_by_role.boomerang.spec
+		_expect(boomerang.return_speed > 0.0 and boomerang.special_ability == "return_strike", "boomerang retains a distinct budgeted return path")
+		_expect(bool(runtime_by_role.boomerang.role.return_hit_opportunity) and int(runtime_by_role.boomerang.role.per_target_hit_limit) == 2 and int(runtime_by_role.boomerang.role.per_phase_per_target_limit) == 1, "boomerang has exactly bounded per-target outbound and return opportunities")
+	if runtime_by_role.has("piercing"):
+		var piercing: WeaponSpec = runtime_by_role.piercing.spec
+		_expect(piercing.pierce_count > 1 and piercing.drawback == "narrow_arc", "piercing retains multi-body/shield value plus a narrow-arc cost")
+		_expect(is_equal_approx(float(runtime_by_role.piercing.role.projectile_hit_radius), WeaponRoleProfile.NARROW_PROJECTILE_HIT_RADIUS), "piercing executes its declared narrow collision path")
+		_expect(int(runtime_by_role.piercing.role.body_hit_limit) == piercing.pierce_count, "piercing body-hit limit equals its bounded public pierce count")
+
+	var compatibility_cases: Array = matrix.get("compatibility_cases", [])
+	_expect(compatibility_cases.size() == 1, "B1.5 retains one explicit direct-blast compatibility case outside the seven product roles")
+	for compatibility_case: Dictionary in compatibility_cases:
+		var compatibility_spec := WeaponCompiler.new().compile(str(compatibility_case.get("description", "")), {}, "area_blast")
+		var compatibility_role := WeaponRoleProfile.derive(compatibility_spec).to_dict()
+		_expect(str(compatibility_role.role_id) == "direct_blast", "held/direct area_blast is audited honestly as direct_blast")
+		_expect(str(compatibility_role.role_family_status) == "compatibility_existing_path", "direct_blast is excluded from the seven authorized product roles")
+		_expect(compatibility_spec.delivery == "held" and compatibility_spec.trajectory == "direct" and compatibility_spec.weapon_form == "generic", "direct_blast does not masquerade as a thrown grenade")
+		_expect(Array(compatibility_role.advantages).size() > 0 and Array(compatibility_role.deterministic_costs).size() > 0, "direct_blast records its real radius advantage and proximity/cooldown cost")
+
+	var element_cases: Array = matrix.get("element_execution_cases", [])
+	var elements: Dictionary = {}
+	var element_patterns: Dictionary = {}
+	for element_case: Dictionary in element_cases:
+		var element_spec := WeaponCompiler.new().compile(str(element_case.get("description", "")), {}, str(element_case.get("attack_pattern", "")))
+		_expect(element_spec.is_valid(), "%s remains an executable element/module combination" % str(element_case.get("id", "element-case")))
+		_expect(element_spec.attack_pattern == str(element_case.get("attack_pattern", "")) and element_spec.element == str(element_case.get("element", "")), "%s compiles the requested element and module" % str(element_case.get("id", "element-case")))
+		elements[element_spec.element] = true
+		element_patterns[element_spec.attack_pattern] = true
+	_expect(elements.size() == 4, "B1.5 element smoke retains normal, fire, ice, and electric")
+	_expect(element_patterns.size() == 5, "B1.5 element smoke touches all five executable modules")
+
+
+func _test_role_entry_path_parity() -> void:
+	var description := "a plain steel sword"
+	var drawing_summary := {"aspect_ratio": 2.0, "point_count": 12}
+	var canvas_size := Vector2(640.0, 300.0)
+	var stroke := PackedVector2Array([
+		Vector2(20.0, 129.0), Vector2(273.0, 129.0), Vector2(281.0, 150.0),
+		Vector2(273.0, 171.0), Vector2(20.0, 171.0),
+	])
+	var source: Array[PackedVector2Array] = [stroke]
+	var geometry := DrawingGeometryProfile.from_snapshot(source, canvas_size)
+	var semantic_spec := WeaponCompiler.new().compile(description, drawing_summary)
+	var semantic_dict := semantic_spec.to_dict()
+
+	var local_spec := WeaponSpec.from_dict(semantic_dict)
+	geometry.apply_to_spec(local_spec)
+	var local_projection := _role_parity_projection(local_spec, geometry)
+
+	var interpreter := WeaponInterpreter.new()
+	root.add_child(interpreter)
+	interpreter.active_request_id = "role-parity-provider"
+	var provider_validation := interpreter._validate_server_result({
+		"success": true,
+		"provider_invoked": true,
+		"request_id": "role-parity-provider",
+		"weapon_spec": semantic_dict,
+		"confidence": 0.95,
+		"corrections": [],
+		"fallback_reason": "",
+		"provider_metadata": {
+			"provider": WeaponInterpreter.REQUIRED_PROVIDER,
+			"model": WeaponInterpreter.REQUIRED_MODEL,
+			"attempts": 1,
+		},
+		"estimated_cost": "UNKNOWN",
+	})
+	_expect(bool(provider_validation.get("ok", false)), "B1.5 provider entry accepts the fixed validated semantic fixture")
+	var provider_spec := WeaponSpec.from_dict(provider_validation.result.weapon_spec)
+	geometry.apply_to_spec(provider_spec)
+	var provider_projection := _role_parity_projection(provider_spec, geometry)
+
+	# These are the exact project-owned compiler calls used by the manual-repair
+	# and Developer/Test handlers. Browser coverage below exercises the actual UI
+	# handlers; this unit gate fixes their semantic/geometry input for strict data parity.
+	var manual_compiler := WeaponCompiler.new()
+	var manual_spec := manual_compiler.compile(description, drawing_summary, "melee_slash", true)
+	geometry.apply_to_spec(manual_spec)
+	var manual_projection := _role_parity_projection(manual_spec, geometry)
+	var developer_compiler := WeaponCompiler.new()
+	var developer_spec := developer_compiler.compile(description, drawing_summary, "melee_slash", true)
+	geometry.apply_to_spec(developer_spec)
+	var developer_projection := _role_parity_projection(developer_spec, geometry)
+
+	_expect(local_projection == provider_projection, "fixed local and provider entries derive identical role/timing/reach/cost output")
+	_expect(local_projection == manual_projection, "fixed local and manual-repair compiler entries derive identical role/timing/reach/cost output")
+	_expect(local_projection == developer_projection, "fixed local and Developer/Test compiler entries derive identical role/timing/reach/cost output")
+	_expect(str(local_projection.role_id) == "standard_melee" and str(local_projection.timing_authority) == "CombatDerived", "entry parity retains the B0/B1 melee timing authority")
+	interpreter.queue_free()
+
+
+func _role_parity_projection(spec: WeaponSpec, geometry: DrawingGeometryProfile) -> Dictionary:
+	var role := WeaponRoleProfile.derive(spec, geometry).to_dict()
+	return {
+		"role_id": role.role_id,
+		"timing_authority": "CombatDerived" if geometry != null and geometry.applies_to(spec) else "WeaponRoleProfile",
+		"cycle_seconds": role.cycle_seconds,
+		"startup_seconds": role.startup_seconds,
+		"active_seconds": role.active_seconds,
+		"commit_delay_seconds": role.commit_delay_seconds,
+		"recovery_seconds": role.recovery_seconds,
+		"effective_reach": role.effective_reach,
+		"projectile_travel_seconds": role.projectile_travel_seconds,
+		"projectile_travel_model": role.projectile_travel_model,
+		"advantages": role.advantages,
+		"deterministic_costs": role.deterministic_costs,
+		"moving_target_risk": role.moving_target_risk,
+		"shield_rule": role.shield_rule,
+		"body_hit_limit": role.body_hit_limit,
+		"drawback": spec.drawback,
+		"weakness": spec.weakness_label(),
+		"power_score": role.power_score,
+	}
+
+
+func _test_role_runtime_behavior_oracles() -> void:
+	var raw := WeaponSpec.fallback().to_dict()
+	raw.merge({
+		"name": "Direct Blast Fixture", "weapon_class": "melee", "weapon_form": "generic",
+		"delivery": "held", "trajectory": "direct", "impact": "contact",
+		"area_effect": "explosion", "attack_pattern": "area_blast", "element": "normal",
+		"damage": 34, "attack_speed": 0.7, "range": 220.0,
+		"special_ability": "splash_wave", "status_effect": "none",
+		"drawback": "cooldown_lock", "area_radius": 165.0,
+	}, true)
+	var direct_spec := WeaponCompiler.new().compile_raw(raw)
+	var direct_role := WeaponRoleProfile.derive(direct_spec).to_dict()
+	_expect(str(direct_role.role_id) == "direct_blast" and str(direct_role.projectile_travel_model) == "none", "direct_blast executes as a player-centred compatibility path without fake projectile travel")
+	var near_group_a := TrainingDummy.new()
+	var near_group_b := TrainingDummy.new()
+	var near_shield := TrainingDummy.new()
+	var far_target := TrainingDummy.new()
+	near_group_a.configure("group", "DIRECT GROUP A", 100)
+	near_group_b.configure("group", "DIRECT GROUP B", 100)
+	near_shield.configure("shield", "DIRECT SHIELD", 100)
+	far_target.configure("stationary", "DIRECT FAR", 100)
+	root.add_child(near_group_a)
+	root.add_child(near_group_b)
+	root.add_child(near_shield)
+	root.add_child(far_target)
+	near_group_a.global_position = Vector2(50.0, 0.0)
+	near_group_b.global_position = Vector2(105.0, 0.0)
+	near_shield.global_position = Vector2(150.0, 0.0)
+	far_target.global_position = Vector2(210.0, 0.0)
+	var blast := ForgeAreaBlast.new()
+	blast.configure(direct_spec, Vector2.RIGHT)
+	root.add_child(blast)
+	var completed: Array[int] = []
+	blast.hits_complete.connect(func(count: int, total: int) -> void: completed.assign([count, total]))
+	await blast.hits_complete
+	_expect(completed == [3, direct_spec.damage * 3], "direct_blast actually damages every in-radius body once")
+	_expect(near_shield.health == 100 - direct_spec.damage, "direct_blast actually bypasses shield reduction")
+	_expect(far_target.health == 100, "direct_blast proximity cost actually excludes a body outside area_radius")
+	for target: TrainingDummy in [near_group_a, near_group_b, near_shield, far_target]:
+		target.queue_free()
+
+	var piercing_spec := WeaponCompiler.new().compile("a spear that pierces shields")
+	var projectile := ForgeProjectile.new()
+	projectile.configure(piercing_spec, [], Vector2.RIGHT)
+	root.add_child(projectile)
+	await process_frame
+	var collision: CollisionShape2D = null
+	for child: Node in projectile.get_children():
+		if child is CollisionShape2D:
+			collision = child as CollisionShape2D
+			break
+	var circle: CircleShape2D = null
+	if collision != null:
+		circle = collision.shape as CircleShape2D
+	_expect(circle != null and is_equal_approx(circle.radius, WeaponRoleProfile.NARROW_PROJECTILE_HIT_RADIUS), "piercing deterministic cost is executed by the real narrow collision shape")
+	projectile.queue_free()
+	await process_frame
+
+
+func _test_element_combat_effect_events() -> void:
+	var normal := TrainingDummy.new()
+	normal.configure("stationary", "ELEMENT NORMAL", 100)
+	root.add_child(normal)
+	var normal_events: Array[Dictionary] = []
+	normal.damage_report.connect(func(label: String, amount: int, note: String) -> void: normal_events.append({"label": label, "amount": amount, "note": note}))
+	normal.take_damage(10, "none", "straight_projectile", Vector2.RIGHT)
+	_expect(normal.health == 90 and normal_events.size() == 1 and str(normal_events[0].note) == "NONE", "normal executes one unmodified combat damage event")
+
+	var fire := TrainingDummy.new()
+	fire.configure("stationary", "ELEMENT FIRE", 100)
+	root.add_child(fire)
+	var fire_health_events: Array[int] = []
+	fire.health_changed.connect(func(current: int, _maximum: int) -> void: fire_health_events.append(current))
+	fire.take_damage(10, "burn", "straight_projectile", Vector2.RIGHT)
+	await fire.health_changed
+	await fire.health_changed
+	_expect(fire_health_events == [90, 87, 84] and fire.health == 84, "fire executes the immediate hit plus exactly two delayed burn damage events")
+
+	var ice := TrainingDummy.new()
+	ice.configure("moving", "ELEMENT ICE", 100)
+	root.add_child(ice)
+	var ice_events: Array[Dictionary] = []
+	ice.damage_report.connect(func(_label: String, amount: int, note: String) -> void: ice_events.append({"amount": amount, "note": note}))
+	ice.take_damage(10, "freeze", "straight_projectile", Vector2.RIGHT)
+	await physics_frame
+	_expect(ice_events.size() == 1 and str(ice_events[0].note).contains("SLOWED") and absf(ice.velocity.x) < ice.patrol_speed, "ice executes a damage event and reduces real moving-target velocity")
+
+	var electric := TrainingDummy.new()
+	electric.configure("moving", "ELEMENT ELECTRIC", 100)
+	root.add_child(electric)
+	var electric_events: Array[Dictionary] = []
+	electric.damage_report.connect(func(_label: String, amount: int, note: String) -> void: electric_events.append({"amount": amount, "note": note}))
+	electric.take_damage(10, "shock", "straight_projectile", Vector2.RIGHT)
+	await physics_frame
+	_expect(electric_events.size() == 1 and str(electric_events[0].note).contains("STAGGER") and electric.velocity.is_zero_approx(), "electric executes a damage event and actually staggers moving-target velocity to zero")
+
+	for target: TrainingDummy in [normal, fire, ice, electric]:
+		target.queue_free()
+	await process_frame
 
 
 func _test_attack_pattern_touch_selector() -> void:

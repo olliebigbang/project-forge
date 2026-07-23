@@ -4,6 +4,7 @@ extends Node2D
 signal hits_complete(count: int, total_damage: int)
 
 var _spec: WeaponSpec
+var _role_profile: WeaponRoleProfile
 var _direction := Vector2.RIGHT
 var _elapsed := 0.0
 var _applied := false
@@ -11,6 +12,7 @@ var _applied := false
 
 func configure(spec: WeaponSpec, direction: Vector2) -> void:
 	_spec = spec
+	_role_profile = WeaponRoleProfile.derive(spec)
 	_direction = direction
 
 
@@ -20,11 +22,21 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_elapsed += delta
-	if not _applied and _elapsed >= 0.10:
+	if not _applied and _elapsed >= _role_profile.blast_damage_delay_seconds:
 		_applied = true
 		_apply_damage()
 	queue_redraw()
 	if _elapsed >= 0.55: queue_free()
+
+
+func qa_state() -> Dictionary:
+	return {
+		"position": {"x": global_position.x, "y": global_position.y},
+		"elapsed": _elapsed,
+		"damage_applied": _applied,
+		"weapon_role": _role_profile.to_dict() if _role_profile != null else {},
+		"role_profile": _role_profile.to_dict() if _role_profile != null else {},
+	}
 
 
 func _apply_damage() -> void:

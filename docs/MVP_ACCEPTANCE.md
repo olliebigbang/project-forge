@@ -7,6 +7,9 @@ Physics B1 gates. The detailed B1 contract and evidence are in
 `v0.3.0-weapon-physics-b1` is the stable tag, and production Sites Version 25
 records runtime source `main` `2c7b8f5`. Sites Version 23 plus `v0.2.1-m1b1.2` are the
 direct rollback pair. M1B2 has not started.
+**CONFIRMED:** Weapon Physics B1.5 is the authorized follow-on milestone and is
+currently in development under Issue #10. It is not yet accepted. Its separate
+gate is `docs/WEAPON_ROLE_BALANCE_B1_5_ACCEPTANCE.md`.
 `docs/GDD.md` retains the broader product definition; later requirements remain
 visible without being silently pulled into the deterministic compiler milestone.
 **CONFIRMED:** the product owner completed the v9 physical iPhone Safari

@@ -3,7 +3,7 @@
 Version: 0.1 (organized from the supplied GDD)  
 Stable delivery milestone: **Weapon Physics B1 controlled melee physicality — CONFIRMED and released as `v0.3.0-weapon-physics-b1`**
 Current production: **CONFIRMED Sites Version 25 from `main` `2c7b8f5`; direct rollback is Sites Version 23 plus `v0.2.1-m1b1.2`**
-Next gameplay milestone: **TBD / TO VALIDATE — product-owner confirmation required; M1B2 has not started**
+Next gameplay milestone: **Weapon Physics B1.5 role balance — CONFIRMED authorized and in development; M1B2 has not started**
 Stable mobile acceptance: **CONFIRMED on physical iPhone Safari; accepted preview code merged by PR #7 and deployed to the stable Site on 2026-07-22**
 
 ## 1. Product identity
@@ -369,6 +369,12 @@ rolling for a higher damage value.
   acceptance is **CONFIRMED**. Mass/handling experiments and contact-position
   damage remain the separately staged Weapon Physics B1 and B2 work. Its
   executable contract is `docs/M1B1_2_ABSOLUTE_REACH_ACCEPTANCE.md`.
+- **Weapon Physics B1.5 — Role Balance (authorized; in development):** preserve
+  the accepted B1 melee authority and validate distinct advantages and executed
+  costs for short/standard/long melee, straight ranged, thrown blast, boomerang
+  and piercing. Equal raw DPS is not the goal. This internal deterministic layer
+  does not expand the public Schema, start B2 contact regions, or start M1B2.
+  Its executable contract is `docs/WEAPON_ROLE_BALANCE_B1_5_ACCEPTANCE.md`.
 - **M1B2 — drawing semantic understanding (not started):** image/vision meaning
   is explicitly outside M1B1; only bounded `drawing_summary` metadata is sent.
 - **M2 — vertical slice:** production combat character, three normal monsters, one

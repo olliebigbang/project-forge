@@ -60,15 +60,20 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
   cadence acceptance, PR #7, CI, merge, stable deployment, production smoke,
   stable tag, and rollback verification completed on 2026-07-22.
 
-## Next milestone boundary
+## Current development scope: Weapon Physics B1.5
 
-- **TBD / TO VALIDATE:** the product owner has not authorized the next gameplay
-  milestone. Earlier B1.5 and B2 proposals remain roadmap candidates only.
+- **CONFIRMED:** the product owner authorized the isolated Weapon Physics B1.5
+  role-balance milestone on 2026-07-23. Its executable contract is
+  `docs/WEAPON_ROLE_BALANCE_B1_5_ACCEPTANCE.md`; GitHub Issue #10 and branch
+  `codex/feat/weapon-role-balance-b1-5` own the implementation.
+- B1.5 validates deterministic roles for short/standard/long melee, straight
+  ranged, thrown blast, boomerang and piercing. Every role needs an executed
+  advantage and cost; equal raw DPS is not the target.
 - Existing M1B1 AI remains stable and may select only allow-listed semantics.
   Local deterministic code owns numeric physics. Do not expand the public Schema
   until the controlled physicality experiments establish required fields.
-- Do not start B1.5, B2, or M1B2 without a new product-owner decision and a new
-  issue, branch, and isolated worktree from current `origin/main`.
+- Do not start B2 or M1B2, and do not add contact-region or visual-understanding
+  semantics, during B1.5.
 
 ## Preserved M1B1 boundaries
 
@@ -142,6 +147,8 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
   `v0.2.0-m1b1` and `v0.1.0-m1a` remain retained.
 - Completed B1 branch: `codex/feat/weapon-physics-b1` (merged PR #7; retained
   until cleanup is separately approved).
+- Active B1.5 branch: `codex/feat/weapon-role-balance-b1-5` (Issue #10; isolated
+  worktree; not approved to merge or deploy as stable).
 - Stable B1 tag: `v0.3.0-weapon-physics-b1`; retained rollback tag:
   `v0.2.1-m1b1.2`.
 - Compact Landscape uses CSS `visualViewport` dimensions; do not size mobile

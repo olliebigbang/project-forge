@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased — Weapon Physics B1.5 candidate
+
+### Added
+
+- Internal deterministic weapon-role profiles for short/standard/long melee,
+  straight ranged, thrown blast, boomerang and piercing, plus an explicit
+  `direct_blast` compatibility audit path.
+- Provider-free seven-role plus `direct_blast`, four-target, mobile-viewport and
+  entry-path regression coverage.
+
+### Changed
+
+- Non-melee startup now controls the real projectile or blast commit time.
+- Piercing executes a 7 px narrow collision path; Boomerang enforces bounded
+  per-target outbound/return hits and blocks overlapping detached launches.
+- Developer QA can isolate and reset stationary, moving, shield and grouped
+  targets with attributed damage events.
+
+### Status
+
+- **CONFIRMED (pre-freeze automated candidate):** repository tests and focused
+  Chromium role/mobile paths pass with zero application console errors.
+- **TO VALIDATE:** full Chromium/WebKit rerun from committed HEAD, Draft PR/CI,
+  isolated preview and physical-iPhone acceptance.
+- No stable merge, deployment or version tag exists for B1.5.
+
 ## v0.3.0-weapon-physics-b1 — 2026-07-22
 
 ### Added
