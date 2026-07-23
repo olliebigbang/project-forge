@@ -52,7 +52,7 @@ rollback readiness. No cleanup is authorized by this governance task.
 | M1B1.2 absolute held-melee reach | **CONFIRMED complete** |
 | Weapon Physics B0 authority contract | **CONFIRMED complete** |
 | Weapon Physics B1 controlled melee physicality | **CONFIRMED complete and released** |
-| Weapon Physics B1.5 role balance | **CONFIRMED authorized; implementation in progress under Issue #10** |
+| Weapon Physics B1.5 role balance | **CONFIRMED automated candidate under Issue #10; Draft PR/preview/iPhone gate pending** |
 | M1B2 | **CONFIRMED not started** |
 | Next gameplay milestone | **CONFIRMED: Weapon Physics B1.5** |
 
@@ -151,13 +151,15 @@ worktrees. Their exact paths remain discoverable through
   density, balance point, or moment of inertia.
 - **TO VALIDATE:** contact regions, tip/root damage, sweet spots, interruption,
   shield/multi-target physical response, and matching feedback are absent.
-- **TO VALIDATE (active B1.5):** weapon-role and near/ranged compensation now
-  require deterministic execution, automated evidence and physical-iPhone review.
+- **CONFIRMED (active B1.5 automated candidate):** deterministic execution,
+  1105 Godot assertions, Web/Sites builds and full Chromium/WebKit 8-role x
+  4-target evidence pass from runtime commit `e88ed69`.
+- **TO VALIDATE (active B1.5):** Draft PR/CI, isolated preview and
+  physical-iPhone combat-feel review.
 - **TBD:** authentication, production moderation policy, telemetry retention,
   and traffic-scale validation.
 - **CONFIRMED:** B1.5 is the active milestone; B2 and M1B2 remain **TBD**.
 
-The next action is to complete B1.5 implementation and provider-free regression,
-open a Draft PR, deploy an isolated preview, and obtain physical-iPhone
-acceptance. Merge, stable deployment, cleanup, B2 and M1B2 each require a later
-explicit decision.
+The next action is to open the B1.5 Draft PR, pass CI and independent review,
+deploy an isolated preview, and obtain physical-iPhone acceptance. Merge,
+stable deployment, cleanup, B2 and M1B2 each require a later explicit decision.

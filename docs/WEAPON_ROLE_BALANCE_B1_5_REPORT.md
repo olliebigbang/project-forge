@@ -5,18 +5,20 @@ Date: 2026-07-23 (Australia/Sydney)
 Issue: [#10](https://github.com/olliebigbang/project-forge/issues/10)
 
 Branch: `codex/feat/weapon-role-balance-b1-5`
+
 Baseline: `82d0a399462f63d2a18f671306c36b0e3451b6fa`
+
+Verified runtime commit: `e88ed69`
 
 ## Current decision
 
-- **CONFIRMED (pre-freeze automated candidate):** deterministic unit,
-  Worker/security, Godot parse and Web/Sites build gates pass. Focused Chromium
-  runs also pass the strengthened mobile, manual-correction, Developer/Test and
-  `direct_blast` behavior oracles.
-- **TO VALIDATE:** the strengthened full Chromium/WebKit matrix must be rerun
-  from the committed branch candidate before Draft PR evidence is final.
-- **TO VALIDATE:** a separate public preview and physical-iPhone combat-feel
-  pass are still required before merge or milestone completion.
+- **CONFIRMED (automated candidate):** runtime commit `e88ed69` passes the full
+  deterministic unit, Worker/security, Godot parse, Web/Sites build, Chromium
+  and WebKit gates.
+- **CONFIRMED:** both browser engines pass the strengthened mobile,
+  manual-correction, Developer/Test and `direct_blast` behavior oracles.
+- **TO VALIDATE:** Draft PR CI, an isolated public preview, and physical-iPhone
+  combat-feel acceptance are still required before merge or milestone closure.
 - **CONFIRMED:** no real provider call was made for B1.5 testing. Browser tests
   intercepted the same-origin request with a declared simulated validated
   semantic response, then exercised the normal client validation path.
@@ -64,63 +66,68 @@ damage; B2 contact regions remain deferred.
 
 | Command | Result |
 | --- | --- |
-| `./scripts/test.ps1` | **PASS** — 32 matrix cases, 1105 Godot assertions, 0 failures; Worker, D1, Interpreter and security suites passed |
-| `./scripts/build_web.ps1` | **PASS** — Godot 4.7.1 Web export |
-| `./scripts/build_sites_preview.ps1` | **PASS** — same-origin Sites bundle assembled |
+| `./scripts/test.ps1` | **PASS** - 32 matrix cases, 1105 Godot assertions, 0 failures; Worker, D1, Interpreter and security suites passed |
+| `./scripts/build_web.ps1` | **PASS** - Godot 4.7.1 Web export |
+| `./scripts/build_sites_preview.ps1` | **PASS** - same-origin Sites bundle assembled |
 | `git diff --check` | **PASS** |
 
 ### Browser evidence
 
-The earlier full Chromium/WebKit exploration passed the provider-free 844x390
-seven-role matrix. The strengthened candidate additionally adds:
+The committed runtime candidate passed the provider-free 844x390 matrix in
+both Chromium and WebKit. Each engine ran:
 
-- a real `direct_blast` compatibility combat case with no projectile lifecycle;
-- fixed-input local/provider/manual/Developer role-parity assertions;
+- seven product roles plus the `direct_blast` compatibility path;
+- stationary, moving, shield and grouped targets for every role, for 32
+  isolated combat scenarios;
+- the actual manual-correction UI path for Standard Melee and actual
+  Developer/Test UI path for Straight Ranged;
 - observable moving-target motion, mandatory shield hits and explicit miss
   lifecycle evidence;
 - actual normal/fire/ice/electric combat-effect assertions;
 - Description focus, keyboard-sized Visual Viewport, 844x343 Safari toolbar
   stress and three portrait/landscape cycles with zero combat-counter drift.
 
-Focused Chromium reruns for short melee, standard melee, straight ranged and
-`direct_blast` pass. A full eight-case Chromium/WebKit rerun remains required
-after the branch candidate is committed.
+Both engines recorded zero application console errors. Bow retained its held
+drawing while firing a procedural arrow; Grenade recorded a multi-sample arc,
+ground impact, independent explosion and grouped damage; Boomerang completed
+outbound/return hits without an overlapping second launch; Piercing used the
+7 px path, bypassed shield reduction and hit no more than three grouped bodies.
 
-The exploratory full runs recorded:
+Local ignored evidence retained outside Git:
 
-- 7 product roles x stationary, moving, shield and group = 28 isolated combat
-  scenarios per engine;
-- zero new application console errors;
-- short/standard/long melee retained increasing reach and cycle;
-- Bow retained its held drawing and fired a procedural arrow;
-- Grenade recorded a multi-sample arc, ground impact, independent explosion and
-  three-target group damage;
-- Boomerang completed outbound/return hits without an overlapping second launch;
-- Piercing used the 7 px path, bypassed shield reduction and hit no more than
-  three grouped bodies.
+- `output/playwright/weapon-role-balance-b1-5-head-e88ed69/chromium/report.json`
+- `output/playwright/weapon-role-balance-b1-5-head-e88ed69/webkit/report.json`
+- per-role group screenshots and Bow, Grenade, Boomerang, Piercing and
+  `direct_blast` active-attack screenshots in the same engine directories;
+- keyboard-open and keyboard-closed screenshots for both engines.
 
-Pre-freeze local ignored evidence:
-
-- `output/playwright/weapon-role-balance-b1-5-final-audited/chromium/report.json`
-- `output/playwright/weapon-role-balance-b1-5-final-audited/webkit/report.json`
-- Per-role group screenshots plus Bow, Grenade, Boomerang and Piercing active-
-  attack screenshots in the same engine directories.
-
-The exploratory audited reports serialize Boomerang `attack_count=1`,
+The final reports serialize Boomerang `attack_count=1`,
 `projectile_spawn_count=1`, `projectile_finish_count=1`, and
 `peak_active_projectiles=1` in both engines after rapid taps.
 
-An earlier Grenade test placed a target only about 50 px from the actual
-projectile origin, inside the combined collision radii, and therefore observed a
-valid frame-zero contact explosion with only two duplicate path samples. The QA
+Evidence hashes:
+
+- Web and Sites `index.pck`:
+  `13B09CBE93E5586A4054C41E30C3C263C44C6AFAA3A61752193C8841AE145ACB`
+- Web and Sites `index.js`:
+  `68586D6DAAFC93C6E697B3FB258976874AA7459B8931165EBB1DC3C9614CC42C`
+- Chromium report:
+  `D3B5C8054FE983A8EB920048EFF2A337A50466E1510F4C3A44808EF16AD83C2D`
+- WebKit report:
+  `4A0ADDA70C1CF73D6BA4E1E3F27E82773D8D1133EF04D6F3F4CB45A1F68273AC`
+
+An earlier Grenade test placed a target about 50 px from the actual projectile
+origin, inside the combined collision radii, and therefore observed a valid
+frame-zero contact explosion with only two duplicate path samples. The QA
 fixture was corrected to a 220 px grip gap so the acceptance test measures the
-intended visible arc while the blast still covers the group. The runtime was not
-changed to manufacture evidence.
+intended visible arc while the blast still covers the group. Runtime behavior
+was not changed to manufacture evidence.
 
 ## Remaining gates and limitations
 
-- **TO VALIDATE:** independent code/reality review of the committed final diff.
-- **TO VALIDATE:** Draft PR and CI from a committed, pushed HEAD.
+- **TO VALIDATE:** final independent code/reality review of the committed Draft
+  PR diff.
+- **TO VALIDATE:** Draft PR CI from the pushed final HEAD.
 - **TO VALIDATE:** isolated Sites preview with a new runtime/release identity.
 - **TO VALIDATE:** physical iPhone Safari role feel, touch input and mobile
   regression. Browser emulation is not a substitute.

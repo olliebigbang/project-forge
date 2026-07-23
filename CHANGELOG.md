@@ -20,10 +20,11 @@
 
 ### Status
 
-- **CONFIRMED (pre-freeze automated candidate):** repository tests and focused
-  Chromium role/mobile paths pass with zero application console errors.
-- **TO VALIDATE:** full Chromium/WebKit rerun from committed HEAD, Draft PR/CI,
-  isolated preview and physical-iPhone acceptance.
+- **CONFIRMED (automated candidate):** runtime commit `e88ed69` passes 1105
+  Godot assertions, Worker/security checks, Web/Sites builds and the full
+  8-role x 4-target matrix in Chromium and WebKit with zero application console
+  errors. Both engines also pass the mobile keyboard/toolbar/orientation path.
+- **TO VALIDATE:** Draft PR/CI, isolated preview and physical-iPhone acceptance.
 - No stable merge, deployment or version tag exists for B1.5.
 
 ## v0.3.0-weapon-physics-b1 — 2026-07-22
