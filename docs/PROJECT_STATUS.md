@@ -52,7 +52,7 @@ rollback readiness. No cleanup is authorized by this governance task.
 | M1B1.2 absolute held-melee reach | **CONFIRMED complete** |
 | Weapon Physics B0 authority contract | **CONFIRMED complete** |
 | Weapon Physics B1 controlled melee physicality | **CONFIRMED complete and released** |
-| Weapon Physics B1.5 role balance | **CONFIRMED automated candidate under Issue #10; Draft PR/preview/iPhone gate pending** |
+| Weapon Physics B1.5 role balance | **CONFIRMED Draft PR #11 / CI / Sites v26 candidate; physical-iPhone gate pending** |
 | M1B2 | **CONFIRMED not started** |
 | Next gameplay milestone | **CONFIRMED: Weapon Physics B1.5** |
 
@@ -160,6 +160,6 @@ worktrees. Their exact paths remain discoverable through
   and traffic-scale validation.
 - **CONFIRMED:** B1.5 is the active milestone; B2 and M1B2 remain **TBD**.
 
-The next action is to open the B1.5 Draft PR, pass CI and independent review,
-deploy an isolated preview, and obtain physical-iPhone acceptance. Merge,
-stable deployment, cleanup, B2 and M1B2 each require a later explicit decision.
+The next action is physical-iPhone acceptance of Sites v26 from Draft PR #11.
+Merge, stable release designation, cleanup, B2 and M1B2 each require a later
+explicit decision.

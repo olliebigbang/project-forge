@@ -17,8 +17,11 @@ Verified runtime commit: `e88ed69`
   and WebKit gates.
 - **CONFIRMED:** both browser engines pass the strengthened mobile,
   manual-correction, Developer/Test and `direct_blast` behavior oracles.
-- **TO VALIDATE:** Draft PR CI, an isolated public preview, and physical-iPhone
-  combat-feel acceptance are still required before merge or milestone closure.
+- **CONFIRMED:** Draft PR #11 is open, both GitHub `validate` runs pass, Reality
+  Checker returned `APPROVE PREVIEW`, and Sites v26 is deployed from the exact
+  verified source/build identity.
+- **TO VALIDATE:** physical-iPhone combat-feel acceptance is still required
+  before merge or milestone closure.
 - **CONFIRMED:** no real provider call was made for B1.5 testing. Browser tests
   intercepted the same-origin request with a declared simulated validated
   semantic response, then exercised the normal client validation path.
@@ -116,6 +119,26 @@ Evidence hashes:
 - WebKit report:
   `4A0ADDA70C1CF73D6BA4E1E3F27E82773D8D1133EF04D6F3F4CB45A1F68273AC`
 
+### Public preview evidence
+
+- Draft PR: [#11](https://github.com/olliebigbang/project-forge/pull/11)
+- Sites version: 26, source commit `6398052`
+- Acceptance URL:
+  `https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?release=b1-5-v26-6398052`
+- HTTP: **200**, `Cache-Control: public, max-age=0, must-revalidate`
+- Public `index.pck` and `index.js` hashes match the local validated artifacts
+  listed above.
+- Public Chromium report: 8 roles x 4 targets, mobile regression, zero console
+  errors; SHA-256
+  `CF25FF310E06FCA0A694DC65B170D20EEDA4C2FDAF96AD680008F6619FE9CA61`.
+- Public WebKit report: 8 roles x 4 targets, mobile regression, zero console
+  errors; SHA-256
+  `6A28C68BA1249021F0B8EC8CCD9C72D021B99522B86BC0A8F83CD1F9C5D185BE`.
+- Deployment archive retained at SHA-256
+  `3BEB7B46F7437BD6F091AB54FC2C0773B31E30DEA65FF796D0F79377A024588F`.
+- **CONFIRMED:** public smoke remains provider-free; it does not spend the
+  Anthropic budget or replace the existing M1B1 real-provider acceptance.
+
 An earlier Grenade test placed a target about 50 px from the actual projectile
 origin, inside the combined collision radii, and therefore observed a valid
 frame-zero contact explosion with only two duplicate path samples. The QA
@@ -125,10 +148,11 @@ was not changed to manufacture evidence.
 
 ## Remaining gates and limitations
 
-- **TO VALIDATE:** final independent code/reality review of the committed Draft
-  PR diff.
-- **TO VALIDATE:** Draft PR CI from the pushed final HEAD.
-- **TO VALIDATE:** isolated Sites preview with a new runtime/release identity.
+- **CONFIRMED:** independent Reality Checker review found no P0/P1 and approved
+  the candidate for preview.
+- **CONFIRMED:** both Draft PR `validate` checks pass.
+- **CONFIRMED:** Sites v26 and its release-marked URL pass HTTP, hash, Chromium
+  and WebKit smoke checks.
 - **TO VALIDATE:** physical iPhone Safari role feel, touch input and mobile
   regression. Browser emulation is not a substitute.
 - **TO VALIDATE:** production role thresholds, moving-target tuning and the

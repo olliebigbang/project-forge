@@ -24,8 +24,11 @@
   Godot assertions, Worker/security checks, Web/Sites builds and the full
   8-role x 4-target matrix in Chromium and WebKit with zero application console
   errors. Both engines also pass the mobile keyboard/toolbar/orientation path.
-- **TO VALIDATE:** Draft PR/CI, isolated preview and physical-iPhone acceptance.
-- No stable merge, deployment or version tag exists for B1.5.
+- **CONFIRMED:** Draft PR #11, both CI checks, Reality Checker review and Sites
+  v26 public Chromium/WebKit smoke pass.
+- **TO VALIDATE:** physical-iPhone acceptance.
+- No stable merge or version tag exists for B1.5; Sites v26 is an acceptance
+  preview only.
 
 ## v0.3.0-weapon-physics-b1 — 2026-07-22
 
