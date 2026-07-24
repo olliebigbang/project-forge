@@ -1,6 +1,6 @@
 # Weapon Physics B1.5 Candidate Report
 
-Date: 2026-07-23 (Australia/Sydney)
+Date: 2026-07-24 (Australia/Sydney)
 
 Issue: [#10](https://github.com/olliebigbang/project-forge/issues/10)
 
@@ -8,18 +8,21 @@ Branch: `codex/feat/weapon-role-balance-b1-5`
 
 Baseline: `82d0a399462f63d2a18f671306c36b0e3451b6fa`
 
-Verified runtime commit: `e88ed69`
+Original role candidate: `e88ed69`
+
+Corrected runtime implementation commit: `dafec14`
 
 ## Current decision
 
-- **CONFIRMED (automated candidate):** runtime commit `e88ed69` passes the full
+- **CONFIRMED (corrected automated candidate):** implementation commit
+  `dafec14` passes the full
   deterministic unit, Worker/security, Godot parse, Web/Sites build, Chromium
   and WebKit gates.
 - **CONFIRMED:** both browser engines pass the strengthened mobile,
   manual-correction, Developer/Test and `direct_blast` behavior oracles.
-- **CONFIRMED:** Draft PR #11 is open, both GitHub `validate` runs pass, Reality
-  Checker returned `APPROVE PREVIEW`, and Sites v26 is deployed from the exact
-  verified source/build identity.
+- **CONFIRMED:** Draft PR #11 remains open. The earlier CI and Reality Checker
+  decision apply only to the superseded v26 candidate; new CI and an independent
+  correction review are required before a replacement preview is accepted.
 - **TO VALIDATE:** physical-iPhone combat-feel acceptance is still required
   before merge or milestone closure.
 - **CONFIRMED:** no real provider call was made for B1.5 testing. Browser tests
@@ -35,6 +38,16 @@ Verified runtime commit: `e88ed69`
 - Made non-melee startup govern real projectile/blast commit instead of spawning
   immediately on button press.
 - Applied a real 7 px Piercing collision radius.
+- Kept that 7 px radius only as diagnostic geometry because current Bow and
+  Piercing attacks occupy the same horizontal combat line.
+- Kept Bow mobile during startup, first-body limited and shield-reduced.
+- Changed Piercing to a 0.525 s committed startup and 1.381 s complete cycle,
+  with horizontal movement locked only during startup and restored at projectile
+  commit.
+- Applied deterministic nearest-integer-half-up 100%/70%/45% damage to the first
+  three Piercing bodies: base 29 becomes 29/20/13; a fourth body is unharmed.
+- Replaced ambiguous/provider-derived weakness copy with project-owned role
+  labels for Bow, Piercing and Boomerang.
 - Bounded Boomerang to one hit per target per phase and two hits per target over
   outbound plus return; a detached Boomerang blocks another launch.
 - Kept Grenade runtime arc samples separate from its nominal travel estimate.
@@ -58,7 +71,7 @@ These are **TO VALIDATE** prototype values, not production balance targets.
 | Straight ranged | 26 | 0.769 s | 675 px | 33.81 | Travel/miss risk; first body ends shot |
 | Thrown blast | 34 | 2.071 s | 220 px | 16.42 | Startup, arc, blast delay and cooldown |
 | Boomerang | 30 | 1.368 s | 620 px | 21.93 outbound | Return path and detached/self-stagger gate |
-| Piercing | 29 | 0.952 s | 700 px | 30.46 | 7 px path and three-body maximum |
+| Piercing | 29 | 1.381 s | 700 px | 21.00 first body | 0.525 s movement-locked charge; 29/20/13 damage; three-body maximum; shield bypass |
 
 Equal DPS is deliberately not the target. Length still does not change melee
 damage; B2 contact regions remain deferred.
@@ -69,7 +82,7 @@ damage; B2 contact regions remain deferred.
 
 | Command | Result |
 | --- | --- |
-| `./scripts/test.ps1` | **PASS** - 32 matrix cases, 1105 Godot assertions, 0 failures; Worker, D1, Interpreter and security suites passed |
+| `./scripts/test.ps1` | **PASS** - 32 matrix cases, 1119 Godot assertions, 0 failures; Worker, D1, Interpreter and security suites passed |
 | `./scripts/build_web.ps1` | **PASS** - Godot 4.7.1 Web export |
 | `./scripts/build_sites_preview.ps1` | **PASS** - same-origin Sites bundle assembled |
 | `git diff --check` | **PASS** |
@@ -93,13 +106,16 @@ both Chromium and WebKit. Each engine ran:
 Both engines recorded zero application console errors. Bow retained its held
 drawing while firing a procedural arrow; Grenade recorded a multi-sample arc,
 ground impact, independent explosion and grouped damage; Boomerang completed
-outbound/return hits without an overlapping second launch; Piercing used the
-7 px path, bypassed shield reduction and hit no more than three grouped bodies.
+outbound/return hits without an overlapping second launch. Bow remained mobile,
+stopped on the first body and retained shield reduction. Piercing locked
+horizontal movement only during its 0.525 s startup, restored movement at
+commit, bypassed shield reduction and produced exactly 29/20/13 damage across
+three grouped bodies with zero fourth-target damage.
 
 Local ignored evidence retained outside Git:
 
-- `output/playwright/weapon-role-balance-b1-5-head-e88ed69/chromium/report.json`
-- `output/playwright/weapon-role-balance-b1-5-head-e88ed69/webkit/report.json`
+- `output/playwright/b1-5-piercing-final-main/chromium/report.json`
+- `output/playwright/b1-5-piercing-final-main/webkit/report.json`
 - per-role group screenshots and Bow, Grenade, Boomerang, Piercing and
   `direct_blast` active-attack screenshots in the same engine directories;
 - keyboard-open and keyboard-closed screenshots for both engines.
@@ -111,18 +127,20 @@ The final reports serialize Boomerang `attack_count=1`,
 Evidence hashes:
 
 - Web and Sites `index.pck`:
-  `13B09CBE93E5586A4054C41E30C3C263C44C6AFAA3A61752193C8841AE145ACB`
+  `A0E376FF66A677C96F7749FCDB49D3DE8CA2D8C8A6878E4F05D26F3FF1663B28`
 - Web and Sites `index.js`:
   `68586D6DAAFC93C6E697B3FB258976874AA7459B8931165EBB1DC3C9614CC42C`
 - Chromium report:
-  `D3B5C8054FE983A8EB920048EFF2A337A50466E1510F4C3A44808EF16AD83C2D`
+  `6ECE64C849F69723930E805BAD4D8B1DE0B7A21BABDCB8FEABC1396400597592`
 - WebKit report:
-  `4A0ADDA70C1CF73D6BA4E1E3F27E82773D8D1133EF04D6F3F4CB45A1F68273AC`
+  `618CD722F09E511E2CDD101DCDBCE08C4F7164C7B819C3FC05ED4E9B0C72DCDA`
 
-### Public preview evidence
+### Superseded public preview evidence
 
 - Draft PR: [#11](https://github.com/olliebigbang/project-forge/pull/11)
-- Sites version: 26, source commit `6398052`
+- Sites version 26, source commit `6398052`, remains retained rollback/evidence
+  for the original role candidate but is **superseded** for acceptance because
+  it does not contain the Piercing correction.
 - Acceptance URL:
   `https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?release=b1-5-v26-6398052`
 - HTTP: **200**, `Cache-Control: public, max-age=0, must-revalidate`
@@ -148,11 +166,10 @@ was not changed to manufacture evidence.
 
 ## Remaining gates and limitations
 
-- **CONFIRMED:** independent Reality Checker review found no P0/P1 and approved
-  the candidate for preview.
-- **CONFIRMED:** both Draft PR `validate` checks pass.
-- **CONFIRMED:** Sites v26 and its release-marked URL pass HTTP, hash, Chromium
-  and WebKit smoke checks.
+- **TO VALIDATE:** the independent Reality Checker correction review and both
+  new Draft PR `validate` checks.
+- **TO VALIDATE:** a replacement Sites preview built from the final PR HEAD,
+  with new resource identity, HTTP/hash checks and public Chromium/WebKit smoke.
 - **TO VALIDATE:** physical iPhone Safari role feel, touch input and mobile
   regression. Browser emulation is not a substitute.
 - **TO VALIDATE:** production role thresholds, moving-target tuning and the

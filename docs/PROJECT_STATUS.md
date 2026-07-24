@@ -52,7 +52,7 @@ rollback readiness. No cleanup is authorized by this governance task.
 | M1B1.2 absolute held-melee reach | **CONFIRMED complete** |
 | Weapon Physics B0 authority contract | **CONFIRMED complete** |
 | Weapon Physics B1 controlled melee physicality | **CONFIRMED complete and released** |
-| Weapon Physics B1.5 role balance | **CONFIRMED Draft PR #11 / CI / Sites v26 candidate; physical-iPhone gate pending** |
+| Weapon Physics B1.5 role balance | **CONFIRMED corrected implementation `dafec14` on Draft PR #11; new CI/preview and physical-iPhone gate pending** |
 | M1B2 | **CONFIRMED not started** |
 | Next gameplay milestone | **CONFIRMED: Weapon Physics B1.5** |
 
@@ -151,15 +151,20 @@ worktrees. Their exact paths remain discoverable through
   density, balance point, or moment of inertia.
 - **TO VALIDATE:** contact regions, tip/root damage, sweet spots, interruption,
   shield/multi-target physical response, and matching feedback are absent.
-- **CONFIRMED (active B1.5 automated candidate):** deterministic execution,
-  1105 Godot assertions, Web/Sites builds and full Chromium/WebKit 8-role x
-  4-target evidence pass from runtime commit `e88ed69`.
-- **TO VALIDATE (active B1.5):** Draft PR/CI, isolated preview and
+- **CONFIRMED (active B1.5 corrected automated candidate):** deterministic
+  execution, 1119 Godot assertions, Web/Sites builds and full Chromium/WebKit
+  8-role x 4-target evidence pass from implementation commit `dafec14`. Bow
+  remains mobile/first-target/shield-blocked; Piercing uses a longer
+  startup-only movement commitment and 29/20/13 three-body damage decay.
+- **TO VALIDATE (active B1.5):** corrected Draft PR CI, replacement isolated
+  preview and
   physical-iPhone combat-feel review.
 - **TBD:** authentication, production moderation policy, telemetry retention,
   and traffic-scale validation.
 - **CONFIRMED:** B1.5 is the active milestone; B2 and M1B2 remain **TBD**.
 
-The next action is physical-iPhone acceptance of Sites v26 from Draft PR #11.
+The next action is CI and a replacement isolated preview from the corrected
+Draft PR #11 HEAD, followed by physical-iPhone acceptance. Sites v26 is retained
+evidence but is superseded for this gate.
 Merge, stable release designation, cleanup, B2 and M1B2 each require a later
 explicit decision.
