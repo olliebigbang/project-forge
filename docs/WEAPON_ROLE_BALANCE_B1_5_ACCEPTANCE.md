@@ -8,6 +8,11 @@
   `82d0a399462f63d2a18f671306c36b0e3451b6fa`.
 - **TO VALIDATE:** each supported weapon role must express a readable advantage
   and an executed deterministic cost in combat. Equal raw DPS is not the target.
+- **CONFIRMED (2026-07-24 product correction):** in the current fixed-height
+  side-view combat, a 7 px versus 11 px projectile radius does not create a
+  reliably perceptible aiming cost. Piercing must therefore pay through an
+  executed charge/movement commitment and deterministic per-body damage decay;
+  narrow collision remains diagnostic geometry, not its primary balance claim.
 - **CONFIRMED:** B1.5 is not Weapon Physics B2 and does not start M1B2.
 
 ## Product question
@@ -45,7 +50,7 @@ timing, reach, travel, targeting or recovery costs?
 | Straight ranged | Safe reach and a clear projectile path | Travel time, miss risk and bounded single-target value |
 | Thrown blast / grenade | Group damage at a chosen landing area | Arc/detonation delay, cooldown and lower single-target efficiency |
 | Boomerang | Outbound and return opportunities | Longer completion, path dependence and self-stagger/recovery |
-| Piercing | Narrow multi-body line and shield interaction | Narrow collision path and bounded penetration count |
+| Piercing | Multi-body line and shield bypass | Longer committed charge, horizontal movement lock during startup, 100%/70%/45% per-body damage decay, and bounded penetration count |
 
 The existing M1A/Developer `area_blast` profile with held/direct delivery remains
 a legal compatibility path. It must be audited explicitly as `direct_blast`, not
@@ -68,7 +73,7 @@ separate physical-iPhone preview pass are accepted.
 | B1.5-06 | A bow remains held and launches only a deterministic projectile visual | Godot and browser regression |
 | B1.5-07 | A grenade follows its arc, detonates independently and restores its held visual after cooldown | Godot and browser regression |
 | B1.5-08 | A boomerang has bounded outbound/return opportunities and cannot create unbounded overlap | Godot and browser regression |
-| B1.5-09 | Piercing uses a visibly and physically narrow path, respects shield rules and a bounded body-hit count | Scenario matrix |
+| B1.5-09 | Piercing has a longer committed startup than straight ranged, locks horizontal movement only during that startup, applies deterministic 100%/70%/45% damage across the first three valid bodies, respects shield rules, and never exceeds the bounded body-hit count | Scenario matrix and serialized per-hit/movement observations |
 | B1.5-10 | Stationary, moving, shield and grouped target scenarios can be isolated and reset in QA mode | Provider-free QA command evidence |
 | B1.5-11 | Role numbers are finite, bounded, runtime-valid, `PowerBudget <= 100`, and retain derivation/correction reasons | Unit tests and audit records |
 | B1.5-12 | The accepted 1/4/8/16-grid x light/balanced/heavy melee matrix remains unchanged | Full regression suite |

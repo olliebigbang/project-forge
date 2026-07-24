@@ -25,6 +25,10 @@ var _melee_attack_facing := 0.0
 var _detached_visual_count := 0
 var _detached_generation := 0
 var _diagnostic_label_visible := true
+var _movement_locked := false
+var _movement_lock_reason := "none"
+var _movement_lock_generation := 0
+var _last_attack_movement_locked_during_startup := false
 
 
 func _ready() -> void:
@@ -55,6 +59,8 @@ func _physics_process(delta: float) -> void:
 		_start_attack()
 	var keyboard_axis := Input.get_axis("move_left", "move_right")
 	var axis := clampf(keyboard_axis + touch_axis, -1.0, 1.0)
+	if _movement_locked:
+		axis = 0.0
 	velocity = Vector2(axis * MOVE_SPEED, 0.0)
 	if absf(axis) > 0.05 and is_zero_approx(_melee_attack_facing):
 		facing = signf(axis)
@@ -92,6 +98,7 @@ func set_combat_enabled(value: bool) -> void:
 	if not combat_enabled:
 		set_touch_axis(0.0)
 		_attack_buffered = false
+		_release_movement_lock()
 
 
 func set_diagnostic_label_visible(value: bool) -> void:
@@ -123,6 +130,7 @@ func _start_attack() -> void:
 	_accepted_attack_count += 1
 	_attack_generation += 1
 	var generation := _attack_generation
+	_last_attack_movement_locked_during_startup = false
 	if current_spec.delivery == "held" and current_spec.attack_pattern == "melee_slash":
 		_play_melee_attack_motion(generation, direction)
 		return
@@ -157,6 +165,7 @@ func attack_recovery_seconds() -> float:
 
 
 func _emit_attack(generation: int, direction: Vector2) -> void:
+	_release_movement_lock(generation)
 	if generation != _attack_generation or current_spec == null or not combat_enabled:
 		return
 	var bundle := WeaponVisualBundle.from_spec(current_spec)
@@ -193,6 +202,13 @@ func _play_role_attack_motion(generation: int, direction: Vector2) -> void:
 		_attack_tween.kill()
 	_restore_weapon_pose()
 	var attack_facing := signf(direction.x)
+	var role_profile := _active_role_profile()
+	if role_profile != null and role_profile.movement_locked_during_startup:
+		_movement_locked = true
+		_movement_lock_reason = "piercing_startup"
+		_movement_lock_generation = generation
+		_last_attack_movement_locked_during_startup = true
+		velocity.x = 0.0
 	_attack_tween = create_tween()
 	_attack_tween.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
 	_attack_tween.tween_property(weapon_visual, "rotation", -0.20 * attack_facing, attack_startup_seconds())
@@ -251,6 +267,10 @@ func held_visual_state() -> Dictionary:
 		"attack_buffered": _attack_buffered,
 		"max_buffered_attacks": MAX_BUFFERED_ATTACKS,
 		"accepted_attack_count": _accepted_attack_count,
+		"movement_locked": _movement_locked,
+		"movement_lock_reason": _movement_lock_reason,
+		"movement_lock_generation": _movement_lock_generation,
+		"last_attack_movement_locked_during_startup": _last_attack_movement_locked_during_startup,
 		"visible_reach": bounds.position.x + bounds.size.x,
 		"fitted_bounds": {
 			"x": bounds.position.x,
@@ -283,6 +303,7 @@ func reset_qa_attack_state() -> void:
 	restore_held_weapon_now()
 	attack_cooldown = 0.0
 	_accepted_attack_count = 0
+	_last_attack_movement_locked_during_startup = false
 
 
 func _active_role_profile() -> WeaponRoleProfile:
@@ -292,12 +313,23 @@ func _active_role_profile() -> WeaponRoleProfile:
 
 
 func _restore_weapon_pose() -> void:
+	_release_movement_lock()
 	if not is_instance_valid(weapon_visual):
 		return
 	_melee_attack_facing = 0.0
 	weapon_visual.position = WEAPON_REST_POSITION
 	weapon_visual.rotation = 0.0
 	weapon_visual.scale = Vector2(facing, 1.0)
+
+
+func _release_movement_lock(generation: int = -1) -> bool:
+	if generation >= 0 and _movement_lock_generation != generation:
+		return false
+	var was_locked := _movement_locked
+	_movement_locked = false
+	_movement_lock_reason = "none"
+	_movement_lock_generation = 0
+	return was_locked
 
 
 func _visual_facing() -> float:

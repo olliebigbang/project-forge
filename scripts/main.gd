@@ -931,6 +931,7 @@ func _request_snapshot_line(prefix: String) -> String:
 func _update_review_copy() -> void:
 	if pending_spec == null:
 		return
+	var role_weakness := _role_weakness_label(pending_spec, request_geometry_profile)
 	review_weapon_visual.configure(request_strokes, pending_spec, request_geometry_profile)
 	_layout_review_weapon_visual()
 	review_summary.add_theme_color_override("font_color", Color("#b9eaff"))
@@ -967,7 +968,7 @@ func _update_review_copy() -> void:
 		pending_spec.attack_range,
 		pending_spec.special_ability.replace("_", " ").to_upper(),
 		pending_spec.status_effect.replace("_", " ").to_upper(),
-		pending_spec.weakness_label().to_upper(),
+		role_weakness,
 		roundi(clampf(float(pending_result.get("confidence", 0.0)), 0.0, 1.0) * 100.0),
 		pending_spec.corrections.size(),
 		str(metadata.get("provider", "unknown")),
@@ -993,7 +994,7 @@ func _update_review_copy() -> void:
 			pending_spec.attack_range,
 			pending_spec.special_ability.replace("_", " ").to_upper(),
 			pending_spec.status_effect.replace("_", " ").to_upper(),
-			pending_spec.weakness_label().to_upper(),
+			role_weakness,
 		]
 
 
@@ -1368,6 +1369,7 @@ func _launch_projectile(spec: WeaponSpec, origin: Vector2, direction: Vector2, s
 	projectile.configure(spec, strokes, direction, player, visual_bundle, size.y * 0.69)
 	projectile.global_position = origin
 	projectile.hit_target.connect(func(label_text: String, amount: int): combat_status.text = "%s hit %s for %d." % [spec.attack_label(), label_text, amount])
+	projectile.hit_resolved.connect(_on_projectile_hit_resolved)
 	projectile.finished.connect(func(pattern: String):
 		_qa_last_finished_projectile = projectile.qa_visual_state()
 		_qa_projectile_finish_count += 1
@@ -1387,6 +1389,35 @@ func _launch_projectile(spec: WeaponSpec, origin: Vector2, direction: Vector2, s
 	projectile.add_to_group("forge_transient_attack")
 	_qa_peak_active_projectiles = maxi(_qa_peak_active_projectiles, get_tree().get_nodes_in_group("forge_transient_attack").filter(func(node: Node): return node is ForgeProjectile).size())
 	combat_status.text = "Grenade thrown on a visible arc; explosion follows at impact." if spec.delivery == "thrown" and spec.trajectory == "arc" else {"straight_projectile": "Straight projectile launched; stops on first target.", "boomerang": "Boomerang outbound; it can strike again on return.", "piercing": "Piercing lance launched; shield bypass active."}.get(spec.attack_pattern, "Attack launched.")
+
+
+func _on_projectile_hit_resolved(
+	label_text: String,
+	hit_index: int,
+	damage_multiplier: float,
+	base_damage: int,
+	requested_damage: int,
+	amount: int,
+) -> void:
+	for event_index in range(_qa_damage_events.size() - 1, -1, -1):
+		var damage_event: Dictionary = _qa_damage_events[event_index]
+		if str(damage_event.get("target", "")) != label_text or damage_event.has("hit_index"):
+			continue
+		damage_event.hit_index = hit_index
+		damage_event.damage_multiplier = damage_multiplier
+		damage_event.base_damage = base_damage
+		damage_event.requested_damage = requested_damage
+		damage_event.amount = amount
+		break
+	_record_attack_event("projectile_hit", {
+		"target": label_text,
+		"hit_index": hit_index,
+		"damage_multiplier": damage_multiplier,
+		"base_damage": base_damage,
+		"requested_damage": requested_damage,
+		"amount": amount,
+	})
+	_update_qa_bridge()
 
 
 func _on_target_damage(label_text: String, amount: int, note: String) -> void:
@@ -1652,6 +1683,7 @@ func _update_qa_bridge() -> void:
 		"attack_count": _qa_attack_count,
 		"last_attack_pattern": _qa_last_attack_pattern,
 		"combat_message": combat_status.text,
+		"hud_weakness": _active_hud_weakness(),
 		"active_projectiles": active_projectiles,
 		"active_area_blasts": active_area_blasts,
 		"projectile_spawn_count": _qa_projectile_spawn_count,
@@ -1836,7 +1868,7 @@ func _confirmation_field_evidence() -> Dictionary:
 		"range": pending_spec.attack_range,
 		"special_ability": pending_spec.special_ability,
 		"status_effect": pending_spec.status_effect,
-		"weakness": pending_spec.weakness_label(),
+		"weakness": _role_weakness_label(pending_spec, request_geometry_profile),
 		"power_score": pending_spec.power_score,
 	}
 
@@ -1908,11 +1940,12 @@ func _apply_presentation_mode() -> void:
 func _update_combat_hud() -> void:
 	if current_spec == null:
 		return
+	var role_weakness := _role_weakness_label(current_spec, current_geometry_profile)
 	if developer_mode:
 		stats_label.text = (
 			"%s\nDAMAGE %d   POWER %d/100   SPEED %.2f   RANGE %.0f\nATTACK  %s\nELEMENT  %s   SPECIAL  %s\nWEAKNESS  %s"
 			% [current_spec.display_name, current_spec.damage, current_spec.power_score, current_spec.attack_speed,
-			current_spec.attack_range, current_spec.attack_label(), current_spec.effect_label(), current_spec.special_ability.replace("_", " ").to_upper(), current_spec.weakness_label()]
+			current_spec.attack_range, current_spec.attack_label(), current_spec.effect_label(), current_spec.special_ability.replace("_", " ").to_upper(), role_weakness]
 		)
 		return
 	stats_label.text = (
@@ -1925,6 +1958,20 @@ func _update_combat_hud() -> void:
 			current_spec.attack_speed,
 			current_spec.attack_range,
 			current_spec.power_score,
-			current_spec.weakness_label().to_upper(),
+			role_weakness,
 		]
 	)
+
+
+func _role_weakness_label(spec: WeaponSpec, geometry: DrawingGeometryProfile = null) -> String:
+	if spec == null:
+		return "UNKNOWN"
+	return WeaponRoleProfile.derive(spec, geometry).player_weakness_label
+
+
+func _active_hud_weakness() -> String:
+	if current_spec != null and not forge_overlay.visible:
+		return _role_weakness_label(current_spec, current_geometry_profile)
+	if pending_spec != null:
+		return _role_weakness_label(pending_spec, request_geometry_profile)
+	return ""

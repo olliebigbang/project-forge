@@ -13,8 +13,15 @@
 ### Changed
 
 - Non-melee startup now controls the real projectile or blast commit time.
-- Piercing executes a 7 px narrow collision path; Boomerang enforces bounded
-  per-target outbound/return hits and blocks overlapping detached launches.
+- Bow remains mobile, stops at the first body and retains frontal shield
+  reduction.
+- Piercing now pays a materially longer charge/cycle, locks horizontal movement
+  only during startup, restores movement at projectile commit, and applies
+  deterministic 100%/70%/45% damage to at most three bodies while bypassing
+  shields. Its retained 7 px collision path is diagnostic, not the primary
+  player-facing cost.
+- Boomerang enforces bounded per-target outbound/return hits, blocks overlapping
+  detached launches, and uses the clear `LOCKED UNTIL RETURN` HUD label.
 - Developer QA can isolate and reset stationary, moving, shield and grouped
   targets with attributed damage events.
 

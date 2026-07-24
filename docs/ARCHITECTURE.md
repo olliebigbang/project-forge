@@ -208,7 +208,16 @@ for delivery again.
 | `straight_projectile` | Fast linear bolt; stops at first body |
 | `boomerang` | Rotating crescent; reverses and may hit again on return |
 | `area_blast` | Expanding double ring; damages every target in radius |
-| `piercing` | Narrow lance; continues through bodies up to `pierce_count`; bypasses shields |
+| `piercing` | Charged lance; locks horizontal movement only during startup, then continues through at most three bodies with deterministic 100%/70%/45% damage; bypasses shields |
+
+In the current fixed-height 2D side view, Bow and Piercing both travel on the
+same horizontal combat line. The retained 7 px Piercing collision radius is
+diagnostic geometry, not the player-facing balance cost. `WeaponRoleProfile`
+therefore owns Piercing's longer startup/cycle, startup-only horizontal lock,
+bounded three-body path and per-hit damage schedule. Bow remains mobile during
+startup, stops at the first body and keeps frontal shield reduction. The public
+`narrow_arc` drawback enum remains unchanged for Schema and PowerBudget
+compatibility; normal-player HUD copy comes only from project-owned role labels.
 
 ### Weapon visual roles
 

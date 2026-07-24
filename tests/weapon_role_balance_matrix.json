@@ -65,6 +65,7 @@
       "geometry": {"normalized_span": 0.42, "cross_axis_load": 0.14, "mass_profile": "balanced"},
       "advantages": ["ranged_safety", "fast_projectile"],
       "costs": ["low_impact", "first_body_stop"],
+      "player_hud_weakness": "FIRST TARGET / SHIELD-BLOCKED",
       "scenarios": {
         "stationary": {"evidence": ["damage", "travel_seconds", "cycle_seconds"]},
         "moving": {"evidence": ["hit_count", "projectile_speed", "miss_or_exposure_risk"]},
@@ -122,6 +123,7 @@
       "geometry": {"normalized_span": 0.42, "cross_axis_load": 0.14, "mass_profile": "balanced"},
       "advantages": ["return_strike", "return_shield_bypass"],
       "costs": ["self_stagger", "return_commitment"],
+      "player_hud_weakness": "LOCKED UNTIL RETURN",
       "scenarios": {
         "stationary": {"evidence": ["outbound_hits", "return_hits", "cycle_seconds"]},
         "moving": {"evidence": ["hit_count", "return_seconds", "miss_or_exposure_risk"]},
@@ -138,7 +140,21 @@
       "element": "normal",
       "geometry": {"normalized_span": 0.58, "cross_axis_load": 0.08, "mass_profile": "balanced"},
       "advantages": ["shield_bypass", "multi_body_value"],
-      "costs": ["narrow_arc", "pierce_limit"],
+      "costs": ["charge_commitment", "damage_decay", "pierce_limit"],
+      "player_hud_weakness": "CHARGE COMMITMENT / DAMAGE DECAY",
+      "damage_oracle": {
+        "base_damage": 29,
+        "multipliers": [1.0, 0.7, 0.45],
+        "actual_damage": [29, 20, 13],
+        "rounding": "nearest_integer_half_up",
+        "max_targets_hit": 3,
+        "fourth_target_damage": 0
+      },
+      "movement_oracle": {
+        "policy": "horizontal_during_startup",
+        "locked_phase": "startup",
+        "restored_phase": "post_commit"
+      },
       "scenarios": {
         "stationary": {"evidence": ["damage", "travel_seconds", "cycle_seconds"]},
         "moving": {"evidence": ["hit_count", "projectile_speed", "miss_or_exposure_risk"]},

@@ -374,6 +374,12 @@ rolling for a higher damage value.
   costs for short/standard/long melee, straight ranged, thrown blast, boomerang
   and piercing. Equal raw DPS is not the goal. This internal deterministic layer
   does not expand the public Schema, start B2 contact regions, or start M1B2.
+  **CONFIRMED:** Bow is the mobile, first-target, shield-blocked straight-ranged
+  role. Piercing pays a materially longer committed charge, loses horizontal
+  movement only during startup, then deals deterministic 100%/70%/45% damage to
+  at most three bodies while bypassing shields. Its retained narrow collision
+  geometry is diagnostic rather than the primary cost in the present
+  fixed-height 2D combat.
   Its executable contract is `docs/WEAPON_ROLE_BALANCE_B1_5_ACCEPTANCE.md`.
 - **M1B2 — drawing semantic understanding (not started):** image/vision meaning
   is explicitly outside M1B1; only bounded `drawing_summary` metadata is sent.

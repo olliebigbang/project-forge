@@ -92,6 +92,20 @@ deterministic held-melee physicality and does not start M1B2 or expand the publi
 | Physical iPhone combat feel | **CONFIRMED on 2026-07-22** | Product owner accepted the isolated Sites Version 2 preview and reported no new blocker |
 | PR #7, PR #8, and stable deployment | **CONFIRMED** | PR #7 merged as `b37e524`; v24 deployed and passed production Chromium/WebKit plus one-call Anthropic smoke; PR #8 runtime closeout source is `2c7b8f5`; v25 records that source with the same archive hash as v24; stable tag `v0.3.0-weapon-physics-b1` and rollback v23 / `v0.2.1-m1b1.2` are retained |
 
+### Weapon Physics B1.5 correction gate
+
+- **CONFIRMED:** Bow stays mobile during startup, stops on the first body and is
+  reduced by a frontal shield.
+- **CONFIRMED:** Piercing locks horizontal movement only during its materially
+  longer startup, restores movement at projectile commit, bypasses shields, and
+  applies nearest-integer-half-up damage of 100%/70%/45% to the first three
+  valid bodies; a fourth body takes no damage.
+- **CONFIRMED:** normal-player weakness labels are project-owned:
+  `FIRST TARGET / SHIELD-BLOCKED`, `CHARGE COMMITMENT / DAMAGE DECAY`, and
+  `LOCKED UNTIL RETURN`. Provider free text cannot populate these fields.
+- **TO VALIDATE:** the corrected B1.5 candidate still requires a new isolated
+  preview and physical-iPhone acceptance before PR #11 may merge.
+
 The accepted preview used deployment-only metadata commit `a81061f` to bind a
 separate Site and a USD 0.50 D1 lifetime cap. It did not mutate stable v23.
 The stable Site retained its original USD 5 D1 lifetime cap. Production smoke

@@ -26,12 +26,16 @@ const ROLE_PHASE_SHARES := {
 	"straight_ranged": Vector2(0.18, 0.12),
 	"thrown_blast": Vector2(0.30, 0.10),
 	"boomerang": Vector2(0.25, 0.16),
-	"piercing": Vector2(0.28, 0.10),
+	"piercing": Vector2(0.38, 0.10),
+}
+const ROLE_CYCLE_MULTIPLIERS := {
+	"piercing": 1.45,
 }
 const BLAST_DAMAGE_DELAY_SECONDS := 0.10
 const DEFAULT_PROJECTILE_HIT_RADIUS := 11.0
 const NARROW_PROJECTILE_HIT_RADIUS := 7.0
 const THROWN_PROJECTILE_HIT_RADIUS := 22.0
+const MAX_PIERCING_BODY_HITS := 3
 
 var role_id: String = "standard_melee"
 var advantages: Array[String] = []
@@ -55,6 +59,11 @@ var per_phase_per_target_limit: int = 1
 var return_hit_opportunity: bool = false
 var shield_rule: String = "blocked_to_20_percent"
 var moving_target_risk: String = "medium"
+var player_weakness_label: String = "SINGLE TARGET"
+var movement_lock_policy: String = "none"
+var movement_locked_during_startup: bool = false
+var piercing_damage_multipliers: Array[float] = []
+var damage_rounding_rule: String = "none"
 var power_score: int = 0
 var power_components: Dictionary = {}
 var audit_reasons: Array[String] = []
@@ -116,6 +125,11 @@ func to_dict() -> Dictionary:
 		"return_hit_opportunity": return_hit_opportunity,
 		"shield_rule": shield_rule,
 		"moving_target_risk": moving_target_risk,
+		"player_weakness_label": player_weakness_label,
+		"movement_lock_policy": movement_lock_policy,
+		"movement_locked_during_startup": movement_locked_during_startup,
+		"piercing_damage_multipliers": piercing_damage_multipliers.duplicate(),
+		"damage_rounding_rule": damage_rounding_rule,
 		"power_score": power_score,
 		"power_components": power_components.duplicate(true),
 		"audit_reasons": audit_reasons.duplicate(),
@@ -135,7 +149,11 @@ func _derive_timing(spec: WeaponSpec, geometry: DrawingGeometryProfile) -> void:
 		recovery_seconds = melee_timing.recovery_seconds
 		return
 	var drawback_multiplier := float(DRAWBACK_CYCLE_MULTIPLIERS.get(spec.drawback, 1.0))
-	cycle_seconds = snappedf((1.0 / maxf(spec.attack_speed, 0.2)) * drawback_multiplier, 0.001)
+	var role_cycle_multiplier := float(ROLE_CYCLE_MULTIPLIERS.get(role_id, 1.0))
+	cycle_seconds = snappedf(
+		(1.0 / maxf(spec.attack_speed, 0.2)) * drawback_multiplier * role_cycle_multiplier,
+		0.001,
+	)
 	var shares: Vector2 = ROLE_PHASE_SHARES.get(role_id, Vector2(0.25, 0.21))
 	startup_seconds = snappedf(cycle_seconds * shares.x, 0.001)
 	active_seconds = snappedf(cycle_seconds * shares.y, 0.001)
@@ -185,34 +203,41 @@ func _derive_role_contract(spec: WeaponSpec) -> void:
 		"short_melee":
 			advantages.assign(["highest bounded held-melee cadence"])
 			deterministic_costs.assign(["shortest grip-to-tip reach; must close distance"])
+			player_weakness_label = "SHORT REACH / CLOSE EXPOSURE"
 			moving_target_risk = "high"
 		"standard_melee":
 			advantages.assign(["balanced held-melee reach and cadence"])
 			deterministic_costs.assign(["single closest target and proximity exposure"])
+			player_weakness_label = "SINGLE TARGET / CLOSE EXPOSURE"
 			moving_target_risk = "medium"
 		"long_melee":
 			advantages.assign(["longest held-melee control reach"])
 			deterministic_costs.assign(["slow startup and recovery from B1 handling"])
+			player_weakness_label = "SLOW COMMIT / SLOW RECOVERY"
 			moving_target_risk = "low"
 		"straight_ranged":
 			advantages.assign(["long safe range and fast direct travel"])
 			deterministic_costs.assign(["low impact and first body ends the shot"])
+			player_weakness_label = "FIRST TARGET / SHIELD-BLOCKED"
 			moving_target_risk = "medium"
 		"thrown_blast":
 			advantages.assign(["all visible bodies inside the blast radius; shield bypass"])
 			deterministic_costs.assign(["startup plus arc and blast delay; slow complete cycle"])
+			player_weakness_label = "ARC DELAY / SLOW CYCLE"
 			body_hit_limit = -1
 			shield_rule = "bypassed_by_area_blast"
 			moving_target_risk = "high"
 		"direct_blast":
 			advantages.assign(["all visible bodies inside the player-centred radius; shield bypass"])
 			deterministic_costs.assign(["must commit at close range and pay the complete cooldown cycle"])
+			player_weakness_label = "CLOSE RANGE / FULL COOLDOWN"
 			body_hit_limit = -1
 			shield_rule = "bypassed_by_area_blast"
 			moving_target_risk = "high"
 		"boomerang":
 			advantages.assign(["outbound and return hit opportunities; return can flank shield"])
 			deterministic_costs.assign(["self-staggered cycle and outbound-plus-return travel"])
+			player_weakness_label = "LOCKED UNTIL RETURN"
 			body_hit_limit = -1
 			per_target_hit_limit = 2
 			per_phase_per_target_limit = 1
@@ -220,11 +245,30 @@ func _derive_role_contract(spec: WeaponSpec) -> void:
 			shield_rule = "outbound_blocked_return_bypasses"
 			moving_target_risk = "medium"
 		"piercing":
-			advantages.assign(["shield bypass and deterministic multi-body pierce"])
-			deterministic_costs.assign(["narrow projectile hit radius and committed startup"])
-			body_hit_limit = spec.pierce_count
+			advantages.assign(["shield bypass and up to three deterministic body hits"])
+			deterministic_costs.assign([
+				"long charge locks horizontal movement; extended recovery and 100/70/45 percent body-hit decay",
+			])
+			player_weakness_label = "CHARGE COMMITMENT / DAMAGE DECAY"
+			body_hit_limit = mini(spec.pierce_count, MAX_PIERCING_BODY_HITS)
 			shield_rule = "bypassed_by_piercing"
+			movement_lock_policy = "horizontal_during_startup"
+			movement_locked_during_startup = true
+			piercing_damage_multipliers.assign([1.0, 0.70, 0.45])
+			damage_rounding_rule = "nearest_integer_half_up"
 			moving_target_risk = "high"
+
+
+func damage_multiplier_for_hit(hit_index: int) -> float:
+	if role_id != "piercing" or piercing_damage_multipliers.is_empty():
+		return 1.0
+	var multiplier_index := clampi(hit_index - 1, 0, piercing_damage_multipliers.size() - 1)
+	return piercing_damage_multipliers[multiplier_index]
+
+
+func damage_for_hit(base_damage: int, hit_index: int) -> int:
+	var multiplier_percent := roundi(damage_multiplier_for_hit(hit_index) * 100.0)
+	return maxi(1, floori(float(base_damage * multiplier_percent + 50) / 100.0))
 
 
 static func _role_for(spec: WeaponSpec, geometry: DrawingGeometryProfile) -> String:

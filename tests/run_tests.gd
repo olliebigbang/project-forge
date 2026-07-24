@@ -19,6 +19,7 @@ func _init() -> void:
 	_test_weapon_role_balance_matrix()
 	_test_role_entry_path_parity()
 	await _test_role_runtime_behavior_oracles()
+	await _test_piercing_bow_role_separation()
 	await _test_element_combat_effect_events()
 	_test_attack_pattern_touch_selector()
 	_test_mobile_layout_policy()
@@ -586,9 +587,19 @@ func _test_weapon_role_balance_matrix() -> void:
 		_expect(bool(runtime_by_role.boomerang.role.return_hit_opportunity) and int(runtime_by_role.boomerang.role.per_target_hit_limit) == 2 and int(runtime_by_role.boomerang.role.per_phase_per_target_limit) == 1, "boomerang has exactly bounded per-target outbound and return opportunities")
 	if runtime_by_role.has("piercing"):
 		var piercing: WeaponSpec = runtime_by_role.piercing.spec
-		_expect(piercing.pierce_count > 1 and piercing.drawback == "narrow_arc", "piercing retains multi-body/shield value plus a narrow-arc cost")
-		_expect(is_equal_approx(float(runtime_by_role.piercing.role.projectile_hit_radius), WeaponRoleProfile.NARROW_PROJECTILE_HIT_RADIUS), "piercing executes its declared narrow collision path")
-		_expect(int(runtime_by_role.piercing.role.body_hit_limit) == piercing.pierce_count, "piercing body-hit limit equals its bounded public pierce count")
+		var piercing_role: Dictionary = runtime_by_role.piercing.role
+		_expect(piercing.pierce_count > 1 and piercing.drawback == "narrow_arc", "piercing retains its schema-compatible bounded drawback enum")
+		_expect(is_equal_approx(float(piercing_role.projectile_hit_radius), WeaponRoleProfile.NARROW_PROJECTILE_HIT_RADIUS), "piercing retains its diagnostic narrow collision geometry")
+		_expect(int(piercing_role.body_hit_limit) == piercing.pierce_count, "piercing body-hit limit equals its bounded public pierce count")
+		_expect(
+			Array(piercing_role.get("piercing_damage_multipliers", [])) == [1.0, 0.7, 0.45],
+			"piercing serializes the fixed first/second/third-body damage multipliers",
+		)
+		_expect(
+			str(piercing_role.get("movement_lock_policy", "")) == "horizontal_during_startup"
+			and bool(piercing_role.get("movement_locked_during_startup", false)),
+			"piercing serializes its startup-only horizontal movement commitment",
+		)
 
 	var compatibility_cases: Array = matrix.get("compatibility_cases", [])
 	_expect(compatibility_cases.size() == 1, "B1.5 retains one explicit direct-blast compatibility case outside the seven product roles")
@@ -750,8 +761,198 @@ func _test_role_runtime_behavior_oracles() -> void:
 	var circle: CircleShape2D = null
 	if collision != null:
 		circle = collision.shape as CircleShape2D
-	_expect(circle != null and is_equal_approx(circle.radius, WeaponRoleProfile.NARROW_PROJECTILE_HIT_RADIUS), "piercing deterministic cost is executed by the real narrow collision shape")
+	_expect(circle != null and is_equal_approx(circle.radius, WeaponRoleProfile.NARROW_PROJECTILE_HIT_RADIUS), "piercing diagnostic collision geometry remains narrow without being its primary role cost")
 	projectile.queue_free()
+	await process_frame
+
+
+func _test_piercing_bow_role_separation() -> void:
+	var bow_raw := WeaponSpec.fallback().to_dict()
+	bow_raw.merge({
+		"name": "Bow Role Regression", "weapon_class": "ranged", "weapon_form": "bow",
+		"delivery": "projectile", "trajectory": "direct", "impact": "contact",
+		"area_effect": "none", "attack_pattern": "straight_projectile", "element": "normal",
+		"damage": 26, "attack_speed": 1.3, "range": 675.0,
+		"special_ability": "none", "status_effect": "none", "drawback": "low_impact",
+		"projectile_speed": 620.0, "pierce_count": 1,
+	}, true)
+	var piercing_raw := WeaponSpec.fallback().to_dict()
+	piercing_raw.merge({
+		"name": "Piercing Role Regression", "weapon_class": "ranged", "weapon_form": "spear",
+		"delivery": "projectile", "trajectory": "direct", "impact": "piercing",
+		"area_effect": "none", "attack_pattern": "piercing", "element": "normal",
+		"damage": 29, "attack_speed": 1.05, "range": 700.0,
+		"special_ability": "shield_break", "status_effect": "none", "drawback": "narrow_arc",
+		"projectile_speed": 720.0, "pierce_count": 3,
+	}, true)
+	var bow_spec := WeaponCompiler.new().compile_raw(bow_raw)
+	var piercing_spec := WeaponCompiler.new().compile_raw(piercing_raw)
+	var bow_role := WeaponRoleProfile.derive(bow_spec).to_dict()
+	var piercing_role := WeaponRoleProfile.derive(piercing_spec).to_dict()
+	_expect(
+		is_equal_approx(float(bow_role.cycle_seconds), 0.769)
+		and is_equal_approx(float(bow_role.startup_seconds), 0.138)
+		and bow_spec.damage == 26,
+		"Bow retains its pre-Piercing-fix attack timing and base damage",
+	)
+	_expect(
+		float(piercing_role.startup_seconds) >= float(bow_role.startup_seconds) * 1.5
+		and float(piercing_role.cycle_seconds) >= float(bow_role.cycle_seconds) * 1.2,
+		"Piercing startup and complete cycle are significantly longer than Bow",
+	)
+	_expect(
+		Array(piercing_role.get("piercing_damage_multipliers", [])) == [1.0, 0.7, 0.45],
+		"Piercing role owns the deterministic 100/70/45 percent damage schedule",
+	)
+
+	var bow_first := TrainingDummy.new()
+	var bow_second := TrainingDummy.new()
+	var bow_shield := TrainingDummy.new()
+	bow_first.configure("group", "BOW FIRST", 100)
+	bow_second.configure("group", "BOW SECOND", 100)
+	bow_shield.configure("shield", "BOW SHIELD", 100)
+	for target: TrainingDummy in [bow_first, bow_second, bow_shield]:
+		root.add_child(target)
+	var bow_projectile := ForgeProjectile.new()
+	bow_projectile.configure(bow_spec, [], Vector2.RIGHT)
+	root.add_child(bow_projectile)
+	await process_frame
+	bow_projectile._on_body_entered(bow_first)
+	bow_projectile._on_body_entered(bow_second)
+	var bow_records: Array = bow_projectile.qa_visual_state().get("hit_records", [])
+	_expect(
+		bow_first.health == 74 and bow_second.health == 100 and bow_records.size() == 1,
+		"Bow stops on the first body and cannot damage a second target from the same shot",
+	)
+	var bow_shield_projectile := ForgeProjectile.new()
+	bow_shield_projectile.configure(bow_spec, [], Vector2.RIGHT)
+	root.add_child(bow_shield_projectile)
+	await process_frame
+	bow_shield_projectile._on_body_entered(bow_shield)
+	_expect(bow_shield.health == 94, "Bow retains frontal shield reduction at 20 percent rounded up")
+
+	var piercing_targets: Array[TrainingDummy] = []
+	for index in 4:
+		var target := TrainingDummy.new()
+		target.configure("group", "PIERCE %d" % (index + 1), 100)
+		piercing_targets.append(target)
+		root.add_child(target)
+	var piercing_projectile := ForgeProjectile.new()
+	piercing_projectile.configure(piercing_spec, [], Vector2.RIGHT)
+	root.add_child(piercing_projectile)
+	await process_frame
+	for target: TrainingDummy in piercing_targets:
+		piercing_projectile._on_body_entered(target)
+	var hit_records: Array = piercing_projectile.qa_visual_state().get("hit_records", [])
+	var record_projection: Array[Dictionary] = []
+	for record: Dictionary in hit_records:
+		record_projection.append({
+			"hit_index": int(record.get("hit_index", 0)),
+			"damage_multiplier": float(record.get("damage_multiplier", 0.0)),
+			"base_damage": int(record.get("base_damage", 0)),
+			"requested_damage": int(record.get("requested_damage", 0)),
+			"amount": int(record.get("amount", 0)),
+		})
+	_expect(
+		piercing_targets.map(func(target: TrainingDummy) -> int: return target.health) == [71, 80, 87, 100],
+		"Piercing applies 29/20/13 damage to the first three bodies and zero to the fourth",
+	)
+	_expect(
+		record_projection == [
+			{"hit_index": 1, "damage_multiplier": 1.0, "base_damage": 29, "requested_damage": 29, "amount": 29},
+			{"hit_index": 2, "damage_multiplier": 0.7, "base_damage": 29, "requested_damage": 20, "amount": 20},
+			{"hit_index": 3, "damage_multiplier": 0.45, "base_damage": 29, "requested_damage": 13, "amount": 13},
+		],
+		"Piercing projectile serializes every bounded hit index, multiplier, base, request and actual damage",
+	)
+	var piercing_shield := TrainingDummy.new()
+	piercing_shield.configure("shield", "PIERCE SHIELD", 100)
+	root.add_child(piercing_shield)
+	var piercing_shield_projectile := ForgeProjectile.new()
+	piercing_shield_projectile.configure(piercing_spec, [], Vector2.RIGHT)
+	root.add_child(piercing_shield_projectile)
+	await process_frame
+	piercing_shield_projectile._on_body_entered(piercing_shield)
+	var shield_records: Array = piercing_shield_projectile.qa_visual_state().get("hit_records", [])
+	_expect(
+		piercing_shield.health == 71
+		and shield_records.size() == 1
+		and int((shield_records[0] as Dictionary).get("amount", 0)) == 29,
+		"Piercing first-hit damage still bypasses frontal shield reduction",
+	)
+
+	var bow_player := ForgePlayer.new()
+	root.add_child(bow_player)
+	bow_player.equip(bow_spec, [])
+	bow_player.movement_bounds = Vector2(0.0, 1200.0)
+	bow_player.global_position = Vector2(300.0, 0.0)
+	bow_player.attack()
+	bow_player.set_touch_axis(1.0)
+	await bow_player.attack_requested
+	var bow_commit_state := bow_player.held_visual_state()
+	_expect(
+		bow_player.global_position.x > 304.0
+		and not bool(bow_commit_state.get("movement_locked", true))
+		and not bool(bow_commit_state.get("last_attack_movement_locked_during_startup", true)),
+		"Bow keeps horizontal movement during startup and is not changed by Piercing commitment",
+	)
+	bow_player.set_touch_axis(0.0)
+
+	var piercing_player := ForgePlayer.new()
+	root.add_child(piercing_player)
+	piercing_player.equip(piercing_spec, [])
+	piercing_player.movement_bounds = Vector2(0.0, 1200.0)
+	piercing_player.global_position = Vector2(300.0, 0.0)
+	piercing_player.attack()
+	piercing_player.set_touch_axis(1.0)
+	await physics_frame
+	var locked_x := piercing_player.global_position.x
+	var locked_state := piercing_player.held_visual_state()
+	_expect(
+		absf(locked_x - 300.0) <= 0.5
+		and bool(locked_state.get("movement_locked", false))
+		and str(locked_state.get("movement_lock_reason", "")) == "piercing_startup",
+		"Piercing startup locks real horizontal player movement with an explicit reason",
+	)
+	await piercing_player.attack_requested
+	var commit_state := piercing_player.held_visual_state()
+	var resumed_position := false
+	for _frame in 4:
+		await physics_frame
+		if piercing_player.global_position.x > locked_x + 1.0:
+			resumed_position = true
+			break
+	var post_commit_state := piercing_player.held_visual_state()
+	_expect(
+		not bool(commit_state.get("movement_locked", true))
+		and resumed_position
+		and not bool(post_commit_state.get("movement_locked", true)),
+		"Piercing movement resumes immediately after projectile commit",
+	)
+	var recovered := false
+	for _frame in 180:
+		await physics_frame
+		var recovery_state := piercing_player.held_visual_state()
+		if float(recovery_state.get("cooldown", 1.0)) <= 0.0:
+			recovered = not bool(recovery_state.get("movement_locked", true))
+			break
+	var completed_state := piercing_player.held_visual_state()
+	_expect(
+		recovered
+		and bool(completed_state.get("last_attack_movement_locked_during_startup", false))
+		and not bool(completed_state.get("movement_locked", true)),
+		"Piercing startup lock is observed, serialized and cannot persist through recovery",
+	)
+	piercing_player.set_touch_axis(0.0)
+
+	for target: TrainingDummy in [bow_first, bow_second, bow_shield, piercing_shield]:
+		target.queue_free()
+	for target: TrainingDummy in piercing_targets:
+		target.queue_free()
+	# Every projectile above is already queued by its bounded finish path. Do not
+	# materialize a typed array containing those freed instances during cleanup.
+	bow_player.queue_free()
+	piercing_player.queue_free()
 	await process_frame
 
 
