@@ -815,8 +815,8 @@ func _test_piercing_bow_role_separation() -> void:
 		root.add_child(target)
 	var bow_projectile := ForgeProjectile.new()
 	bow_projectile.configure(bow_spec, [], Vector2.RIGHT)
-	bow_projectile.monitoring = false
 	root.add_child(bow_projectile)
+	bow_projectile.monitoring = false
 	await process_frame
 	bow_projectile._on_body_entered(bow_first)
 	bow_projectile._on_body_entered(bow_second)
@@ -827,8 +827,8 @@ func _test_piercing_bow_role_separation() -> void:
 	)
 	var bow_shield_projectile := ForgeProjectile.new()
 	bow_shield_projectile.configure(bow_spec, [], Vector2.RIGHT)
-	bow_shield_projectile.monitoring = false
 	root.add_child(bow_shield_projectile)
+	bow_shield_projectile.monitoring = false
 	await process_frame
 	bow_shield_projectile._on_body_entered(bow_shield)
 	_expect(bow_shield.health == 94, "Bow retains frontal shield reduction at 20 percent rounded up")
@@ -841,8 +841,8 @@ func _test_piercing_bow_role_separation() -> void:
 		root.add_child(target)
 	var piercing_projectile := ForgeProjectile.new()
 	piercing_projectile.configure(piercing_spec, [], Vector2.RIGHT)
-	piercing_projectile.monitoring = false
 	root.add_child(piercing_projectile)
+	piercing_projectile.monitoring = false
 	await process_frame
 	for target: TrainingDummy in piercing_targets:
 		piercing_projectile._on_body_entered(target)
@@ -873,8 +873,8 @@ func _test_piercing_bow_role_separation() -> void:
 	root.add_child(piercing_shield)
 	var piercing_shield_projectile := ForgeProjectile.new()
 	piercing_shield_projectile.configure(piercing_spec, [], Vector2.RIGHT)
-	piercing_shield_projectile.monitoring = false
 	root.add_child(piercing_shield_projectile)
+	piercing_shield_projectile.monitoring = false
 	await process_frame
 	piercing_shield_projectile._on_body_entered(piercing_shield)
 	var shield_records: Array = piercing_shield_projectile.qa_visual_state().get("hit_records", [])
