@@ -815,6 +815,7 @@ func _test_piercing_bow_role_separation() -> void:
 		root.add_child(target)
 	var bow_projectile := ForgeProjectile.new()
 	bow_projectile.configure(bow_spec, [], Vector2.RIGHT)
+	bow_projectile.monitoring = false
 	root.add_child(bow_projectile)
 	await process_frame
 	bow_projectile._on_body_entered(bow_first)
@@ -826,6 +827,7 @@ func _test_piercing_bow_role_separation() -> void:
 	)
 	var bow_shield_projectile := ForgeProjectile.new()
 	bow_shield_projectile.configure(bow_spec, [], Vector2.RIGHT)
+	bow_shield_projectile.monitoring = false
 	root.add_child(bow_shield_projectile)
 	await process_frame
 	bow_shield_projectile._on_body_entered(bow_shield)
@@ -839,6 +841,7 @@ func _test_piercing_bow_role_separation() -> void:
 		root.add_child(target)
 	var piercing_projectile := ForgeProjectile.new()
 	piercing_projectile.configure(piercing_spec, [], Vector2.RIGHT)
+	piercing_projectile.monitoring = false
 	root.add_child(piercing_projectile)
 	await process_frame
 	for target: TrainingDummy in piercing_targets:
@@ -870,6 +873,7 @@ func _test_piercing_bow_role_separation() -> void:
 	root.add_child(piercing_shield)
 	var piercing_shield_projectile := ForgeProjectile.new()
 	piercing_shield_projectile.configure(piercing_spec, [], Vector2.RIGHT)
+	piercing_shield_projectile.monitoring = false
 	root.add_child(piercing_shield_projectile)
 	await process_frame
 	piercing_shield_projectile._on_body_entered(piercing_shield)
