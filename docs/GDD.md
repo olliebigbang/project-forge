@@ -3,7 +3,9 @@
 Version: 0.1 (organized from the supplied GDD)  
 Stable delivery milestone: **Weapon Physics B1 controlled melee physicality — CONFIRMED and released as `v0.3.0-weapon-physics-b1`**
 Current production: **CONFIRMED Sites Version 25 from `main` `2c7b8f5`; direct rollback is Sites Version 23 plus `v0.2.1-m1b1.2`**
-Next gameplay milestone: **Weapon Physics B1.5 role balance — CONFIRMED authorized and in development; M1B2 has not started**
+Next gameplay validation: **TO VALIDATE bounded B1/B1.5 cadence/exposure
+correction after the C0 lethal harness proved short-melee dominance; B2 and
+M1B2 remain blocked and have not started**
 Stable mobile acceptance: **CONFIRMED on physical iPhone Safari; accepted preview code merged by PR #7 and deployed to the stable Site on 2026-07-22**
 
 ## 1. Product identity
@@ -381,6 +383,18 @@ rolling for a higher damage value.
   geometry is diagnostic rather than the primary cost in the present
   fixed-height 2D combat.
   Its executable contract is `docs/WEAPON_ROLE_BALANCE_B1_5_ACCEPTANCE.md`.
+- **Core Combat C0 — Lethal Micro-Playtest (diagnostic implementation complete;
+  gameplay gate failed):**
+  validate the first fail-able `Forge -> Combat -> Victory/Defeat ->
+  Retry/Reforge` loop before adding B2 contact physics or M1B2 drawing vision.
+  C0 adds an input-integrity gate, player health, one telegraphed attacking
+  enemy, terminal states, actor separation, and provider-free playability
+  metrics. **CONFIRMED:** the harness works, but short melee wins first-hit,
+  TTK, and damage taken in both Chromium and WebKit, while long reach provides
+  no exposure advantage. C0 therefore returns to bounded B1/B1.5
+  cadence/exposure tuning and does not authorize B2 or M1B2. Its executable
+  contract and result are `docs/CORE_COMBAT_C0_ACCEPTANCE.md` and
+  `docs/CORE_COMBAT_C0_REPORT.md`.
 - **M1B2 — drawing semantic understanding (not started):** image/vision meaning
   is explicitly outside M1B1; only bounded `drawing_summary` metadata is sent.
 - **M2 — vertical slice:** production combat character, three normal monsters, one

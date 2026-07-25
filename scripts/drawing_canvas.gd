@@ -7,6 +7,7 @@ const BACKGROUND := Color("#0c192a")
 const GRID := Color("#172b43")
 const INK := Color("#f8f2df")
 const ACCENT := Color("#65d9ff")
+const MIN_DRAWABLE_PATH_LENGTH := 10.0
 
 var strokes: Array[PackedVector2Array] = []
 var _drawing := false
@@ -69,6 +70,33 @@ func drawing_summary() -> Dictionary:
 	return summarize_strokes(strokes, size)
 
 
+## Validates only whether the preserved ink contains deliberate drawable motion.
+## This gate does not rewrite or discard source strokes.
+func forge_input_gate() -> Dictionary:
+	var point_count: int = 0
+	var unique_point_count: int = 0
+	var path_length: float = 0.0
+	var previous_unique_point := Vector2(INF, INF)
+	for stroke: PackedVector2Array in strokes:
+		for point_index: int in stroke.size():
+			var point: Vector2 = stroke[point_index]
+			point_count += 1
+			if unique_point_count == 0 or not point.is_equal_approx(previous_unique_point):
+				unique_point_count += 1
+				previous_unique_point = point
+			if point_index > 0:
+				path_length += stroke[point_index - 1].distance_to(point)
+	if point_count == 0:
+		return _gate_result(false, "empty", "Draw at least one stroke first.", point_count, unique_point_count, path_length)
+	if point_count == 1:
+		return _gate_result(false, "single_point", "That was only one point. Draw a line for your weapon.", point_count, unique_point_count, path_length)
+	if is_zero_approx(path_length):
+		return _gate_result(false, "zero_path_length", "The drawing has no path length. Draw a line for your weapon.", point_count, unique_point_count, path_length)
+	if path_length < MIN_DRAWABLE_PATH_LENGTH:
+		return _gate_result(false, "micro_tap", "That looks like an accidental tap. Draw a slightly longer line.", point_count, unique_point_count, path_length)
+	return _gate_result(true, "accepted", "", point_count, unique_point_count, path_length)
+
+
 static func summarize_strokes(source: Array[PackedVector2Array], canvas_size: Vector2) -> Dictionary:
 	var point_count := 0
 	var minimum := Vector2(INF, INF)
@@ -88,6 +116,25 @@ static func summarize_strokes(source: Array[PackedVector2Array], canvas_size: Ve
 		"point_count": point_count,
 		"aspect_ratio": bounds.x / safe_height,
 		"coverage": (bounds.x * bounds.y) / canvas_area,
+	}
+
+
+func _gate_result(
+	accepted: bool,
+	code: String,
+	message: String,
+	point_count: int,
+	unique_point_count: int,
+	path_length: float,
+) -> Dictionary:
+	return {
+		"accepted": accepted,
+		"code": code,
+		"message": message,
+		"point_count": point_count,
+		"unique_point_count": unique_point_count,
+		"path_length": path_length,
+		"minimum_path_length": MIN_DRAWABLE_PATH_LENGTH,
 	}
 
 

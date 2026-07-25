@@ -2,21 +2,30 @@ class_name ForgePlayer
 extends CharacterBody2D
 
 signal attack_requested(spec: WeaponSpec, origin: Vector2, direction: Vector2, strokes: Array[PackedVector2Array])
+## Emitted whenever player health changes.
+signal health_changed(current: int, maximum: int)
+## Emitted after non-zero combat damage is applied.
+signal damaged(amount: int, current: int)
+## Emitted once when health reaches zero.
+signal died
 
 const MOVE_SPEED := 310.0
 const WEAPON_REST_POSITION := Vector2(18.0, -12.0)
 const MAX_BUFFERED_ATTACKS := 1
+const MAX_HEALTH := 100
 
-var touch_axis := 0.0
-var facing := 1.0
+var touch_axis: float = 0.0
+var facing: float = 1.0
 var current_spec: WeaponSpec
 var current_strokes: Array[PackedVector2Array] = []
 var current_geometry_profile: DrawingGeometryProfile
 var current_role_profile: WeaponRoleProfile
-var attack_cooldown := 0.0
-var combat_enabled := true
-var movement_bounds := Vector2(80.0, 1200.0)
+var attack_cooldown: float = 0.0
+var combat_enabled: bool = true
+var movement_bounds: Vector2 = Vector2(80.0, 1200.0)
 var weapon_visual: WeaponVisual
+var health: int = MAX_HEALTH
+var is_dead: bool = false
 var _attack_tween: Tween
 var _attack_generation := 0
 var _attack_buffered := false
@@ -33,7 +42,7 @@ var _last_attack_movement_locked_during_startup := false
 
 func _ready() -> void:
 	collision_layer = 1
-	collision_mask = 0
+	collision_mask = 8
 	var shape := CollisionShape2D.new()
 	var body_shape := CapsuleShape2D.new()
 	body_shape.radius = 22.0
@@ -46,10 +55,17 @@ func _ready() -> void:
 	weapon_visual.z_index = 2
 	add_child(weapon_visual)
 	queue_redraw()
+	health_changed.emit(health, MAX_HEALTH)
 
 
 func _physics_process(delta: float) -> void:
 	attack_cooldown = maxf(attack_cooldown - delta, 0.0)
+	if not combat_enabled or is_dead:
+		# Tweens and cooldown cleanup continue independently, but a locked player
+		# must not sample movement input or enter body motion.
+		velocity = Vector2.ZERO
+		weapon_visual.scale = Vector2(_visual_facing(), 1.0)
+		return
 	if (
 		attack_cooldown <= 0.0
 		and _attack_buffered
@@ -67,7 +83,7 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	global_position.x = clampf(global_position.x, movement_bounds.x, movement_bounds.y)
 	weapon_visual.scale = Vector2(_visual_facing(), 1.0)
-	if combat_enabled and Input.is_action_just_pressed("attack"):
+	if Input.is_action_just_pressed("attack"):
 		attack()
 
 
@@ -94,11 +110,47 @@ func set_touch_axis(value: float) -> void:
 
 
 func set_combat_enabled(value: bool) -> void:
-	combat_enabled = value
+	combat_enabled = value and not is_dead
 	if not combat_enabled:
 		set_touch_axis(0.0)
 		_attack_buffered = false
 		_release_movement_lock()
+		velocity = Vector2.ZERO
+
+
+func take_damage(amount: int) -> int:
+	if is_dead or not combat_enabled or amount <= 0:
+		return 0
+	var actual: int = mini(amount, health)
+	health -= actual
+	damaged.emit(actual, health)
+	health_changed.emit(health, MAX_HEALTH)
+	queue_redraw()
+	if health == 0:
+		is_dead = true
+		set_combat_enabled(false)
+		died.emit()
+	return actual
+
+
+func reset_health() -> void:
+	health = MAX_HEALTH
+	is_dead = false
+	health_changed.emit(health, MAX_HEALTH)
+	queue_redraw()
+
+
+func qa_combat_state() -> Dictionary:
+	return {
+		"health": health,
+		"max_health": MAX_HEALTH,
+		"is_dead": is_dead,
+		"combat_enabled": combat_enabled,
+		"position": {"x": global_position.x, "y": global_position.y},
+		"velocity": {"x": velocity.x, "y": velocity.y},
+		"collision_layer": collision_layer,
+		"collision_mask": collision_mask,
+	}
 
 
 func set_diagnostic_label_visible(value: bool) -> void:
@@ -362,7 +414,8 @@ func _draw() -> void:
 	draw_circle(Vector2(0, -43), 18.0, Color("#ffd6a3"))
 	draw_circle(Vector2(-6, -47), 2.5, Color("#172033"))
 	draw_circle(Vector2(6, -47), 2.5, Color("#172033"))
-	draw_rect(Rect2(-20, -25, 40, 58), Color("#4f7cff"), true)
+	var body_color: Color = Color("#31415f") if is_dead else Color("#4f7cff")
+	draw_rect(Rect2(-20, -25, 40, 58), body_color, true)
 	draw_line(Vector2(-8, 32), Vector2(-15, 53), Color("#dce8ff"), 8.0, true)
 	draw_line(Vector2(8, 32), Vector2(15, 53), Color("#dce8ff"), 8.0, true)
 	draw_line(Vector2(-16, -12), Vector2(-32, 6), Color("#ffd6a3"), 7.0, true)

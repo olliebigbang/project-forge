@@ -10,6 +10,15 @@ direct rollback pair. M1B2 has not started.
 **CONFIRMED:** Weapon Physics B1.5 is the authorized follow-on milestone and is
 currently in development under Issue #10. It is not yet accepted. Its separate
 gate is `docs/WEAPON_ROLE_BALANCE_B1_5_ACCEPTANCE.md`.
+**CONFIRMED:** Core Combat C0 was authorized on 2026-07-25 as a dependent,
+isolated playability experiment based on the corrected B1.5 candidate. It does
+not merge B1.5, start B2/M1B2, or change Provider/Schema/PowerBudget behavior.
+Its separate executable gate is `docs/CORE_COMBAT_C0_ACCEPTANCE.md`.
+**CONFIRMED:** the C0 harness passes its technical functional checks, but the
+controlled balance gate fails because short melee wins first-hit, TTK, and
+damage taken in Chromium and WebKit and long reach provides no exposure
+advantage. See `docs/CORE_COMBAT_C0_REPORT.md`. B2 and M1B2 remain blocked
+pending a bounded B1/B1.5 correction and a passing rerun.
 `docs/GDD.md` retains the broader product definition; later requirements remain
 visible without being silently pulled into the deterministic compiler milestone.
 **CONFIRMED:** the product owner completed the v9 physical iPhone Safari

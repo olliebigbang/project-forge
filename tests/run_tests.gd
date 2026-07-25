@@ -14,6 +14,7 @@ func _init() -> void:
 	_test_weapon_semantics()
 	_test_schema_runtime_parity()
 	_test_drawing_summary()
+	_test_c0_drawing_input_gate()
 	_test_stroke_fit()
 	_test_drawing_geometry_profiles()
 	_test_weapon_role_balance_matrix()
@@ -27,6 +28,10 @@ func _init() -> void:
 	await _test_weapon_interpreter_response_context()
 	_test_orientation_prompt_rule()
 	await _test_player_combat_gate()
+	_test_c0_player_health()
+	await _test_c0_terminal_and_collision_invariants()
+	_test_c0_enemy_state_machine()
+	_test_c0_comparison_gate()
 	await _test_rapid_melee_input_buffer()
 	_test_target_rules()
 	var result := {"matrix_cases": _matrix_cases, "passed": _passed, "failed": _failed}
@@ -191,6 +196,78 @@ func _test_drawing_summary() -> void:
 	var snapshot := canvas.get_strokes_snapshot()
 	snapshot[0][0] = Vector2(999, 999)
 	_expect(canvas.strokes[0][0] == Vector2(10, 20), "stroke snapshot does not mutate original canvas data")
+	canvas.queue_free()
+
+
+func _test_c0_drawing_input_gate() -> void:
+	var canvas := DrawingCanvas.new()
+	var empty_gate: Dictionary = canvas.forge_input_gate()
+	_expect(
+		not bool(empty_gate.get("accepted", true))
+		and str(empty_gate.get("code", "")) == "empty",
+		"C0 drawing gate rejects empty ink before compilation",
+	)
+
+	canvas.strokes = [PackedVector2Array([Vector2(40.0, 40.0)])]
+	var single_point_gate: Dictionary = canvas.forge_input_gate()
+	_expect(
+		not bool(single_point_gate.get("accepted", true))
+		and str(single_point_gate.get("code", "")) == "single_point"
+		and int(single_point_gate.get("point_count", 0)) == 1,
+		"C0 drawing gate rejects a one-point tap with an explicit reason",
+	)
+
+	canvas.strokes = [PackedVector2Array([
+		Vector2(40.0, 40.0),
+		Vector2(40.0, 40.0),
+	])]
+	var zero_length_gate: Dictionary = canvas.forge_input_gate()
+	_expect(
+		not bool(zero_length_gate.get("accepted", true))
+		and str(zero_length_gate.get("code", "")) == "zero_path_length"
+		and is_zero_approx(float(zero_length_gate.get("path_length", -1.0))),
+		"C0 drawing gate rejects a multi-point zero-length path",
+	)
+
+	canvas.strokes = [PackedVector2Array([
+		Vector2(40.0, 40.0),
+		Vector2(46.0, 40.0),
+	])]
+	var preserved_micro_stroke: PackedVector2Array = canvas.strokes[0].duplicate()
+	var micro_gate: Dictionary = canvas.forge_input_gate()
+	_expect(
+		not bool(micro_gate.get("accepted", true))
+		and str(micro_gate.get("code", "")) == "micro_tap"
+		and float(micro_gate.get("path_length", 100.0)) < DrawingCanvas.MIN_DRAWABLE_PATH_LENGTH,
+		"C0 drawing gate rejects a real sub-threshold micro stroke",
+	)
+	_expect(
+		canvas.strokes.size() == 1 and canvas.strokes[0] == preserved_micro_stroke,
+		"C0 input rejection never rewrites or discards preserved ink",
+	)
+
+	var accepted_fixtures: Array[PackedVector2Array] = [
+		PackedVector2Array([Vector2(40.0, 60.0), Vector2(54.0, 60.0)]),
+		PackedVector2Array([Vector2(40.0, 90.0), Vector2(240.0, 90.0)]),
+		PackedVector2Array([Vector2(30.0, 120.0), Vector2(590.0, 120.0)]),
+		PackedVector2Array([Vector2(50.0, 180.0), Vector2(230.0, 30.0)]),
+		PackedVector2Array([
+			Vector2(40.0, 170.0),
+			Vector2(100.0, 80.0),
+			Vector2(210.0, 50.0),
+			Vector2(320.0, 130.0),
+		]),
+	]
+	var fixture_names: Array[String] = ["natural short", "standard", "long", "rotated", "curved"]
+	for index: int in accepted_fixtures.size():
+		canvas.strokes = [accepted_fixtures[index]]
+		var accepted_gate: Dictionary = canvas.forge_input_gate()
+		_expect(
+			bool(accepted_gate.get("accepted", false))
+			and str(accepted_gate.get("code", "")) == "accepted"
+			and float(accepted_gate.get("path_length", 0.0)) >= DrawingCanvas.MIN_DRAWABLE_PATH_LENGTH,
+			"C0 drawing gate accepts the %s fixture" % fixture_names[index],
+		)
 	canvas.queue_free()
 
 
@@ -1214,6 +1291,239 @@ func _test_player_combat_gate() -> void:
 	_expect(is_equal_approx(float(recovered_state.visual_facing), -1.0), "held reverse input becomes the visible facing after recovery")
 	player.set_touch_axis(0.0)
 	player.queue_free()
+
+
+func _test_c0_player_health() -> void:
+	var player := ForgePlayer.new()
+	var health_events: Array[int] = []
+	var damage_events: Array[int] = []
+	var death_events: Array[int] = []
+	player.health_changed.connect(func(current: int, _maximum: int) -> void: health_events.append(current))
+	player.damaged.connect(func(amount: int, _current: int) -> void: damage_events.append(amount))
+	player.died.connect(func() -> void: death_events.append(1))
+	root.add_child(player)
+	player.set_combat_enabled(true)
+
+	var first_damage: int = player.take_damage(25)
+	_expect(
+		first_damage == 25
+		and player.health == 75
+		and damage_events == [25],
+		"C0 player health applies and audits bounded non-lethal damage",
+	)
+	var lethal_damage: int = player.take_damage(999)
+	_expect(
+		lethal_damage == 75
+		and player.health == 0
+		and player.is_dead
+		and death_events.size() == 1
+		and not player.combat_enabled,
+		"C0 player death clamps at zero, emits once, and disables combat",
+	)
+	var ignored_damage: int = player.take_damage(20)
+	_expect(
+		ignored_damage == 0
+		and player.health == 0
+		and death_events.size() == 1
+		and damage_events == [25, 75],
+		"C0 dead player rejects duplicate damage and death transitions",
+	)
+	player.reset_health()
+	player.set_combat_enabled(true)
+	_expect(
+		player.health == ForgePlayer.MAX_HEALTH
+		and not player.is_dead
+		and player.combat_enabled
+		and health_events[-1] == ForgePlayer.MAX_HEALTH,
+		"C0 Retry health reset restores one clean active player state",
+	)
+	player.queue_free()
+
+
+func _test_c0_terminal_and_collision_invariants() -> void:
+	const MIN_BODY_SEPARATION := 53.0
+	var player := ForgePlayer.new()
+	var attack_emissions: Array[int] = []
+	player.attack_requested.connect(func(_spec: WeaponSpec, _origin: Vector2, _direction: Vector2, _strokes: Array[PackedVector2Array]) -> void: attack_emissions.append(1))
+	root.add_child(player)
+	await physics_frame
+	player.current_spec = WeaponSpec.fallback()
+	player.movement_bounds = Vector2(70.0, 1210.0)
+	player.global_position = Vector2(240.0, 220.0)
+	var terminal_position := player.global_position
+	player.set_combat_enabled(false)
+	player.set_touch_axis(1.0)
+	player._physics_process(0.5)
+	player.attack()
+	_expect(
+		player.global_position.is_equal_approx(terminal_position)
+		and player.velocity.is_zero_approx()
+		and attack_emissions.is_empty(),
+		"C0 terminal combat gate rejects held touch movement and attack resolution",
+	)
+
+	player.set_touch_axis(0.0)
+	player.set_combat_enabled(true)
+	var enemy := CombatEnemy.new()
+	enemy.configure_combat_enemy()
+	enemy.set_target(player)
+	root.add_child(enemy)
+	enemy.set_presentation_active(true, false)
+	enemy.set_simulation_enabled(false)
+
+	player.global_position = Vector2(200.0, 220.0)
+	enemy.set_arena_position(Vector2(300.0, 216.0))
+	await physics_frame
+	player.set_touch_axis(1.0)
+	for _step in 20:
+		player._physics_process(0.05)
+	var left_separation := enemy.global_position.x - player.global_position.x
+	_expect(
+		player.global_position.x < enemy.global_position.x
+		and left_separation >= MIN_BODY_SEPARATION - 0.5,
+		"C0 sustained collision from the left preserves ordering and minimum body separation",
+	)
+
+	player.set_touch_axis(0.0)
+	player.global_position = Vector2(400.0, 220.0)
+	enemy.set_arena_position(Vector2(300.0, 216.0))
+	await physics_frame
+	player.set_touch_axis(-1.0)
+	for _step in 20:
+		player._physics_process(0.05)
+	var right_separation := player.global_position.x - enemy.global_position.x
+	_expect(
+		player.global_position.x > enemy.global_position.x
+		and right_separation >= MIN_BODY_SEPARATION - 0.5,
+		"C0 sustained collision from the right preserves ordering and minimum body separation",
+	)
+
+	enemy.set_presentation_active(false, false)
+	await physics_frame
+	player.global_position.x = 70.0
+	player.set_touch_axis(-1.0)
+	for _step in 12:
+		player._physics_process(0.05)
+	var left_edge_position := player.global_position.x
+	player.global_position.x = 1210.0
+	player.set_touch_axis(1.0)
+	for _step in 12:
+		player._physics_process(0.05)
+	var right_edge_position := player.global_position.x
+	_expect(
+		left_edge_position >= 70.0
+		and right_edge_position <= 1210.0,
+		"C0 sustained movement cannot cross either arena edge",
+	)
+	player.set_touch_axis(0.0)
+	enemy.queue_free()
+	player.queue_free()
+
+
+func _test_c0_enemy_state_machine() -> void:
+	var player := ForgePlayer.new()
+	root.add_child(player)
+	player.global_position = Vector2(200.0, 200.0)
+	player.reset_health()
+	player.set_combat_enabled(true)
+
+	var enemy := CombatEnemy.new()
+	enemy.configure_combat_enemy()
+	enemy.set_target(player)
+	var events: Array[Dictionary] = []
+	var landed_damage: Array[int] = []
+	enemy.combat_event.connect(func(kind: String, detail: Dictionary) -> void:
+		var entry: Dictionary = detail.duplicate(true)
+		entry["kind"] = kind
+		events.append(entry)
+	)
+	enemy.strike_landed.connect(func(amount: int) -> void: landed_damage.append(amount))
+	root.add_child(enemy)
+	enemy.reset_combat(Vector2(270.0, 196.0))
+	enemy.set_simulation_enabled(true)
+
+	enemy._physics_process(0.016)
+	_expect(
+		enemy.state_name() == "telegraph"
+		and is_equal_approx(float(enemy.qa_state().get("state_time_remaining", 0.0)), CombatEnemy.TELEGRAPH_SECONDS),
+		"C0 enemy enters an observable deterministic telegraph in range",
+	)
+	enemy._physics_process(CombatEnemy.TELEGRAPH_SECONDS)
+	_expect(enemy.state_name() == "strike", "C0 enemy telegraph commits to the strike phase")
+	enemy._physics_process(0.01)
+	var health_after_first_strike: int = player.health
+	enemy._physics_process(0.01)
+	_expect(
+		health_after_first_strike == ForgePlayer.MAX_HEALTH - CombatEnemy.STRIKE_DAMAGE
+		and player.health == health_after_first_strike
+		and landed_damage == [CombatEnemy.STRIKE_DAMAGE],
+		"C0 enemy applies at most one player damage event per strike",
+	)
+	enemy._physics_process(CombatEnemy.STRIKE_SECONDS)
+	_expect(enemy.state_name() == "recover", "C0 enemy strike enters explicit recovery")
+	enemy._physics_process(CombatEnemy.RECOVERY_SECONDS)
+	_expect(enemy.state_name() == "approach", "C0 enemy recovery returns to approach")
+	var observed_states: Array[String] = []
+	for event: Dictionary in events:
+		if str(event.get("kind", "")) == "enemy_state":
+			observed_states.append(str(event.get("state", "")))
+	_expect(
+		"approach" in observed_states
+		and "telegraph" in observed_states
+		and "strike" in observed_states
+		and "recover" in observed_states,
+		"C0 enemy event audit preserves approach/telegraph/strike/recovery evidence",
+	)
+
+	enemy.take_damage(999, "none", "melee_slash", Vector2.RIGHT)
+	_expect(
+		enemy.health == 0
+		and enemy.state_name() == "defeated"
+		and not bool(enemy.qa_state().get("simulation_enabled", true)),
+		"C0 enemy defeat stops its attack simulation",
+	)
+	enemy.reset_combat(Vector2(270.0, 196.0))
+	_expect(
+		enemy.health == enemy.max_health
+		and enemy.state_name() == "inactive"
+		and not bool(enemy.qa_state().get("strike_applied", true)),
+		"C0 enemy Retry reset restores health and clears committed strike state",
+	)
+	enemy.queue_free()
+	player.queue_free()
+
+
+func _test_c0_comparison_gate() -> void:
+	var short_dominates := _c0_short_triple_win_gate(
+		{"time_to_first_hit_ms": 400, "ttk_ms": 1800, "damage_taken": 0},
+		{"time_to_first_hit_ms": 500, "ttk_ms": 2200, "damage_taken": 20},
+		{"time_to_first_hit_ms": 650, "ttk_ms": 2600, "damage_taken": 40},
+	)
+	_expect(short_dominates, "C0 comparison oracle detects a short-weapon triple win")
+	var long_exposure_advantage := _c0_short_triple_win_gate(
+		{"time_to_first_hit_ms": 400, "ttk_ms": 1800, "damage_taken": 40},
+		{"time_to_first_hit_ms": 500, "ttk_ms": 2200, "damage_taken": 20},
+		{"time_to_first_hit_ms": 650, "ttk_ms": 2600, "damage_taken": 0},
+	)
+	_expect(
+		not long_exposure_advantage,
+		"C0 comparison oracle passes when long reach buys a damage-exposure advantage",
+	)
+
+
+func _c0_short_triple_win_gate(
+	short_metrics: Dictionary,
+	standard_metrics: Dictionary,
+	long_metrics: Dictionary,
+) -> bool:
+	return (
+		float(short_metrics.get("time_to_first_hit_ms", INF)) < float(standard_metrics.get("time_to_first_hit_ms", INF))
+		and float(short_metrics.get("time_to_first_hit_ms", INF)) < float(long_metrics.get("time_to_first_hit_ms", INF))
+		and float(short_metrics.get("ttk_ms", INF)) < float(standard_metrics.get("ttk_ms", INF))
+		and float(short_metrics.get("ttk_ms", INF)) < float(long_metrics.get("ttk_ms", INF))
+		and float(short_metrics.get("damage_taken", INF)) < float(standard_metrics.get("damage_taken", INF))
+		and float(short_metrics.get("damage_taken", INF)) < float(long_metrics.get("damage_taken", INF))
+	)
 
 
 func _test_rapid_melee_input_buffer() -> void:

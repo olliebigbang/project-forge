@@ -1,6 +1,6 @@
 # Project Forge current status
 
-Last updated: **2026-07-23 (Australia/Sydney)**
+Last updated: **2026-07-25 (Australia/Sydney)**
 
 This is the fast-moving runtime and delivery-status entry point. It does not
 replace `GDD.md`, `ARCHITECTURE.md`, `DECISIONS.md`, or milestone acceptance
@@ -53,8 +53,9 @@ rollback readiness. No cleanup is authorized by this governance task.
 | Weapon Physics B0 authority contract | **CONFIRMED complete** |
 | Weapon Physics B1 controlled melee physicality | **CONFIRMED complete and released** |
 | Weapon Physics B1.5 role balance | **CONFIRMED corrected implementation `dafec14` on Draft PR #11; new CI/preview and physical-iPhone gate pending** |
+| Core Combat C0 lethal micro-playtest | **CONFIRMED diagnostic implementation complete; technical gates pass; gameplay balance gate fails in Chromium and WebKit** |
 | M1B2 | **CONFIRMED not started** |
-| Next gameplay milestone | **CONFIRMED: Weapon Physics B1.5** |
+| Next gameplay validation | **TO VALIDATE: bounded B1/B1.5 cadence/exposure correction using the unchanged C0 lethal comparison; B2/M1B2 remain blocked** |
 
 B2 and M1B2 descriptions remain roadmap candidates only. They are not
 authorization to begin development.
@@ -65,6 +66,13 @@ authorization to begin development.
 - **CONFIRMED:** provider-free local tests, builds, CI, and browser automation.
 - **CONFIRMED:** scoped deterministic Weapon Physics B1.5 role derivation,
   execution and QA evidence under `docs/WEAPON_ROLE_BALANCE_B1_5_ACCEPTANCE.md`.
+- **CONFIRMED:** scoped Core Combat C0 implementation is functional on its
+  isolated branch: 1,147 Godot assertions pass, Web/Sites builds pass, and the
+  provider-free Chromium/WebKit functional matrix has zero application console
+  errors and zero compile/provider calls.
+- **CONFIRMED:** C0's gameplay gate fails. Short melee wins first-hit, TTK, and
+  damage taken in both browsers; long reach provides no exposure advantage.
+  See `docs/CORE_COMBAT_C0_REPORT.md`.
 - **CONFIRMED:** read-only audits of Git, GitHub, Sites metadata, retained
   evidence, branches, and worktrees.
 - **CONFIRMED:** scoped fixes to this workflow-hardening branch when they do not
@@ -72,7 +80,7 @@ authorization to begin development.
 
 ## Work currently prohibited
 
-- Starting B2, M1B2, or any other gameplay milestone beyond B1.5.
+- Starting B2, M1B2, or gameplay work outside the authorized C0 contract.
 - Changing player UI, public `WeaponSpec` Schema, `PowerBudget` pricing,
   Provider, D1, or deployment business logic. Gameplay and weapon-physics changes
   are limited to the approved B1.5 acceptance contract.
