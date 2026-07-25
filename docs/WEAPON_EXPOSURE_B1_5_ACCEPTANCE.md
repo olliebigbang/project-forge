@@ -82,10 +82,13 @@ contact region, hit-stun, interruption, or sweet spot is authorized here.
 
 - **CONFIRMED:** Chromium and WebKit pass Pressure TTK, Spacing exposure, and
   combined non-dominance gates after rebuilding the Web export.
-- **CONFIRMED:** Spacing total damage is Chromium `40/20/20` and WebKit
-  `60/0/0` for short/standard/long.
+- **CONFIRMED:** exact-commit Spacing total damage is Chromium `60/0/20`
+  and WebKit `60/20/0` for short/standard/long.
 - **CONFIRMED:** no forward-movement restriction or second runtime correction
   was required.
 - **TO VALIDATE:** physical iPhone combat feel.
 
 See `docs/WEAPON_EXPOSURE_B1_5_REPORT.md`.
+Exact browser evidence was generated from
+`f12bb5aac14b616b3ae6f7d7bd9292fb2e0f336c` under
+`output/playwright/b1-5-strategy-matrix-f12bb5a/`.

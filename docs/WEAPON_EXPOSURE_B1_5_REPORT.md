@@ -53,23 +53,23 @@ the visible enemy phase. It never branches on weapon role or fixture name.
 
 ### Chromium
 
-- Pressure TTK, near: short 2784 ms / standard 3012 ms / long 4098 ms.
-- Pressure TTK, far: short 2794 ms / standard 3798 ms / long 4134 ms.
+- Pressure TTK, near: short 2806 ms / standard 3022 ms / long 4122 ms.
+- Pressure TTK, far: short 2801 ms / standard 3803 ms / long 4123 ms.
 - Spacing total damage taken across both starts:
-  short 40 / standard 20 / long 20.
+  short 60 / standard 0 / long 20.
 - Combined winners:
-  standard first hit / short TTK / short+standard damage taken.
+  standard first hit / short TTK / standard damage taken.
 - Application console errors: 0.
 - Compile/provider calls: 0.
 
 ### WebKit
 
-- Pressure TTK, near: short 2518 ms / standard 2721 ms / long 3864 ms.
-- Pressure TTK, far: short 2475 ms / standard 3489 ms / long 3844 ms.
+- Pressure TTK, near: short 2495 ms / standard 2672 ms / long 3816 ms.
+- Pressure TTK, far: short 2447 ms / standard 3483 ms / long 3844 ms.
 - Spacing total damage taken across both starts:
-  short 60 / standard 0 / long 0.
+  short 60 / standard 20 / long 0.
 - Combined winners:
-  long first hit / short TTK / standard damage taken.
+  long first hit / short TTK / standard+long damage taken.
 - Application console errors: 0.
 - Compile/provider calls: 0.
 
@@ -98,11 +98,22 @@ most four 60 Hz enemy frames. Gameplay values and the spacing controller were
 not changed to resolve this harness issue.
 
 A final exact-commit Chromium rerun also showed why the gate must not impose
-`long <= standard`: aggregate damage was short 40 / standard 0 / long 20.
-Long still earned the required one-strike improvement over short, while the
-standard sword sometimes ended the fight before taking a strike. The accepted
-invariant therefore compares both longer roles with short, but deliberately
-does not force an order between standard and long.
+`long <= standard`: the near-gap row was short 40 / standard 0 / long 20,
+and the aggregate was short 60 / standard 0 / long 20. Long still earned the
+required one-strike improvement over short, while the standard sword sometimes
+ended the fight before taking a strike. The accepted invariant therefore
+compares both longer roles with short, but deliberately does not force an order
+between standard and long.
+
+## Evidence identity
+
+- Source commit:
+  `f12bb5aac14b616b3ae6f7d7bd9292fb2e0f336c`.
+- Chromium:
+  `output/playwright/b1-5-strategy-matrix-f12bb5a/chromium-report.json`.
+- WebKit:
+  `output/playwright/b1-5-strategy-matrix-f12bb5a/webkit-report.json`.
+- Both reports were generated from a Web export rebuilt from that commit.
 
 ## Remaining gate
 
