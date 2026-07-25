@@ -3,9 +3,9 @@
 Version: 0.1 (organized from the supplied GDD)  
 Stable delivery milestone: **Weapon Physics B1 controlled melee physicality — CONFIRMED and released as `v0.3.0-weapon-physics-b1`**
 Current production: **CONFIRMED Sites Version 25 from `main` `2c7b8f5`; direct rollback is Sites Version 23 plus `v0.2.1-m1b1.2`**
-Next gameplay validation: **TO VALIDATE bounded B1/B1.5 cadence/exposure
-correction after the C0 lethal harness proved short-melee dominance; B2 and
-M1B2 remain blocked and have not started**
+Next gameplay validation: **TO VALIDATE physical-iPhone feel for the automated
+Weapon Exposure B1.5 cadence candidate; rebuilt Chromium/WebKit gates pass, and
+B2/M1B2 remain blocked and have not started**
 Stable mobile acceptance: **CONFIRMED on physical iPhone Safari; accepted preview code merged by PR #7 and deployed to the stable Site on 2026-07-22**
 
 ## 1. Product identity
@@ -395,6 +395,15 @@ rolling for a higher damage value.
   cadence/exposure tuning and does not authorize B2 or M1B2. Its executable
   contract and result are `docs/CORE_COMBAT_C0_ACCEPTANCE.md` and
   `docs/CORE_COMBAT_C0_REPORT.md`.
+- **Weapon Exposure B1.5 — cadence/exposure correction (automated candidate):**
+  evaluate short/standard/long balanced melee under both same-frame advancing
+  Pressure and role-agnostic reach-aware Spacing. One bounded nonlinear
+  reach-to-cycle authority preserves short TTK advantage while allowing long
+  reach to reduce exposure; Chromium and WebKit automated gates pass. Physical
+  iPhone combat feel remains **TO VALIDATE**. This does not start B2 contact
+  regions or M1B2 drawing semantics. Its executable contract and report are
+  `docs/WEAPON_EXPOSURE_B1_5_ACCEPTANCE.md` and
+  `docs/WEAPON_EXPOSURE_B1_5_REPORT.md`.
 - **M1B2 — drawing semantic understanding (not started):** image/vision meaning
   is explicitly outside M1B1; only bounded `drawing_summary` metadata is sent.
 - **M2 — vertical slice:** production combat character, three normal monsters, one

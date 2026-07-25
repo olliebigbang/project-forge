@@ -54,8 +54,9 @@ rollback readiness. No cleanup is authorized by this governance task.
 | Weapon Physics B1 controlled melee physicality | **CONFIRMED complete and released** |
 | Weapon Physics B1.5 role balance | **CONFIRMED corrected implementation `dafec14` on Draft PR #11; new CI/preview and physical-iPhone gate pending** |
 | Core Combat C0 lethal micro-playtest | **CONFIRMED diagnostic implementation complete; technical gates pass; gameplay balance gate fails in Chromium and WebKit** |
+| Weapon Exposure B1.5 | **CONFIRMED automated candidate: bounded cadence and two-strategy Chromium/WebKit gates pass; physical-iPhone feel pending** |
 | M1B2 | **CONFIRMED not started** |
-| Next gameplay validation | **TO VALIDATE: bounded B1/B1.5 cadence/exposure correction using the unchanged C0 lethal comparison; B2/M1B2 remain blocked** |
+| Next gameplay validation | **TO VALIDATE: physical-iPhone short/standard/long Pressure and Spacing feel; B2/M1B2 remain blocked** |
 
 B2 and M1B2 descriptions remain roadmap candidates only. They are not
 authorization to begin development.
@@ -70,9 +71,13 @@ authorization to begin development.
   isolated branch: 1,147 Godot assertions pass, Web/Sites builds pass, and the
   provider-free Chromium/WebKit functional matrix has zero application console
   errors and zero compile/provider calls.
-- **CONFIRMED:** C0's gameplay gate fails. Short melee wins first-hit, TTK, and
-  damage taken in both browsers; long reach provides no exposure advantage.
-  See `docs/CORE_COMBAT_C0_REPORT.md`.
+- **CONFIRMED:** the frozen C0 diagnostic fails under its original
+  attack-before-movement aggressive driver. The B1.5 correction replaces that
+  driver with same-frame Pressure plus role-agnostic Spacing and uses a bounded
+  reach-to-cycle curve. Rebuilt Chromium/WebKit now pass the exposure and
+  non-dominance gates; physical-iPhone feel remains **TO VALIDATE**. See
+  `docs/CORE_COMBAT_C0_REPORT.md` and
+  `docs/WEAPON_EXPOSURE_B1_5_REPORT.md`.
 - **CONFIRMED:** read-only audits of Git, GitHub, Sites metadata, retained
   evidence, branches, and worktrees.
 - **CONFIRMED:** scoped fixes to this workflow-hardening branch when they do not

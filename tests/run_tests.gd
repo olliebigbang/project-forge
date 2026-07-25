@@ -442,6 +442,23 @@ func _test_drawing_geometry_profiles() -> void:
 func _test_weapon_physics_b1_matrix(canvas_size: Vector2) -> void:
 	# These normalized spans reproduce the product owner's 1/4/8/16-grid
 	# physical-iPhone samples at Range 72/92/120/199.
+	var anchors: Array = CombatDerived.REACH_CYCLE_ANCHORS
+	var expected_anchor_reaches: Array[float] = [72.0, 92.0, 120.0, 199.0, 228.0]
+	var expected_anchor_cycles: Array[float] = [0.50, 0.60, 0.71, 0.95, 1.01]
+	_expect(anchors.size() == expected_anchor_reaches.size(), "B1/B1.5 cadence curve retains five bounded reach anchors")
+	for anchor_index: int in anchors.size():
+		var anchor: Vector2 = anchors[anchor_index]
+		_expect(
+			is_equal_approx(anchor.x, expected_anchor_reaches[anchor_index])
+			and is_equal_approx(anchor.y, expected_anchor_cycles[anchor_index]),
+			"B1/B1.5 cadence anchor %d matches the bounded exposure candidate" % anchor_index,
+		)
+		if anchor_index > 0:
+			var previous_anchor: Vector2 = anchors[anchor_index - 1]
+			_expect(
+				previous_anchor.x < anchor.x and previous_anchor.y < anchor.y,
+				"B1/B1.5 cadence anchors remain strictly increasing at %d" % anchor_index,
+			)
 	var spans := {"1_grid": 0.18, "4_grid": 0.274872, "8_grid": 0.407692, "16_grid": 0.782436}
 	var expected_reach_profiles := {
 		"1_grid": "ultra_short", "4_grid": "short", "8_grid": "standard", "16_grid": "long",
@@ -505,18 +522,68 @@ func _test_weapon_physics_b1_matrix(canvas_size: Vector2) -> void:
 	var eight_grid_balanced: DrawingGeometryProfile = matrix["8_grid"].balanced.profile
 	var sixteen_grid_balanced: DrawingGeometryProfile = matrix["16_grid"].balanced.profile
 	var slowest: DrawingGeometryProfile = matrix["16_grid"].heavy.profile
-	_expect(fastest.combat_derived.cycle_seconds >= 0.25 and fastest.combat_derived.cycle_seconds <= 0.40, "1-grid ultra-short/light cycle is inside the 0.25-0.40s candidate window")
-	_expect(four_grid_light.combat_derived.cycle_seconds >= 0.45 and four_grid_light.combat_derived.cycle_seconds <= 0.65, "4-grid short/light cycle is inside the 0.45-0.65s candidate window")
-	_expect(eight_grid_balanced.combat_derived.cycle_seconds >= 0.90 and eight_grid_balanced.combat_derived.cycle_seconds <= 1.20, "8-grid standard/balanced cycle is inside the 0.90-1.20s candidate window")
-	_expect(sixteen_grid_balanced.combat_derived.cycle_seconds >= 1.50 and sixteen_grid_balanced.combat_derived.cycle_seconds <= 2.0, "16-grid long/balanced cycle is inside the 1.50-2.00s candidate window")
-	_expect(slowest.combat_derived.cycle_seconds >= 1.50 and slowest.combat_derived.cycle_seconds <= 2.0, "16-grid long/heavy cycle is inside the 1.50-2.00s candidate window")
+	_expect(fastest.combat_derived.cycle_seconds >= 0.40 and fastest.combat_derived.cycle_seconds <= 0.46, "1-grid ultra-short/light cycle is inside the 0.40-0.46s exposure candidate window")
+	_expect(four_grid_light.combat_derived.cycle_seconds >= 0.49 and four_grid_light.combat_derived.cycle_seconds <= 0.54, "4-grid short/light cycle is inside the 0.49-0.54s exposure candidate window")
+	_expect(eight_grid_balanced.combat_derived.cycle_seconds >= 0.76 and eight_grid_balanced.combat_derived.cycle_seconds <= 0.80, "8-grid standard/balanced cycle is inside the 0.76-0.80s exposure candidate window")
+	_expect(sixteen_grid_balanced.combat_derived.cycle_seconds >= 1.02 and sixteen_grid_balanced.combat_derived.cycle_seconds <= 1.07, "16-grid long/balanced cycle is inside the 1.02-1.07s exposure candidate window")
+	_expect(slowest.combat_derived.cycle_seconds >= 1.16 and slowest.combat_derived.cycle_seconds <= 1.23, "16-grid long/heavy cycle is inside the 1.16-1.23s exposure candidate window")
 	var cycle_ratio := slowest.combat_derived.cycle_seconds / fastest.combat_derived.cycle_seconds
-	_expect(cycle_ratio >= 4.0 and cycle_ratio <= 6.0, "1-grid light to 16-grid heavy cycle ratio is inside the 4-6x candidate window")
-	_expect(fastest.combat_derived.active_seconds * 4.0 < slowest.combat_derived.active_seconds, "visible active-swing angular velocity differs by more than four times")
+	_expect(cycle_ratio >= 2.5 and cycle_ratio <= 3.0, "1-grid light to 16-grid heavy cycle ratio is inside the bounded 2.5-3.0x exposure window")
+	var active_ratio := slowest.combat_derived.active_seconds / fastest.combat_derived.active_seconds
+	_expect(active_ratio >= 3.0 and active_ratio < 4.0, "visible active timing remains distinct without retaining the old four-times extreme")
 	_expect(fastest.combat_derived.cycle_seconds >= CombatDerived.MIN_CYCLE_SECONDS, "ultra-short cadence retains the safety floor")
 	var public_fields: Dictionary = matrix["16_grid"].heavy.spec.to_dict()
 	_expect(not public_fields.has("mass_profile") and not public_fields.has("combat_derived") and not public_fields.has("geometry_evidence"), "B1 does not expand the public WeaponSpec")
+	_test_b1_5_exposure_fixture_cycles(canvas_size)
 	_test_longitudinal_reach_mass_independence(canvas_size)
+
+
+func _test_b1_5_exposure_fixture_cycles(canvas_size: Vector2) -> void:
+	var boundary_spans := {"minimum": 0.0, "maximum": 1.0}
+	var boundary_reaches := {"minimum": 72.0, "maximum": 228.0}
+	var boundary_base_cycles := {"minimum": 0.50, "maximum": 1.01}
+	for boundary_name: String in boundary_spans:
+		var boundary_start := Vector2(canvas_size.x * 0.03, canvas_size.y * 0.45)
+		var boundary_finish := boundary_start + Vector2(canvas_size.x * float(boundary_spans[boundary_name]), canvas_size.y * 0.10)
+		var boundary_source: Array[PackedVector2Array] = [
+			PackedVector2Array([boundary_start, boundary_finish]),
+		]
+		var boundary_profile := DrawingGeometryProfile.from_snapshot(boundary_source, canvas_size, "balanced")
+		var boundary_spec := WeaponCompiler.new().compile("a plain steel sword")
+		boundary_profile.apply_to_spec(boundary_spec)
+		_expect(is_equal_approx(boundary_profile.effective_reach, float(boundary_reaches[boundary_name])), "%s geometry boundary clamps to the existing reach bound" % boundary_name)
+		_expect(is_equal_approx(boundary_profile.combat_derived.base_cycle_seconds, float(boundary_base_cycles[boundary_name])), "%s reach boundary selects the bounded exposure anchor" % boundary_name)
+		_expect(boundary_profile.combat_derived.cycle_seconds >= CombatDerived.MIN_CYCLE_SECONDS and boundary_profile.combat_derived.cycle_seconds <= CombatDerived.MAX_CYCLE_SECONDS, "%s cadence boundary retains the global cycle floor and ceiling" % boundary_name)
+
+	var fixture_spans := {"short": 0.10, "standard": 0.42, "long": 0.88}
+	var expected_reaches := {"short": 72.0, "standard": 123.0, "long": 220.0}
+	var candidate_cycle_windows := {
+		"short": Vector2(0.53, 0.57),
+		"standard": Vector2(0.76, 0.80),
+		"long": Vector2(1.08, 1.12),
+	}
+	var fixture_cycles: Dictionary = {}
+	for fixture_name: String in fixture_spans:
+		var start := Vector2(canvas_size.x * 0.06, canvas_size.y * 0.52)
+		var finish := start + Vector2(canvas_size.x * float(fixture_spans[fixture_name]), canvas_size.y * 0.03)
+		var source: Array[PackedVector2Array] = [
+			PackedVector2Array([start, start.lerp(finish, 0.5), finish]),
+		]
+		var profile := DrawingGeometryProfile.from_snapshot(source, canvas_size, "balanced")
+		var spec := WeaponCompiler.new().compile("a plain steel sword")
+		var original_damage := spec.damage
+		profile.apply_to_spec(spec)
+		var cycle: float = profile.combat_derived.cycle_seconds
+		var window: Vector2 = candidate_cycle_windows[fixture_name]
+		fixture_cycles[fixture_name] = cycle
+		_expect(profile.mass_profile == "balanced", "%s exposure fixture retains the controlled balanced mass axis" % fixture_name)
+		_expect(is_equal_approx(profile.effective_reach, float(expected_reaches[fixture_name])), "%s exposure fixture retains its existing reach authority" % fixture_name)
+		_expect(spec.damage == original_damage and spec.damage == 36, "%s exposure fixture leaves fixed melee damage at 36" % fixture_name)
+		_expect(cycle >= window.x and cycle <= window.y, "%s balanced/slow-recovery cycle %.3f is inside %.2f-%.2fs" % [fixture_name, cycle, window.x, window.y])
+		_expect(is_equal_approx(cycle, snappedf(1.0 / spec.attack_speed, 0.001)), "%s exposure fixture keeps attack_speed as the single complete-cycle authority" % fixture_name)
+		_expect(profile.combat_derived.cycle_seconds >= CombatDerived.MIN_CYCLE_SECONDS and profile.combat_derived.cycle_seconds <= CombatDerived.MAX_CYCLE_SECONDS, "%s exposure fixture retains the global cycle bounds" % fixture_name)
+		_expect(profile.combat_derived.to_dict().contact_model.regions.is_empty(), "%s exposure fixture does not enable B2 contact regions" % fixture_name)
+	_expect(float(fixture_cycles.short) < float(fixture_cycles.standard) and float(fixture_cycles.standard) < float(fixture_cycles.long), "B1/B1.5 exposure fixtures retain short < standard < long cadence")
 
 
 func _test_longitudinal_reach_mass_independence(canvas_size: Vector2) -> void:
@@ -1542,7 +1609,7 @@ func _test_rapid_melee_input_buffer() -> void:
 	root.add_child(player)
 	player.equip(spec, source, profile)
 	var cycle := player.attack_cycle_seconds()
-	_expect(cycle >= 0.25 and cycle <= 0.40, "rapid-input fixture uses the bounded ultra-short cycle")
+	_expect(cycle >= 0.40 and cycle <= 0.46, "rapid-input fixture uses the bounded ultra-short exposure cycle")
 	player.attack()
 	for _tap in 8:
 		player.attack()

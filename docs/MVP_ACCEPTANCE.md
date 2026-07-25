@@ -14,11 +14,13 @@ gate is `docs/WEAPON_ROLE_BALANCE_B1_5_ACCEPTANCE.md`.
 isolated playability experiment based on the corrected B1.5 candidate. It does
 not merge B1.5, start B2/M1B2, or change Provider/Schema/PowerBudget behavior.
 Its separate executable gate is `docs/CORE_COMBAT_C0_ACCEPTANCE.md`.
-**CONFIRMED:** the C0 harness passes its technical functional checks, but the
-controlled balance gate fails because short melee wins first-hit, TTK, and
-damage taken in Chromium and WebKit and long reach provides no exposure
-advantage. See `docs/CORE_COMBAT_C0_REPORT.md`. B2 and M1B2 remain blocked
-pending a bounded B1/B1.5 correction and a passing rerun.
+**CONFIRMED:** the frozen C0 diagnostic passes its technical checks but fails
+under the original attack-before-movement aggressive driver. The bounded
+Weapon Exposure B1.5 cadence candidate now passes rebuilt Chromium/WebKit
+Pressure, Spacing, and combined non-dominance gates. Physical-iPhone feel
+remains **TO VALIDATE** before integration; B2 and M1B2 remain blocked. See
+`docs/CORE_COMBAT_C0_REPORT.md` and
+`docs/WEAPON_EXPOSURE_B1_5_REPORT.md`.
 `docs/GDD.md` retains the broader product definition; later requirements remain
 visible without being silently pulled into the deterministic compiler milestone.
 **CONFIRMED:** the product owner completed the v9 physical iPhone Safari
@@ -114,6 +116,19 @@ deterministic held-melee physicality and does not start M1B2 or expand the publi
   `LOCKED UNTIL RETURN`. Provider free text cannot populate these fields.
 - **TO VALIDATE:** the corrected B1.5 candidate still requires a new isolated
   preview and physical-iPhone acceptance before PR #11 may merge.
+
+### Weapon Exposure B1.5 cadence gate
+
+- **CONFIRMED:** same-frame Pressure preserves short melee's fastest TTK in
+  Chromium and WebKit.
+- **CONFIRMED:** role-agnostic Spacing reduces aggregate exposure for longer
+  reach in both browsers.
+- **CONFIRMED:** no reach role wins first-hit time, TTK, and damage taken
+  together across the two strategies.
+- **CONFIRMED:** fixed damage, reach, mass, Schema, PowerBudget, provider
+  boundaries, terminal-state behavior, collision, touch, keyboard, and
+  orientation contracts remain intact.
+- **TO VALIDATE:** physical-iPhone combat feel before integration or release.
 
 The accepted preview used deployment-only metadata commit `a81061f` to bind a
 separate Site and a USD 0.50 D1 lifetime cap. It did not mutate stable v23.
