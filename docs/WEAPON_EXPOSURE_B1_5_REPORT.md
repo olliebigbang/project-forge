@@ -1,6 +1,6 @@
 # Weapon Exposure B1.5 Report
 
-Status: **CONFIRMED automated candidate / TO VALIDATE on physical iPhone**
+Status: **CONFIRMED automated and physical iPhone candidate**
 
 Date: 2026-07-26 (Australia/Sydney)
 
@@ -89,7 +89,8 @@ Both browsers therefore establish the intended trade:
 - Chromium C0/B1.5 browser matrix: **CONFIRMED PASS**.
 - WebKit C0/B1.5 browser matrix: **CONFIRMED PASS**.
 - Sites bundle build: **CONFIRMED PASS**.
-- Physical iPhone feel: **TO VALIDATE**.
+- Physical iPhone feel and blocker regression: **CONFIRMED PASS on 2026-07-27
+  using Sites Version 29 / PR #12 HEAD `1365f0d`**.
 
 The first WebKit rerun exposed a test-only staging variance: the enemy advanced
 6.4 px between the deterministic gap command and the observable snapshot. The
@@ -107,23 +108,21 @@ between standard and long.
 
 ## Evidence identity
 
-- Source commit:
+- Strategy source commit:
   `f12bb5aac14b616b3ae6f7d7bd9292fb2e0f336c`.
+- Accepted integrated source commit:
+  `1365f0d420a77cb03efc3d83850ebecbae7c90dd`.
+- Accepted public preview: Sites Version 29 at
+  `https://project-forge-weapon-lab.hongningliu0130.chatgpt.site/?release=b1-5-iphone-fix-v29-1365f0d`.
 - Chromium:
   `output/playwright/b1-5-strategy-matrix-f12bb5a/chromium-report.json`.
 - WebKit:
   `output/playwright/b1-5-strategy-matrix-f12bb5a/webkit-report.json`.
 - Both reports were generated from a Web export rebuilt from that commit.
 
-## Remaining gate
+## Release closure
 
-This candidate is not a stable release and does not authorize B2 or M1B2.
-Physical iPhone acceptance should compare naturally drawn short, standard, and
-long balanced swords and verify:
-
-1. short attacks feel clearly faster, but not like an unintended tap exploit;
-2. long attacks remain slower but no longer feel immobilizing or unusable;
-3. advancing pressure favors short cadence;
-4. deliberate spacing makes long reach feel safer;
-5. Retry, Reforge, movement, attack, orientation, and Safari toolbar changes
-   remain stable.
+The product owner accepted the integrated v29 candidate on a physical iPhone
+Safari on 2026-07-27. The remaining work is release engineering only: final PR
+HEAD gates, merge, reproducible main build, stable deployment smoke, tag, and
+rollback verification. This acceptance does not authorize B2 or M1B2.

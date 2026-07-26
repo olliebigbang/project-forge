@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — Weapon Physics B1.5 candidate
+## Unreleased — Weapon Physics B1.5 accepted candidate
 
 ### Added
 
@@ -27,15 +27,13 @@
 
 ### Status
 
-- **CONFIRMED (automated candidate):** runtime commit `e88ed69` passes 1105
-  Godot assertions, Worker/security checks, Web/Sites builds and the full
-  8-role x 4-target matrix in Chromium and WebKit with zero application console
-  errors. Both engines also pass the mobile keyboard/toolbar/orientation path.
-- **CONFIRMED:** Draft PR #11, both CI checks, Reality Checker review and Sites
-  v26 public Chromium/WebKit smoke pass.
-- **TO VALIDATE:** physical-iPhone acceptance.
-- No stable merge or version tag exists for B1.5; Sites v26 is an acceptance
-  preview only.
+- **CONFIRMED:** integrated PR #12 HEAD `1365f0d` passes 1,187 Godot assertions,
+  Worker/security checks, Web/Sites builds, Chromium and functional WebKit
+  strategy/mobile gates.
+- **CONFIRMED:** Sites Version 29 passed product-owner physical iPhone Safari
+  acceptance on 2026-07-27.
+- Stable merge, main deployment, tag and rollback verification remain release
+  closeout steps. PR #11 and Sites v26 are retained superseded evidence.
 
 ## v0.3.0-weapon-physics-b1 — 2026-07-22
 

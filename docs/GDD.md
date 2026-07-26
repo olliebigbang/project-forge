@@ -3,9 +3,9 @@
 Version: 0.1 (organized from the supplied GDD)  
 Stable delivery milestone: **Weapon Physics B1 controlled melee physicality — CONFIRMED and released as `v0.3.0-weapon-physics-b1`**
 Current production: **CONFIRMED Sites Version 25 from `main` `2c7b8f5`; direct rollback is Sites Version 23 plus `v0.2.1-m1b1.2`**
-Next gameplay validation: **TO VALIDATE physical-iPhone feel for the automated
-Weapon Exposure B1.5 cadence candidate; rebuilt Chromium/WebKit gates pass, and
-B2/M1B2 remain blocked and have not started**
+Current release closure: **CONFIRMED Weapon Exposure B1.5 physical-iPhone
+acceptance on Sites Version 29 / PR #12 HEAD `1365f0d`; stable main
+merge/deployment/tag verification is in progress**
 Stable mobile acceptance: **CONFIRMED on physical iPhone Safari; accepted preview code merged by PR #7 and deployed to the stable Site on 2026-07-22**
 
 ## 1. Product identity
@@ -371,7 +371,7 @@ rolling for a higher damage value.
   acceptance is **CONFIRMED**. Mass/handling experiments and contact-position
   damage remain the separately staged Weapon Physics B1 and B2 work. Its
   executable contract is `docs/M1B1_2_ABSOLUTE_REACH_ACCEPTANCE.md`.
-- **Weapon Physics B1.5 — Role Balance (authorized; in development):** preserve
+- **Weapon Physics B1.5 — Role Balance (accepted candidate; release closure):** preserve
   the accepted B1 melee authority and validate distinct advantages and executed
   costs for short/standard/long melee, straight ranged, thrown blast, boomerang
   and piercing. Equal raw DPS is not the goal. This internal deterministic layer
@@ -400,7 +400,8 @@ rolling for a higher damage value.
   Pressure and role-agnostic reach-aware Spacing. One bounded nonlinear
   reach-to-cycle authority preserves short TTK advantage while allowing long
   reach to reduce exposure; Chromium and WebKit automated gates pass. Physical
-  iPhone combat feel remains **TO VALIDATE**. This does not start B2 contact
+  iPhone combat feel and reopened mobile blockers are **CONFIRMED** on Sites
+  Version 29. This does not start B2 contact
   regions or M1B2 drawing semantics. Its executable contract and report are
   `docs/WEAPON_EXPOSURE_B1_5_ACCEPTANCE.md` and
   `docs/WEAPON_EXPOSURE_B1_5_REPORT.md`.

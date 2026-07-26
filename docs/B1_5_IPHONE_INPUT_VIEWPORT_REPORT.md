@@ -1,6 +1,6 @@
 # B1.5 iPhone Input and Viewport Blocker Report
 
-Status: **CONFIRMED automated candidate / TO VALIDATE on physical iPhone Safari**
+Status: **CONFIRMED on physical iPhone Safari**
 
 ## Device evidence
 
@@ -17,10 +17,29 @@ Safari run on 2026-07-26.
 - **CONFIRMED:** ATTACK appeared enabled but became ineffective after one or two
   non-lethal enemy strikes. One screenshot also shows LEFT held while ATTACK was
   attempted with a second finger.
-- **TO VALIDATE:** the exact physical Safari input cancellation point. Runtime
+- **CONFIRMED:** the exact browser cancellation callback remains platform
+  internal, but runtime
   evidence proves non-lethal damage does not close the gameplay attack gate;
   existing pre-fix browser strategy tests bypassed the visible ATTACK button and
   therefore could not validate the device path.
+
+### Physical iPhone acceptance closure
+
+On 2026-07-27, the product owner tested the replacement public build on a real
+iPhone Safari and reported `v29真机通过`.
+
+- **CONFIRMED:** the accepted public preview is Sites Version 29 from commit
+  `1365f0d420a77cb03efc3d83850ebecbae7c90dd`.
+- **CONFIRMED:** Chinese Description entry, keyboard open/close, Canvas restore,
+  Safari toolbar changes, and landscape recovery passed without a black strip.
+- **CONFIRMED:** ATTACK remained usable after non-lethal hits and while movement
+  was held by another touch.
+- **CONFIRMED:** the guarded Claude path interpreted `冰冻手榴弹` as an ice
+  grenade with thrown/arc/explosion semantics. A first timeout failed closed and
+  an explicit user retry succeeded; no fallback weapon was equipped.
+- **CONFIRMED:** the accepted source is Draft PR #12 HEAD `1365f0d`; merge,
+  stable deployment, tag, and rollback verification remain release-closeout
+  steps rather than part of the device claim.
 
 ## Separate root causes and corrections
 
@@ -114,9 +133,11 @@ Generated browser reports remain under the ignored
 
 - **TO VALIDATE / later balance:** grenade damage, cadence, useful throw range,
   charge-to-throw, and player-drawn grenade size affecting combat presentation.
-- **TO VALIDATE / physical device:** real iPhone multi-touch ATTACK, Canvas
-  restore after actual Safari toolbar transitions, and a guarded real Claude
-  `冰冻手榴弹` request on the next isolated preview.
+- **TO VALIDATE / reliability:** a first public Claude request timed out after
+  about 10.3 seconds and failed closed; one explicit retry succeeded in about
+  1.4 seconds. Provider timeout rate remains an operational observation, not a
+  reason to hide or auto-retry ambiguous calls.
 
-This candidate cannot be merged or declared accepted until the product owner
-passes the physical iPhone checklist.
+The physical-iPhone gate is closed. Stable release still requires the final PR
+HEAD gates, merge, main-branch rebuild, deployment smoke, tag, and rollback
+verification.

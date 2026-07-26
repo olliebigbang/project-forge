@@ -14,17 +14,18 @@ Corrected runtime implementation commit: `dafec14`
 
 ## Current decision
 
-- **CONFIRMED (corrected automated candidate):** implementation commit
-  `dafec14` passes the full
+- **CONFIRMED (accepted integrated candidate):** the role implementation rooted
+  at `dafec14`, exposure correction, and iPhone blocker fixes are integrated at
+  PR #12 HEAD `1365f0d`, which passes the full
   deterministic unit, Worker/security, Godot parse, Web/Sites build, Chromium
   and WebKit gates.
 - **CONFIRMED:** both browser engines pass the strengthened mobile,
   manual-correction, Developer/Test and `direct_blast` behavior oracles.
-- **CONFIRMED:** Draft PR #11 remains open. The earlier CI and Reality Checker
-  decision apply only to the superseded v26 candidate; new CI and an independent
-  correction review are required before a replacement preview is accepted.
-- **TO VALIDATE:** physical-iPhone combat-feel acceptance is still required
-  before merge or milestone closure.
+- **CONFIRMED:** Draft PR #11 and Sites v26 are superseded integration evidence.
+  Draft PR #12 contains the complete accepted change set and both of its current
+  CI `validate` runs pass.
+- **CONFIRMED:** the product owner accepted Sites Version 29 on a physical
+  iPhone Safari on 2026-07-27.
 - **CONFIRMED:** no real provider call was made for B1.5 testing. Browser tests
   intercepted the same-origin request with a declared simulated validated
   semantic response, then exercised the normal client validation path.
@@ -166,16 +167,15 @@ was not changed to manufacture evidence.
 
 ## Remaining gates and limitations
 
-- **TO VALIDATE:** the independent Reality Checker correction review and both
-  new Draft PR `validate` checks.
-- **TO VALIDATE:** a replacement Sites preview built from the final PR HEAD,
-  with new resource identity, HTTP/hash checks and public Chromium/WebKit smoke.
-- **TO VALIDATE:** physical iPhone Safari role feel, touch input and mobile
-  regression. Browser emulation is not a substitute.
+- **CONFIRMED:** PR #12 CI, Sites Version 29 source identity, public Chromium,
+  functional WebKit, guarded Claude retry evidence, and physical iPhone Safari
+  acceptance are complete.
+- **TO VALIDATE:** stable main rebuild/deployment smoke and rollback verification
+  remain release-closeout steps.
 - **TO VALIDATE:** production role thresholds, moving-target tuning and the
   extreme short-melee DPS are intentionally not declared balanced.
 - **TBD / out of scope:** B2 tip/root/sweet spots, interruption, material physics
   and M1B2 drawing semantics.
 
-The candidate is not approved to merge, deploy as stable, tag, clean or begin
-B2/M1B2.
+The candidate is approved for release closeout through PR #12. Cleanup and
+B2/M1B2 remain unauthorized.

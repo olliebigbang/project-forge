@@ -7,9 +7,10 @@ Physics B1 gates. The detailed B1 contract and evidence are in
 `v0.3.0-weapon-physics-b1` is the stable tag, and production Sites Version 25
 records runtime source `main` `2c7b8f5`. Sites Version 23 plus `v0.2.1-m1b1.2` are the
 direct rollback pair. M1B2 has not started.
-**CONFIRMED:** Weapon Physics B1.5 is the authorized follow-on milestone and is
-currently in development under Issue #10. It is not yet accepted. Its separate
-gate is `docs/WEAPON_ROLE_BALANCE_B1_5_ACCEPTANCE.md`.
+**CONFIRMED:** Weapon Physics B1.5 is accepted on the integrated Sites Version
+29 / PR #12 HEAD `1365f0d` after physical iPhone Safari testing on 2026-07-27.
+Stable release closeout remains in progress. Its separate gate is
+`docs/WEAPON_ROLE_BALANCE_B1_5_ACCEPTANCE.md`.
 **CONFIRMED:** Core Combat C0 was authorized on 2026-07-25 as a dependent,
 isolated playability experiment based on the corrected B1.5 candidate. It does
 not merge B1.5, start B2/M1B2, or change Provider/Schema/PowerBudget behavior.
@@ -17,8 +18,9 @@ Its separate executable gate is `docs/CORE_COMBAT_C0_ACCEPTANCE.md`.
 **CONFIRMED:** the frozen C0 diagnostic passes its technical checks but fails
 under the original attack-before-movement aggressive driver. The bounded
 Weapon Exposure B1.5 cadence candidate now passes rebuilt Chromium/WebKit
-Pressure, Spacing, and combined non-dominance gates. Physical-iPhone feel
-remains **TO VALIDATE** before integration; B2 and M1B2 remain blocked. See
+Pressure, Spacing, and combined non-dominance gates. Physical-iPhone feel and
+the reopened input/viewport blockers are **CONFIRMED** on Sites Version 29;
+B2 and M1B2 remain blocked. See
 `docs/CORE_COMBAT_C0_REPORT.md` and
 `docs/WEAPON_EXPOSURE_B1_5_REPORT.md`.
 `docs/GDD.md` retains the broader product definition; later requirements remain
@@ -114,8 +116,8 @@ deterministic held-melee physicality and does not start M1B2 or expand the publi
 - **CONFIRMED:** normal-player weakness labels are project-owned:
   `FIRST TARGET / SHIELD-BLOCKED`, `CHARGE COMMITMENT / DAMAGE DECAY`, and
   `LOCKED UNTIL RETURN`. Provider free text cannot populate these fields.
-- **TO VALIDATE:** the corrected B1.5 candidate still requires a new isolated
-  preview and physical-iPhone acceptance before PR #11 may merge.
+- **CONFIRMED:** the corrected integrated candidate passed the isolated Sites
+  Version 29 physical-iPhone gate. PR #12 supersedes PR #11 for release.
 
 ### Weapon Exposure B1.5 cadence gate
 
@@ -128,7 +130,8 @@ deterministic held-melee physicality and does not start M1B2 or expand the publi
 - **CONFIRMED:** fixed damage, reach, mass, Schema, PowerBudget, provider
   boundaries, terminal-state behavior, collision, touch, keyboard, and
   orientation contracts remain intact.
-- **TO VALIDATE:** physical-iPhone combat feel before integration or release.
+- **CONFIRMED:** physical-iPhone combat feel, touch ATTACK, Chinese Description,
+  Canvas restore and Safari toolbar recovery passed on Sites Version 29.
 
 The accepted preview used deployment-only metadata commit `a81061f` to bind a
 separate Site and a USD 0.50 D1 lifetime cap. It did not mutate stable v23.

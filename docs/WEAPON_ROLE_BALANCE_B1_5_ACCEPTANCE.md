@@ -3,11 +3,12 @@
 ## Status and authorization
 
 - **CONFIRMED:** the product owner authorized Weapon Physics B1.5 on 2026-07-23.
-- **CONFIRMED:** implementation is isolated under GitHub Issue #10 on branch
-  `codex/feat/weapon-role-balance-b1-5`, based on
-  `82d0a399462f63d2a18f671306c36b0e3451b6fa`.
-- **TO VALIDATE:** each supported weapon role must express a readable advantage
-  and an executed deterministic cost in combat. Equal raw DPS is not the target.
+- **CONFIRMED:** the original implementation was isolated under GitHub Issue
+  #10 on `codex/feat/weapon-role-balance-b1-5`, based on `82d0a39`. The accepted
+  complete integration is PR #12 from `codex/fix/b1-5-iphone-input-viewport`.
+- **CONFIRMED:** each supported weapon role expresses a readable advantage and
+  an executed deterministic cost in the automated matrix and accepted physical
+  iPhone preview. Equal raw DPS is not the target.
 - **CONFIRMED (2026-07-24 product correction):** in the current fixed-height
   side-view combat, a 7 px versus 11 px projectile radius does not create a
   reliably perceptible aiming cost. Piercing must therefore pay through an
@@ -58,8 +59,9 @@ misrepresented as a thrown grenade and not counted as a new product role. Its
 real advantage is a player-centred multi-body radius; its real cost is proximity
 plus the complete cooldown. The seven rows above remain the B1.5 product cases.
 
-All values and thresholds remain **TO VALIDATE** until automated evidence and a
-separate physical-iPhone preview pass are accepted.
+All values and thresholds are **CONFIRMED for the B1.5 prototype scope** after
+automated evidence and the accepted physical-iPhone preview. Production balance
+remains **TO VALIDATE**.
 
 ## Acceptance gates
 
@@ -91,8 +93,9 @@ separate physical-iPhone preview pass are accepted.
   changes.
 - No jump, crouch, dodge, production art, levels, voice, accounts, sharing,
   monetization or multiplayer.
-- No stable deployment, merge, tag movement, branch/worktree cleanup or evidence
-  deletion without separate product-owner approval.
+- Stable merge, deployment and tagging are authorized only through the accepted
+  PR #12 release-closeout workflow. Branch/worktree cleanup and evidence
+  deletion remain separately controlled.
 
 ## Stop conditions
 

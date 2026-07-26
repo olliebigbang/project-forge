@@ -1,6 +1,6 @@
 # Weapon Exposure B1.5 — Strategy Matrix Acceptance
 
-Status: **REOPENED after physical iPhone blocker evidence / corrected automated candidate TO VALIDATE**
+Status: **CONFIRMED after corrected automation and physical iPhone acceptance**
 
 ## Purpose
 
@@ -86,11 +86,14 @@ contact region, hit-stun, interruption, or sweet spot is authorized here.
   and WebKit `60/20/0` for short/standard/long.
 - **CONFIRMED:** no forward-movement restriction or second runtime correction
   was required.
-- **TO VALIDATE:** physical iPhone combat feel.
+- **CONFIRMED:** the product owner accepted Sites Version 29 on a physical
+  iPhone Safari on 2026-07-27. The accepted source is PR #12 HEAD `1365f0d`.
 
 See `docs/WEAPON_EXPOSURE_B1_5_REPORT.md`.
 The reopened mobile blocker diagnosis and correction evidence is in
 `docs/B1_5_IPHONE_INPUT_VIEWPORT_REPORT.md`.
-Exact browser evidence was generated from
+The strategy evidence was generated from
 `f12bb5aac14b616b3ae6f7d7bd9292fb2e0f336c` under
 `output/playwright/b1-5-strategy-matrix-f12bb5a/`.
+The accepted mobile blocker correction and public preview are bound to
+`1365f0d420a77cb03efc3d83850ebecbae7c90dd` and Sites Version 29.

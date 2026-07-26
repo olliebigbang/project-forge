@@ -1,6 +1,6 @@
 # Project Forge current status
 
-Last updated: **2026-07-26 (Australia/Sydney)**
+Last updated: **2026-07-27 (Australia/Sydney)**
 
 This is the fast-moving runtime and delivery-status entry point. It does not
 replace `GDD.md`, `ARCHITECTURE.md`, `DECISIONS.md`, or milestone acceptance
@@ -52,11 +52,11 @@ rollback readiness. No cleanup is authorized by this governance task.
 | M1B1.2 absolute held-melee reach | **CONFIRMED complete** |
 | Weapon Physics B0 authority contract | **CONFIRMED complete** |
 | Weapon Physics B1 controlled melee physicality | **CONFIRMED complete and released** |
-| Weapon Physics B1.5 role balance | **CONFIRMED corrected implementation `dafec14` on Draft PR #11; new CI/preview and physical-iPhone gate pending** |
+| Weapon Physics B1.5 role balance | **CONFIRMED accepted integrated candidate on Draft PR #12 HEAD `1365f0d`; release closeout in progress** |
 | Core Combat C0 lethal micro-playtest | **CONFIRMED diagnostic implementation complete; technical gates pass; gameplay balance gate fails in Chromium and WebKit** |
-| Weapon Exposure B1.5 | **REOPENED by physical-iPhone input/viewport evidence; corrected automated candidate passes focused Chromium/WebKit and awaits a new isolated preview plus physical-iPhone re-test** |
+| Weapon Exposure B1.5 | **CONFIRMED on Sites Version 29 and physical iPhone Safari on 2026-07-27; stable merge/deploy/tag pending** |
 | M1B2 | **CONFIRMED not started** |
-| Next gameplay validation | **TO VALIDATE: physical-iPhone short/standard/long Pressure and Spacing feel; B2/M1B2 remain blocked** |
+| Next gameplay validation | **TBD after B1.5 release closeout; B2/M1B2 remain blocked and belt combat/cadence are only future probes** |
 
 B2 and M1B2 descriptions remain roadmap candidates only. They are not
 authorization to begin development.
@@ -75,12 +75,14 @@ authorization to begin development.
   attack-before-movement aggressive driver. The B1.5 correction replaces that
   driver with same-frame Pressure plus role-agnostic Spacing and uses a bounded
   reach-to-cycle curve. Rebuilt Chromium/WebKit now pass the exposure and
-  non-dominance gates; physical-iPhone feel remains **TO VALIDATE**. See
+  non-dominance gates; physical-iPhone feel is **CONFIRMED** on Sites Version
+  29. See
   `docs/CORE_COMBAT_C0_REPORT.md` and
   `docs/WEAPON_EXPOSURE_B1_5_REPORT.md`.
 - **CONFIRMED:** scoped correction of the physical-iPhone ATTACK touch path,
   same-frame Canvas restore race, and explicit Chinese form/element repair.
-  **TO VALIDATE:** the corrected candidate on a new isolated public preview.
+  The corrected candidate passed its isolated public preview and physical-device
+  gate on 2026-07-27.
 - **CONFIRMED:** read-only audits of Git, GitHub, Sites metadata, retained
   evidence, branches, and worktrees.
 - **CONFIRMED:** scoped fixes to this workflow-hardening branch when they do not
