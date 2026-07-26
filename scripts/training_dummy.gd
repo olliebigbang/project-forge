@@ -21,6 +21,9 @@ var _stagger_timer := 0.0
 var _status_epoch := 0
 var _feedback_revision := 0
 var _diagnostic_labels_visible := true
+var _burn_ticks_applied := 0
+var last_damage_pattern: String = "none"
+var last_damage_direction: Vector2 = Vector2.ZERO
 
 
 func configure(kind: String, label_text: String, maximum_health: int = 160) -> void:
@@ -61,6 +64,8 @@ func _physics_process(delta: float) -> void:
 
 func take_damage(amount: int, status_effect: String = "none", attack_pattern: String = "melee_slash", hit_direction: Vector2 = Vector2.RIGHT) -> int:
 	if _resetting: return 0
+	last_damage_pattern = attack_pattern
+	last_damage_direction = hit_direction
 	var actual := maxi(amount, 1)
 	var note := status_effect.to_upper()
 	var shield_blocks := target_kind == "shield" and attack_pattern not in ["piercing", "area_blast"]
@@ -102,6 +107,7 @@ func _burn_over_time() -> void:
 	for tick in 2:
 		await get_tree().create_timer(0.42).timeout
 		if not is_instance_valid(self) or _resetting or burn_epoch != _status_epoch: return
+		_burn_ticks_applied += 1
 		_apply_damage(3, "BURN %d/2" % (tick + 1))
 
 
@@ -109,6 +115,7 @@ func _reset_after_delay() -> void:
 	await get_tree().create_timer(1.25).timeout
 	health = max_health
 	_resetting = false
+	_burn_ticks_applied = 0
 	_status_text = "RESET"
 	health_changed.emit(health, max_health)
 
@@ -121,6 +128,9 @@ func reset_target() -> void:
 	_status_text = "READY"
 	_slow_timer = 0.0
 	_stagger_timer = 0.0
+	_burn_ticks_applied = 0
+	last_damage_pattern = "none"
+	last_damage_direction = Vector2.ZERO
 	health_changed.emit(health, max_health)
 	queue_redraw()
 
@@ -130,8 +140,27 @@ func clear_transient_status() -> void:
 	_feedback_revision += 1
 	_slow_timer = 0.0
 	_stagger_timer = 0.0
+	_burn_ticks_applied = 0
 	_status_text = "READY"
 	queue_redraw()
+
+
+func qa_state() -> Dictionary:
+	return {
+		"label": target_label,
+		"kind": target_kind,
+		"health": health,
+		"max_health": max_health,
+		"position": {"x": global_position.x, "y": global_position.y},
+		"home_x": _home_x,
+		"velocity": {"x": velocity.x, "y": velocity.y},
+		"slow_timer": _slow_timer,
+		"stagger_timer": _stagger_timer,
+		"burn_ticks_applied": _burn_ticks_applied,
+		"last_damage_pattern": last_damage_pattern,
+		"last_damage_direction": {"x": last_damage_direction.x, "y": last_damage_direction.y},
+		"visible": visible,
+	}
 
 
 func set_arena_position(arena_position: Vector2) -> void:

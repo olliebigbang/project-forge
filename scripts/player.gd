@@ -2,20 +2,30 @@ class_name ForgePlayer
 extends CharacterBody2D
 
 signal attack_requested(spec: WeaponSpec, origin: Vector2, direction: Vector2, strokes: Array[PackedVector2Array])
+## Emitted whenever player health changes.
+signal health_changed(current: int, maximum: int)
+## Emitted after non-zero combat damage is applied.
+signal damaged(amount: int, current: int)
+## Emitted once when health reaches zero.
+signal died
 
 const MOVE_SPEED := 310.0
 const WEAPON_REST_POSITION := Vector2(18.0, -12.0)
 const MAX_BUFFERED_ATTACKS := 1
+const MAX_HEALTH := 100
 
-var touch_axis := 0.0
-var facing := 1.0
+var touch_axis: float = 0.0
+var facing: float = 1.0
 var current_spec: WeaponSpec
 var current_strokes: Array[PackedVector2Array] = []
 var current_geometry_profile: DrawingGeometryProfile
-var attack_cooldown := 0.0
-var combat_enabled := true
-var movement_bounds := Vector2(80.0, 1200.0)
+var current_role_profile: WeaponRoleProfile
+var attack_cooldown: float = 0.0
+var combat_enabled: bool = true
+var movement_bounds: Vector2 = Vector2(80.0, 1200.0)
 var weapon_visual: WeaponVisual
+var health: int = MAX_HEALTH
+var is_dead: bool = false
 var _attack_tween: Tween
 var _attack_generation := 0
 var _attack_buffered := false
@@ -24,11 +34,17 @@ var _melee_attack_facing := 0.0
 var _detached_visual_count := 0
 var _detached_generation := 0
 var _diagnostic_label_visible := true
+var _movement_locked := false
+var _movement_lock_reason := "none"
+var _movement_lock_generation := 0
+var _last_attack_movement_locked_during_startup := false
+var _attack_request_count := 0
+var _last_attack_request_outcome := "none"
 
 
 func _ready() -> void:
 	collision_layer = 1
-	collision_mask = 0
+	collision_mask = 8
 	var shape := CollisionShape2D.new()
 	var body_shape := CapsuleShape2D.new()
 	body_shape.radius = 22.0
@@ -41,26 +57,36 @@ func _ready() -> void:
 	weapon_visual.z_index = 2
 	add_child(weapon_visual)
 	queue_redraw()
+	health_changed.emit(health, MAX_HEALTH)
 
 
 func _physics_process(delta: float) -> void:
 	attack_cooldown = maxf(attack_cooldown - delta, 0.0)
+	if not combat_enabled or is_dead:
+		# Tweens and cooldown cleanup continue independently, but a locked player
+		# must not sample movement input or enter body motion.
+		velocity = Vector2.ZERO
+		weapon_visual.scale = Vector2(_visual_facing(), 1.0)
+		return
 	if (
 		attack_cooldown <= 0.0
 		and _attack_buffered
 		and is_zero_approx(_melee_attack_facing)
 	):
 		_attack_buffered = false
+		_last_attack_request_outcome = "buffer_drained"
 		_start_attack()
 	var keyboard_axis := Input.get_axis("move_left", "move_right")
 	var axis := clampf(keyboard_axis + touch_axis, -1.0, 1.0)
+	if _movement_locked:
+		axis = 0.0
 	velocity = Vector2(axis * MOVE_SPEED, 0.0)
 	if absf(axis) > 0.05 and is_zero_approx(_melee_attack_facing):
 		facing = signf(axis)
 	move_and_slide()
 	global_position.x = clampf(global_position.x, movement_bounds.x, movement_bounds.y)
 	weapon_visual.scale = Vector2(_visual_facing(), 1.0)
-	if combat_enabled and Input.is_action_just_pressed("attack"):
+	if Input.is_action_just_pressed("attack"):
 		attack()
 
 
@@ -72,6 +98,7 @@ func equip(
 	_attack_generation += 1
 	current_spec = spec
 	current_geometry_profile = geometry_profile
+	current_role_profile = WeaponRoleProfile.derive(spec, geometry_profile)
 	attack_cooldown = 0.0
 	_attack_buffered = false
 	current_strokes.clear()
@@ -86,10 +113,47 @@ func set_touch_axis(value: float) -> void:
 
 
 func set_combat_enabled(value: bool) -> void:
-	combat_enabled = value
+	combat_enabled = value and not is_dead
 	if not combat_enabled:
 		set_touch_axis(0.0)
 		_attack_buffered = false
+		_release_movement_lock()
+		velocity = Vector2.ZERO
+
+
+func take_damage(amount: int) -> int:
+	if is_dead or not combat_enabled or amount <= 0:
+		return 0
+	var actual: int = mini(amount, health)
+	health -= actual
+	damaged.emit(actual, health)
+	health_changed.emit(health, MAX_HEALTH)
+	queue_redraw()
+	if health == 0:
+		is_dead = true
+		set_combat_enabled(false)
+		died.emit()
+	return actual
+
+
+func reset_health() -> void:
+	health = MAX_HEALTH
+	is_dead = false
+	health_changed.emit(health, MAX_HEALTH)
+	queue_redraw()
+
+
+func qa_combat_state() -> Dictionary:
+	return {
+		"health": health,
+		"max_health": MAX_HEALTH,
+		"is_dead": is_dead,
+		"combat_enabled": combat_enabled,
+		"position": {"x": global_position.x, "y": global_position.y},
+		"velocity": {"x": velocity.x, "y": velocity.y},
+		"collision_layer": collision_layer,
+		"collision_mask": collision_mask,
+	}
 
 
 func set_diagnostic_label_visible(value: bool) -> void:
@@ -98,14 +162,27 @@ func set_diagnostic_label_visible(value: bool) -> void:
 
 
 func attack() -> void:
-	if not combat_enabled or current_spec == null:
+	_attack_request_count += 1
+	if not combat_enabled:
+		_last_attack_request_outcome = "blocked_combat_disabled"
+		return
+	if current_spec == null:
+		_last_attack_request_outcome = "blocked_missing_spec"
+		return
+	var role_profile := _active_role_profile()
+	if role_profile != null and role_profile.role_id == "boomerang" and _detached_visual_count > 0:
+		_last_attack_request_outcome = "blocked_detached_boomerang"
 		return
 	if attack_cooldown > 0.0 or not is_zero_approx(_melee_attack_facing):
 		if _is_held_melee():
 			# A boolean is the complete one-slot queue: repeated taps while busy
 			# cannot create overlapping hit windows or an unbounded attack burst.
 			_attack_buffered = true
+			_last_attack_request_outcome = "buffered"
+		else:
+			_last_attack_request_outcome = "blocked_cooldown"
 		return
+	_last_attack_request_outcome = "started"
 	_start_attack()
 
 
@@ -118,48 +195,42 @@ func _start_attack() -> void:
 	_accepted_attack_count += 1
 	_attack_generation += 1
 	var generation := _attack_generation
+	_last_attack_movement_locked_during_startup = false
 	if current_spec.delivery == "held" and current_spec.attack_pattern == "melee_slash":
 		_play_melee_attack_motion(generation, direction)
 		return
-	_restore_weapon_pose()
-	_emit_attack(generation, direction)
+	_play_role_attack_motion(generation, direction)
 
 
 func attack_cycle_seconds() -> float:
 	if current_spec == null:
 		return 0.0
-	var timing := _melee_combat_derived()
-	if timing != null:
-		return timing.cycle_seconds
-	var drawback_multiplier: float = {
-		"slow_recovery": 1.25, "self_stagger": 1.30, "cooldown_lock": 1.45
-	}.get(current_spec.drawback, 1.0)
-	return (1.0 / maxf(current_spec.attack_speed, 0.2)) * drawback_multiplier
+	var role_profile := _active_role_profile()
+	return role_profile.cycle_seconds if role_profile != null else 1.0 / maxf(current_spec.attack_speed, 0.2)
 
 
 func attack_hit_delay_seconds() -> float:
-	var timing := _melee_combat_derived()
-	if timing != null:
-		return timing.hit_delay_seconds
-	return attack_startup_seconds() + attack_active_seconds() * CombatDerived.ACTIVE_HIT_FRACTION
+	var role_profile := _active_role_profile()
+	return role_profile.commit_delay_seconds if role_profile != null else attack_startup_seconds()
 
 
 func attack_startup_seconds() -> float:
-	var timing := _melee_combat_derived()
-	return timing.startup_seconds if timing != null else attack_cycle_seconds() * 0.25
+	var role_profile := _active_role_profile()
+	return role_profile.startup_seconds if role_profile != null else attack_cycle_seconds() * 0.25
 
 
 func attack_active_seconds() -> float:
-	var timing := _melee_combat_derived()
-	return timing.active_seconds if timing != null else attack_cycle_seconds() * 0.21
+	var role_profile := _active_role_profile()
+	return role_profile.active_seconds if role_profile != null else attack_cycle_seconds() * 0.21
 
 
 func attack_recovery_seconds() -> float:
-	var timing := _melee_combat_derived()
-	return timing.recovery_seconds if timing != null else maxf(attack_cycle_seconds() - attack_startup_seconds() - attack_active_seconds(), 0.0)
+	var role_profile := _active_role_profile()
+	return role_profile.recovery_seconds if role_profile != null else maxf(attack_cycle_seconds() - attack_startup_seconds() - attack_active_seconds(), 0.0)
 
 
 func _emit_attack(generation: int, direction: Vector2) -> void:
+	_release_movement_lock(generation)
 	if generation != _attack_generation or current_spec == null or not combat_enabled:
 		return
 	var bundle := WeaponVisualBundle.from_spec(current_spec)
@@ -191,6 +262,30 @@ func _play_melee_attack_motion(generation: int, direction: Vector2) -> void:
 	_attack_tween.tween_callback(_restore_weapon_pose)
 
 
+func _play_role_attack_motion(generation: int, direction: Vector2) -> void:
+	if _attack_tween and _attack_tween.is_valid():
+		_attack_tween.kill()
+	_restore_weapon_pose()
+	var attack_facing := signf(direction.x)
+	var role_profile := _active_role_profile()
+	if role_profile != null and role_profile.movement_locked_during_startup:
+		_movement_locked = true
+		_movement_lock_reason = "piercing_startup"
+		_movement_lock_generation = generation
+		_last_attack_movement_locked_during_startup = true
+		velocity.x = 0.0
+	_attack_tween = create_tween()
+	_attack_tween.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
+	_attack_tween.tween_property(weapon_visual, "rotation", -0.20 * attack_facing, attack_startup_seconds())
+	_attack_tween.tween_callback(func() -> void: _emit_attack(generation, direction))
+	_attack_tween.tween_property(weapon_visual, "rotation", 0.10 * attack_facing, attack_active_seconds())
+	_attack_tween.tween_property(weapon_visual, "rotation", 0.0, attack_recovery_seconds())
+	_attack_tween.tween_callback(func() -> void:
+		if generation == _attack_generation:
+			_restore_weapon_pose()
+	)
+
+
 func begin_detached_weapon_attack() -> void:
 	_detached_visual_count += 1
 	_detached_generation += 1
@@ -212,6 +307,8 @@ func complete_detached_weapon_attack() -> void:
 func restore_held_weapon_now() -> void:
 	_attack_generation += 1
 	_attack_buffered = false
+	if _attack_tween and _attack_tween.is_valid():
+		_attack_tween.kill()
 	_detached_generation += 1
 	_detached_visual_count = 0
 	if is_instance_valid(weapon_visual):
@@ -235,6 +332,12 @@ func held_visual_state() -> Dictionary:
 		"attack_buffered": _attack_buffered,
 		"max_buffered_attacks": MAX_BUFFERED_ATTACKS,
 		"accepted_attack_count": _accepted_attack_count,
+		"attack_request_count": _attack_request_count,
+		"last_attack_request_outcome": _last_attack_request_outcome,
+		"movement_locked": _movement_locked,
+		"movement_lock_reason": _movement_lock_reason,
+		"movement_lock_generation": _movement_lock_generation,
+		"last_attack_movement_locked_during_startup": _last_attack_movement_locked_during_startup,
 		"visible_reach": bounds.position.x + bounds.size.x,
 		"fitted_bounds": {
 			"x": bounds.position.x,
@@ -254,16 +357,46 @@ func held_visual_state() -> Dictionary:
 		"attack_facing": _melee_attack_facing,
 		"visual_facing": _visual_facing(),
 		"geometry_profile": current_geometry_profile.to_dict() if current_geometry_profile != null else {},
+		"weapon_role": weapon_role_state(),
 	}
 
 
+func weapon_role_state() -> Dictionary:
+	var role_profile := _active_role_profile()
+	return role_profile.to_dict() if role_profile != null else {}
+
+
+func reset_qa_attack_state() -> void:
+	restore_held_weapon_now()
+	attack_cooldown = 0.0
+	_accepted_attack_count = 0
+	_last_attack_movement_locked_during_startup = false
+
+
+func _active_role_profile() -> WeaponRoleProfile:
+	if current_role_profile == null and current_spec != null:
+		current_role_profile = WeaponRoleProfile.derive(current_spec, current_geometry_profile)
+	return current_role_profile
+
+
 func _restore_weapon_pose() -> void:
+	_release_movement_lock()
 	if not is_instance_valid(weapon_visual):
 		return
 	_melee_attack_facing = 0.0
 	weapon_visual.position = WEAPON_REST_POSITION
 	weapon_visual.rotation = 0.0
 	weapon_visual.scale = Vector2(facing, 1.0)
+
+
+func _release_movement_lock(generation: int = -1) -> bool:
+	if generation >= 0 and _movement_lock_generation != generation:
+		return false
+	var was_locked := _movement_locked
+	_movement_locked = false
+	_movement_lock_reason = "none"
+	_movement_lock_generation = 0
+	return was_locked
 
 
 func _visual_facing() -> float:
@@ -296,7 +429,8 @@ func _draw() -> void:
 	draw_circle(Vector2(0, -43), 18.0, Color("#ffd6a3"))
 	draw_circle(Vector2(-6, -47), 2.5, Color("#172033"))
 	draw_circle(Vector2(6, -47), 2.5, Color("#172033"))
-	draw_rect(Rect2(-20, -25, 40, 58), Color("#4f7cff"), true)
+	var body_color: Color = Color("#31415f") if is_dead else Color("#4f7cff")
+	draw_rect(Rect2(-20, -25, 40, 58), body_color, true)
 	draw_line(Vector2(-8, 32), Vector2(-15, 53), Color("#dce8ff"), 8.0, true)
 	draw_line(Vector2(8, 32), Vector2(15, 53), Color("#dce8ff"), 8.0, true)
 	draw_line(Vector2(-16, -12), Vector2(-32, 6), Color("#ffd6a3"), 7.0, true)

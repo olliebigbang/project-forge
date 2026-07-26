@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased — Weapon Physics B1.5 accepted candidate
+
+### Added
+
+- Internal deterministic weapon-role profiles for short/standard/long melee,
+  straight ranged, thrown blast, boomerang and piercing, plus an explicit
+  `direct_blast` compatibility audit path.
+- Provider-free seven-role plus `direct_blast`, four-target, mobile-viewport and
+  entry-path regression coverage.
+
+### Changed
+
+- Non-melee startup now controls the real projectile or blast commit time.
+- Bow remains mobile, stops at the first body and retains frontal shield
+  reduction.
+- Piercing now pays a materially longer charge/cycle, locks horizontal movement
+  only during startup, restores movement at projectile commit, and applies
+  deterministic 100%/70%/45% damage to at most three bodies while bypassing
+  shields. Its retained 7 px collision path is diagnostic, not the primary
+  player-facing cost.
+- Boomerang enforces bounded per-target outbound/return hits, blocks overlapping
+  detached launches, and uses the clear `LOCKED UNTIL RETURN` HUD label.
+- Developer QA can isolate and reset stationary, moving, shield and grouped
+  targets with attributed damage events.
+
+### Status
+
+- **CONFIRMED:** integrated PR #12 HEAD `1365f0d` passes 1,187 Godot assertions,
+  Worker/security checks, Web/Sites builds, Chromium and functional WebKit
+  strategy/mobile gates.
+- **CONFIRMED:** Sites Version 29 passed product-owner physical iPhone Safari
+  acceptance on 2026-07-27.
+- Stable merge, main deployment, tag and rollback verification remain release
+  closeout steps. PR #11 and Sites v26 are retained superseded evidence.
+
 ## v0.3.0-weapon-physics-b1 — 2026-07-22
 
 ### Added

@@ -27,6 +27,7 @@ func compile(
 	var spec := WeaponSpec.from_dict(balanced.values)
 	spec.corrections.assign(balanced.corrections)
 	spec.budget_breakdown = balanced.after.duplicate(true)
+	var role_profile := WeaponRoleProfile.derive(spec)
 	last_record = {
 		"timestamp_unix": int(Time.get_unix_time_from_system()),
 		"mode": "deterministic_private_m1b1" if privacy_mode else "deterministic_mock_m1a",
@@ -35,6 +36,9 @@ func compile(
 		"weapon_spec": spec.to_dict(),
 		"budget_before": balanced.before,
 		"budget_after": balanced.after,
+		"weapon_role": role_profile.to_dict(),
+		"role_profile": role_profile.to_dict(),
+		"role_audit": role_profile.audit_reasons.duplicate(),
 		"corrections": spec.corrections,
 		"fallback_reason": fallback_reason,
 		"runtime_valid": _is_runtime_valid(spec, balanced),
@@ -57,12 +61,16 @@ func compile_raw(raw: Dictionary) -> WeaponSpec:
 	var spec := WeaponSpec.from_dict(balanced.values)
 	spec.corrections.assign(balanced.corrections)
 	spec.budget_breakdown = balanced.after.duplicate(true)
+	var role_profile := WeaponRoleProfile.derive(spec)
 	last_record = {
 		"mode": "deterministic_raw_repair",
 		"raw_spec": raw,
 		"weapon_spec": spec.to_dict(),
 		"budget_before": balanced.before,
 		"budget_after": balanced.after,
+		"weapon_role": role_profile.to_dict(),
+		"role_profile": role_profile.to_dict(),
+		"role_audit": role_profile.audit_reasons.duplicate(),
 		"corrections": spec.corrections,
 		"runtime_valid": _is_runtime_valid(spec, balanced),
 	}
@@ -128,7 +136,7 @@ func _detect_pattern(text: String) -> String:
 
 
 func _detect_weapon_form(text: String) -> String:
-	if _contains_any(text, ["grenade", "throwing bomb", "hand bomb"]): return "grenade"
+	if _contains_any(text, ["grenade", "throwing bomb", "hand bomb", "手榴弹", "手雷"]): return "grenade"
 	if _contains_any(text, ["boomerang", "returning crescent"]): return "boomerang"
 	if _contains_any(text, ["bow", "longbow", "shortbow"]): return "bow"
 	if _contains_any(text, ["spear", "javelin", "lance"]): return "spear"

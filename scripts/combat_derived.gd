@@ -1,15 +1,17 @@
 class_name CombatDerived
 extends RefCounted
 
-# B1 round-two controlled handling curve. These reach/cycle anchors are joined
-# with smoothstep interpolation, so cadence is bounded and nonlinear rather
-# than a raw inverse of reach. Values remain TO VALIDATE on physical hardware.
+# B1/B1.5 bounded exposure candidate. These reach/cycle anchors are joined with
+# smoothstep interpolation, so cadence remains one bounded nonlinear authority
+# rather than a raw inverse of reach or a role-specific timing override. Values
+# pass the C0 Chromium/WebKit strategy matrix and remain TO VALIDATE on physical
+# hardware.
 const REACH_CYCLE_ANCHORS := [
-	Vector2(72.0, 0.38),
-	Vector2(92.0, 0.64),
-	Vector2(120.0, 0.95),
-	Vector2(199.0, 1.54),
-	Vector2(228.0, 1.68),
+	Vector2(72.0, 0.50),
+	Vector2(92.0, 0.60),
+	Vector2(120.0, 0.71),
+	Vector2(199.0, 0.95),
+	Vector2(228.0, 1.01),
 ]
 const MASS_CYCLE_MULTIPLIERS := {"light": 0.78, "balanced": 1.0, "heavy": 1.14}
 const MIN_CYCLE_SECONDS := 0.25

@@ -31,6 +31,10 @@ assets, balance data, or development direction from Cat Battle or another projec
   physical iPhone Safari acceptance on 2026-07-20 and are released.
 - Weapon Physics B1 release closure is complete. Do not start M1B2 from the
   B1 release or closeout branches, and do not move/delete any stable tag.
+- **CONFIRMED** Weapon Physics/Exposure B1.5 passed physical iPhone Safari
+  acceptance on 2026-07-27 using Sites Version 29 from PR #12 HEAD `1365f0d`.
+  Release closure is in progress; do not start B2, M1B2, cadence, grenade-charge,
+  or belt-combat implementation from the closure branch.
 - **CONFIRMED** Current stable runtime delivery was built from `main` at `2c7b8f5`, tag
   `v0.3.0-weapon-physics-b1`, and Sites Version 25. Sites Version 23 plus
   `v0.2.1-m1b1.2` are the direct rollback pair.
@@ -60,15 +64,23 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
   cadence acceptance, PR #7, CI, merge, stable deployment, production smoke,
   stable tag, and rollback verification completed on 2026-07-22.
 
-## Next milestone boundary
+## Current release-closure scope: Weapon Physics B1.5
 
-- **TBD / TO VALIDATE:** the product owner has not authorized the next gameplay
-  milestone. Earlier B1.5 and B2 proposals remain roadmap candidates only.
+- **CONFIRMED:** the product owner authorized the isolated Weapon Physics B1.5
+  role-balance milestone on 2026-07-23. Its executable contract is
+  `docs/WEAPON_ROLE_BALANCE_B1_5_ACCEPTANCE.md`; GitHub Issue #10 and branch
+  `codex/feat/weapon-role-balance-b1-5` own the implementation.
+- B1.5 validates deterministic roles for short/standard/long melee, straight
+  ranged, thrown blast, boomerang and piercing. Every role needs an executed
+  advantage and cost; equal raw DPS is not the target.
 - Existing M1B1 AI remains stable and may select only allow-listed semantics.
   Local deterministic code owns numeric physics. Do not expand the public Schema
   until the controlled physicality experiments establish required fields.
-- Do not start B1.5, B2, or M1B2 without a new product-owner decision and a new
-  issue, branch, and isolated worktree from current `origin/main`.
+- Do not start B2 or M1B2, and do not add contact-region or visual-understanding
+  semantics, during B1.5.
+- The physical-device gate is closed. Only final PR gates, merge, main rebuild,
+  stable deployment smoke, tag, rollback verification, and knowledge closeout
+  are authorized before selecting another gameplay milestone.
 
 ## Preserved M1B1 boundaries
 
@@ -142,6 +154,9 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
   `v0.2.0-m1b1` and `v0.1.0-m1a` remain retained.
 - Completed B1 branch: `codex/feat/weapon-physics-b1` (merged PR #7; retained
   until cleanup is separately approved).
+- Accepted B1.5 integration branch: `codex/fix/b1-5-iphone-input-viewport`
+  (Draft PR #12, HEAD `1365f0d`; physical-iPhone accepted, release closeout in
+  progress). PR #11 and its branch remain retained superseded evidence.
 - Stable B1 tag: `v0.3.0-weapon-physics-b1`; retained rollback tag:
   `v0.2.1-m1b1.2`.
 - Compact Landscape uses CSS `visualViewport` dimensions; do not size mobile

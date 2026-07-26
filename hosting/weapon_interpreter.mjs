@@ -135,11 +135,11 @@ const PATTERN_KEYWORDS = Object.freeze({
 });
 
 const WEAPON_FORM_KEYWORDS = Object.freeze({
-  grenade: ["grenade", "throwing bomb", "hand bomb"],
-  boomerang: ["boomerang", "bomerang", "returning crescent"],
-  bow: ["bow", "longbow", "shortbow"],
-  spear: ["spear", "javelin", "lance"],
-  sword: ["sword", "blade", "katana", "sabre", "saber"],
+  grenade: ["grenade", "throwing bomb", "hand bomb", "手榴弹", "手雷"],
+  boomerang: ["boomerang", "bomerang", "returning crescent", "回旋镖", "回力镖"],
+  bow: ["bow", "longbow", "shortbow", "弓箭", "弓"],
+  spear: ["spear", "javelin", "lance", "长矛", "标枪"],
+  sword: ["sword", "blade", "katana", "sabre", "saber", "剑", "刀"],
 });
 
 const ELEMENT_KEYWORDS = Object.freeze({
@@ -555,6 +555,20 @@ function semanticIntentToRaw(intent, request) {
     if (element) corrections.push("interpretation: unsupported element repaired");
     element = request.supported_elements.includes("normal") ? "normal" : request.supported_elements[0];
     fallbackReason ||= "provider_output_repaired";
+  }
+  const explicitElementCorrections = [];
+  const explicitElement = detectElement(
+    request.description.toLowerCase(),
+    request.supported_elements,
+    explicitElementCorrections,
+  );
+  if (
+    explicitElementCorrections.length === 0
+    && explicitElement !== "normal"
+    && element !== explicitElement
+  ) {
+    corrections.push(`interpretation: explicit ${explicitElement} element restored`);
+    element = explicitElement;
   }
   const raw = baseProfile(pattern);
   Object.assign(raw, semantics);

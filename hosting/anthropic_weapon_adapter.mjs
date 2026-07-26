@@ -49,6 +49,7 @@ const SYSTEM_PROMPT = [
   "Select exactly one allowed attack pattern and one allowed element by meaning.",
   "Classify weapon form, delivery, trajectory, impact timing, and area effect independently from the attack pattern.",
   "A grenade is always weapon_form=grenade, delivery=thrown, trajectory=arc, impact=delayed_or_contact, area_effect=explosion, attack_pattern=area_blast. Area blast describes only the landing effect; it never replaces the thrown flight.",
+  "Classify explicit Chinese weapon and element terms with the same rules: 手榴弹 is a grenade; 弓 or 弓箭 is a bow; 剑 is a sword; 回旋镖 is a boomerang; 长矛 is a spear; 冰 or 冰冻 means ice; 火 or 火焰 means fire; 电, 闪电, or 雷 means electric.",
   "A bow is weapon_form=bow, delivery=projectile, trajectory=direct, impact=contact, area_effect=none, attack_pattern=straight_projectile.",
   "A sword is held melee; a boomerang is thrown with a returning trajectory; a spear or javelin is a direct piercing projectile for this test compiler.",
   "Resolve attack-pattern cues in this order: an explicitly returning attack is boomerang; an attack that pierces, penetrates, or passes through shields or multiple targets is piercing; an explicit explosion, shockwave, area, or crowd attack is area_blast; a one-way fired or launched attack is straight_projectile; otherwise a hand-held contact attack is melee_slash.",

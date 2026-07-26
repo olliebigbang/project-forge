@@ -180,6 +180,52 @@ test("grenade, bow, sword, boomerang and spear retain form and delivery semantic
   }
 });
 
+test("explicit Chinese grenade and ice cues repair a conflicting provider classification", async () => {
+  const request = requestFor(matrix[0], "chinese-grenade-repair");
+  request.description = "冰冻手榴弹";
+  request.locale = "zh-CN";
+  const conflictingAdapter = {
+    provider: "anthropic",
+    model: "claude-haiku-4-5-20251001",
+    supportsAbort: true,
+    async interpret() {
+      return {
+        intent: {
+          weapon_form: "generic",
+          delivery: "held",
+          trajectory: "direct",
+          impact: "contact",
+          area_effect: "explosion",
+          attack_pattern: "area_blast",
+          element: "normal",
+          special_ability: "splash_wave",
+          status_effect: "none",
+          drawback: "cooldown_lock",
+          confidence: "medium",
+        },
+        confidence: 0.65,
+        corrections: [],
+        provider_metadata: {
+          provider: "anthropic",
+          model: "claude-haiku-4-5-20251001",
+        },
+      };
+    },
+  };
+  const result = await compileWeapon(request, { adapter: conflictingAdapter });
+  assert.equal(result.success, true);
+  assert.equal(result.provider_invoked, true);
+  assert.equal(result.weapon_spec.weapon_form, "grenade");
+  assert.equal(result.weapon_spec.delivery, "thrown");
+  assert.equal(result.weapon_spec.trajectory, "arc");
+  assert.equal(result.weapon_spec.impact, "delayed_or_contact");
+  assert.equal(result.weapon_spec.area_effect, "explosion");
+  assert.equal(result.weapon_spec.attack_pattern, "area_blast");
+  assert.equal(result.weapon_spec.element, "ice");
+  assert.ok(result.corrections.some((item) => item.includes("explicit grenade form restored")));
+  assert.ok(result.corrections.some((item) => item.includes("explicit ice element restored")));
+});
+
 test("thrown arc explosion pays explicit deterministic PowerBudget costs", async () => {
   const request = requestFor(matrix[0], "grenade-budget");
   request.description = "a thrown grenade that explodes on contact";

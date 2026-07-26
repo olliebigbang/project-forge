@@ -1,0 +1,194 @@
+{
+  "milestone": "Weapon Physics B1.5",
+  "status": "TO VALIDATE",
+  "authority": "GitHub Issue #10",
+  "scenario_order": ["stationary", "moving", "shield", "group"],
+  "role_cases": [
+    {
+      "id": "short-melee-normal",
+      "role_id": "short_melee",
+      "description": "a plain steel short sword",
+      "attack_pattern": "melee_slash",
+      "weapon_form": "sword",
+      "element": "normal",
+      "geometry": {"normalized_span": 0.18, "cross_axis_load": 0.05, "mass_profile": "light"},
+      "advantages": ["fast_cadence"],
+      "costs": ["short_reach", "close_exposure"],
+      "scenarios": {
+        "stationary": {"evidence": ["damage", "cycle_seconds", "effective_reach"]},
+        "moving": {"evidence": ["hit_count", "miss_or_exposure_risk"]},
+        "shield": {"evidence": ["actual_damage", "shield_reduction"]},
+        "group": {"evidence": ["targets_hit", "total_damage"], "max_targets_hit": 1}
+      }
+    },
+    {
+      "id": "standard-melee-normal",
+      "role_id": "standard_melee",
+      "description": "a plain steel sword",
+      "attack_pattern": "melee_slash",
+      "weapon_form": "sword",
+      "element": "normal",
+      "geometry": {"normalized_span": 0.407692, "cross_axis_load": 0.14, "mass_profile": "balanced"},
+      "advantages": ["balanced_reach"],
+      "costs": ["melee_exposure"],
+      "scenarios": {
+        "stationary": {"evidence": ["damage", "cycle_seconds", "effective_reach"]},
+        "moving": {"evidence": ["hit_count", "miss_or_exposure_risk"]},
+        "shield": {"evidence": ["actual_damage", "shield_reduction"]},
+        "group": {"evidence": ["targets_hit", "total_damage"], "max_targets_hit": 1}
+      }
+    },
+    {
+      "id": "long-melee-normal",
+      "role_id": "long_melee",
+      "description": "a plain steel sword",
+      "attack_pattern": "melee_slash",
+      "weapon_form": "sword",
+      "element": "normal",
+      "geometry": {"normalized_span": 0.782436, "cross_axis_load": 0.28, "mass_profile": "heavy"},
+      "advantages": ["long_reach"],
+      "costs": ["slow_recovery", "slow_cadence"],
+      "scenarios": {
+        "stationary": {"evidence": ["damage", "cycle_seconds", "effective_reach"]},
+        "moving": {"evidence": ["hit_count", "miss_or_exposure_risk"]},
+        "shield": {"evidence": ["actual_damage", "shield_reduction"]},
+        "group": {"evidence": ["targets_hit", "total_damage"], "max_targets_hit": 1}
+      }
+    },
+    {
+      "id": "bow-straight-normal",
+      "role_id": "straight_ranged",
+      "description": "a wooden bow firing arrows",
+      "attack_pattern": "straight_projectile",
+      "weapon_form": "bow",
+      "element": "normal",
+      "geometry": {"normalized_span": 0.42, "cross_axis_load": 0.14, "mass_profile": "balanced"},
+      "advantages": ["ranged_safety", "fast_projectile"],
+      "costs": ["low_impact", "first_body_stop"],
+      "player_hud_weakness": "FIRST TARGET / SHIELD-BLOCKED",
+      "scenarios": {
+        "stationary": {"evidence": ["damage", "travel_seconds", "cycle_seconds"]},
+        "moving": {"evidence": ["hit_count", "projectile_speed", "miss_or_exposure_risk"]},
+        "shield": {"evidence": ["actual_damage", "shield_reduction"]},
+        "group": {"evidence": ["targets_hit", "total_damage"], "max_targets_hit": 1}
+      }
+    },
+    {
+      "id": "grenade-area-normal",
+      "role_id": "thrown_blast",
+      "description": "a thrown grenade that explodes after landing",
+      "attack_pattern": "area_blast",
+      "weapon_form": "grenade",
+      "element": "normal",
+      "validated_overrides": {
+        "name": "Ink Arc Grenade",
+        "weapon_class": "ranged",
+        "weapon_form": "grenade",
+        "delivery": "thrown",
+        "trajectory": "arc",
+        "impact": "delayed_or_contact",
+        "area_effect": "explosion",
+        "attack_pattern": "area_blast",
+        "element": "normal",
+        "damage": 34,
+        "attack_speed": 0.7,
+        "range": 220.0,
+        "special_ability": "splash_wave",
+        "status_effect": "none",
+        "drawback": "cooldown_lock",
+        "visual_material": "forged_metal",
+        "power_score": 1,
+        "projectile_speed": 560.0,
+        "area_radius": 165.0,
+        "pierce_count": 1,
+        "return_speed": 680.0
+      },
+      "geometry": {"normalized_span": 0.28, "cross_axis_load": 0.24, "mass_profile": "heavy"},
+      "advantages": ["group_damage", "shield_bypass"],
+      "costs": ["impact_delay", "cooldown_lock", "lower_single_target_value"],
+      "scenarios": {
+        "stationary": {"evidence": ["damage", "impact_delay_seconds", "cycle_seconds"]},
+        "moving": {"evidence": ["hit_count", "travel_seconds", "miss_or_exposure_risk"]},
+        "shield": {"evidence": ["actual_damage", "shield_bypass"]},
+        "group": {"evidence": ["targets_hit", "total_damage", "area_radius"], "min_targets_hit": 2}
+      }
+    },
+    {
+      "id": "boomerang-normal",
+      "role_id": "boomerang",
+      "description": "a returning boomerang",
+      "attack_pattern": "boomerang",
+      "weapon_form": "boomerang",
+      "element": "normal",
+      "geometry": {"normalized_span": 0.42, "cross_axis_load": 0.14, "mass_profile": "balanced"},
+      "advantages": ["return_strike", "return_shield_bypass"],
+      "costs": ["self_stagger", "return_commitment"],
+      "player_hud_weakness": "LOCKED UNTIL RETURN",
+      "scenarios": {
+        "stationary": {"evidence": ["outbound_hits", "return_hits", "cycle_seconds"]},
+        "moving": {"evidence": ["hit_count", "return_seconds", "miss_or_exposure_risk"]},
+        "shield": {"evidence": ["outbound_damage", "return_damage", "return_shield_bypass"]},
+        "group": {"evidence": ["targets_hit", "total_damage", "path_phases"]}
+      }
+    },
+    {
+      "id": "piercing-normal",
+      "role_id": "piercing",
+      "description": "a spear that pierces shields and enemies",
+      "attack_pattern": "piercing",
+      "weapon_form": "spear",
+      "element": "normal",
+      "geometry": {"normalized_span": 0.58, "cross_axis_load": 0.08, "mass_profile": "balanced"},
+      "advantages": ["shield_bypass", "multi_body_value"],
+      "costs": ["charge_commitment", "damage_decay", "pierce_limit"],
+      "player_hud_weakness": "CHARGE COMMITMENT / DAMAGE DECAY",
+      "damage_oracle": {
+        "base_damage": 29,
+        "multipliers": [1.0, 0.7, 0.45],
+        "actual_damage": [29, 20, 13],
+        "rounding": "nearest_integer_half_up",
+        "max_targets_hit": 3,
+        "fourth_target_damage": 0
+      },
+      "movement_oracle": {
+        "policy": "horizontal_during_startup",
+        "locked_phase": "startup",
+        "restored_phase": "post_commit"
+      },
+      "scenarios": {
+        "stationary": {"evidence": ["damage", "travel_seconds", "cycle_seconds"]},
+        "moving": {"evidence": ["hit_count", "projectile_speed", "miss_or_exposure_risk"]},
+        "shield": {"evidence": ["actual_damage", "shield_bypass"]},
+        "group": {"evidence": ["targets_hit", "total_damage", "pierce_count"], "min_targets_hit": 2}
+      }
+    }
+  ],
+  "compatibility_cases": [
+    {
+      "id": "developer-direct-blast",
+      "role_id": "direct_blast",
+      "description": "a player centred area blast",
+      "attack_pattern": "area_blast",
+      "weapon_form": "generic",
+      "delivery": "held",
+      "trajectory": "direct",
+      "element": "normal",
+      "geometry": {"normalized_span": 0.42, "cross_axis_load": 0.14, "mass_profile": "balanced"},
+      "advantages": ["player_centred_group_radius"],
+      "costs": ["proximity", "cooldown"],
+      "scenarios": {
+        "stationary": {"evidence": ["damage", "cycle_seconds", "area_radius"]},
+        "moving": {"evidence": ["target_displacement", "hit_or_audited_miss"]},
+        "shield": {"evidence": ["actual_damage", "shield_bypass"]},
+        "group": {"evidence": ["targets_hit", "total_damage", "area_radius"], "min_targets_hit": 2}
+      }
+    }
+  ],
+  "element_execution_cases": [
+    {"id": "normal-melee", "description": "a normal sword", "attack_pattern": "melee_slash", "element": "normal"},
+    {"id": "fire-projectile", "description": "a fire bow firing arrows", "attack_pattern": "straight_projectile", "element": "fire"},
+    {"id": "ice-blast", "description": "an ice grenade blast", "attack_pattern": "area_blast", "element": "ice"},
+    {"id": "electric-boomerang", "description": "an electric returning boomerang", "attack_pattern": "boomerang", "element": "electric"},
+    {"id": "normal-piercing", "description": "a normal spear that pierces shields", "attack_pattern": "piercing", "element": "normal"}
+  ]
+}

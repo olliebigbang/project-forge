@@ -14,15 +14,26 @@ func _init() -> void:
 	_test_weapon_semantics()
 	_test_schema_runtime_parity()
 	_test_drawing_summary()
+	_test_c0_drawing_input_gate()
 	_test_stroke_fit()
 	_test_drawing_geometry_profiles()
+	_test_weapon_role_balance_matrix()
+	_test_role_entry_path_parity()
+	await _test_role_runtime_behavior_oracles()
+	await _test_piercing_bow_role_separation()
+	await _test_element_combat_effect_events()
 	_test_attack_pattern_touch_selector()
 	_test_mobile_layout_policy()
 	await _test_forge_reset_state()
 	await _test_weapon_interpreter_response_context()
 	_test_orientation_prompt_rule()
 	await _test_player_combat_gate()
+	_test_c0_player_health()
+	await _test_c0_terminal_and_collision_invariants()
+	_test_c0_enemy_state_machine()
+	_test_c0_comparison_gate()
 	await _test_rapid_melee_input_buffer()
+	await _test_nonlethal_hit_preserves_attack_input()
 	_test_target_rules()
 	var result := {"matrix_cases": _matrix_cases, "passed": _passed, "failed": _failed}
 	var output := FileAccess.open("user://m1a_test_results.json", FileAccess.WRITE)
@@ -186,6 +197,78 @@ func _test_drawing_summary() -> void:
 	var snapshot := canvas.get_strokes_snapshot()
 	snapshot[0][0] = Vector2(999, 999)
 	_expect(canvas.strokes[0][0] == Vector2(10, 20), "stroke snapshot does not mutate original canvas data")
+	canvas.queue_free()
+
+
+func _test_c0_drawing_input_gate() -> void:
+	var canvas := DrawingCanvas.new()
+	var empty_gate: Dictionary = canvas.forge_input_gate()
+	_expect(
+		not bool(empty_gate.get("accepted", true))
+		and str(empty_gate.get("code", "")) == "empty",
+		"C0 drawing gate rejects empty ink before compilation",
+	)
+
+	canvas.strokes = [PackedVector2Array([Vector2(40.0, 40.0)])]
+	var single_point_gate: Dictionary = canvas.forge_input_gate()
+	_expect(
+		not bool(single_point_gate.get("accepted", true))
+		and str(single_point_gate.get("code", "")) == "single_point"
+		and int(single_point_gate.get("point_count", 0)) == 1,
+		"C0 drawing gate rejects a one-point tap with an explicit reason",
+	)
+
+	canvas.strokes = [PackedVector2Array([
+		Vector2(40.0, 40.0),
+		Vector2(40.0, 40.0),
+	])]
+	var zero_length_gate: Dictionary = canvas.forge_input_gate()
+	_expect(
+		not bool(zero_length_gate.get("accepted", true))
+		and str(zero_length_gate.get("code", "")) == "zero_path_length"
+		and is_zero_approx(float(zero_length_gate.get("path_length", -1.0))),
+		"C0 drawing gate rejects a multi-point zero-length path",
+	)
+
+	canvas.strokes = [PackedVector2Array([
+		Vector2(40.0, 40.0),
+		Vector2(46.0, 40.0),
+	])]
+	var preserved_micro_stroke: PackedVector2Array = canvas.strokes[0].duplicate()
+	var micro_gate: Dictionary = canvas.forge_input_gate()
+	_expect(
+		not bool(micro_gate.get("accepted", true))
+		and str(micro_gate.get("code", "")) == "micro_tap"
+		and float(micro_gate.get("path_length", 100.0)) < DrawingCanvas.MIN_DRAWABLE_PATH_LENGTH,
+		"C0 drawing gate rejects a real sub-threshold micro stroke",
+	)
+	_expect(
+		canvas.strokes.size() == 1 and canvas.strokes[0] == preserved_micro_stroke,
+		"C0 input rejection never rewrites or discards preserved ink",
+	)
+
+	var accepted_fixtures: Array[PackedVector2Array] = [
+		PackedVector2Array([Vector2(40.0, 60.0), Vector2(54.0, 60.0)]),
+		PackedVector2Array([Vector2(40.0, 90.0), Vector2(240.0, 90.0)]),
+		PackedVector2Array([Vector2(30.0, 120.0), Vector2(590.0, 120.0)]),
+		PackedVector2Array([Vector2(50.0, 180.0), Vector2(230.0, 30.0)]),
+		PackedVector2Array([
+			Vector2(40.0, 170.0),
+			Vector2(100.0, 80.0),
+			Vector2(210.0, 50.0),
+			Vector2(320.0, 130.0),
+		]),
+	]
+	var fixture_names: Array[String] = ["natural short", "standard", "long", "rotated", "curved"]
+	for index: int in accepted_fixtures.size():
+		canvas.strokes = [accepted_fixtures[index]]
+		var accepted_gate: Dictionary = canvas.forge_input_gate()
+		_expect(
+			bool(accepted_gate.get("accepted", false))
+			and str(accepted_gate.get("code", "")) == "accepted"
+			and float(accepted_gate.get("path_length", 0.0)) >= DrawingCanvas.MIN_DRAWABLE_PATH_LENGTH,
+			"C0 drawing gate accepts the %s fixture" % fixture_names[index],
+		)
 	canvas.queue_free()
 
 
@@ -360,6 +443,23 @@ func _test_drawing_geometry_profiles() -> void:
 func _test_weapon_physics_b1_matrix(canvas_size: Vector2) -> void:
 	# These normalized spans reproduce the product owner's 1/4/8/16-grid
 	# physical-iPhone samples at Range 72/92/120/199.
+	var anchors: Array = CombatDerived.REACH_CYCLE_ANCHORS
+	var expected_anchor_reaches: Array[float] = [72.0, 92.0, 120.0, 199.0, 228.0]
+	var expected_anchor_cycles: Array[float] = [0.50, 0.60, 0.71, 0.95, 1.01]
+	_expect(anchors.size() == expected_anchor_reaches.size(), "B1/B1.5 cadence curve retains five bounded reach anchors")
+	for anchor_index: int in anchors.size():
+		var anchor: Vector2 = anchors[anchor_index]
+		_expect(
+			is_equal_approx(anchor.x, expected_anchor_reaches[anchor_index])
+			and is_equal_approx(anchor.y, expected_anchor_cycles[anchor_index]),
+			"B1/B1.5 cadence anchor %d matches the bounded exposure candidate" % anchor_index,
+		)
+		if anchor_index > 0:
+			var previous_anchor: Vector2 = anchors[anchor_index - 1]
+			_expect(
+				previous_anchor.x < anchor.x and previous_anchor.y < anchor.y,
+				"B1/B1.5 cadence anchors remain strictly increasing at %d" % anchor_index,
+			)
 	var spans := {"1_grid": 0.18, "4_grid": 0.274872, "8_grid": 0.407692, "16_grid": 0.782436}
 	var expected_reach_profiles := {
 		"1_grid": "ultra_short", "4_grid": "short", "8_grid": "standard", "16_grid": "long",
@@ -423,18 +523,68 @@ func _test_weapon_physics_b1_matrix(canvas_size: Vector2) -> void:
 	var eight_grid_balanced: DrawingGeometryProfile = matrix["8_grid"].balanced.profile
 	var sixteen_grid_balanced: DrawingGeometryProfile = matrix["16_grid"].balanced.profile
 	var slowest: DrawingGeometryProfile = matrix["16_grid"].heavy.profile
-	_expect(fastest.combat_derived.cycle_seconds >= 0.25 and fastest.combat_derived.cycle_seconds <= 0.40, "1-grid ultra-short/light cycle is inside the 0.25-0.40s candidate window")
-	_expect(four_grid_light.combat_derived.cycle_seconds >= 0.45 and four_grid_light.combat_derived.cycle_seconds <= 0.65, "4-grid short/light cycle is inside the 0.45-0.65s candidate window")
-	_expect(eight_grid_balanced.combat_derived.cycle_seconds >= 0.90 and eight_grid_balanced.combat_derived.cycle_seconds <= 1.20, "8-grid standard/balanced cycle is inside the 0.90-1.20s candidate window")
-	_expect(sixteen_grid_balanced.combat_derived.cycle_seconds >= 1.50 and sixteen_grid_balanced.combat_derived.cycle_seconds <= 2.0, "16-grid long/balanced cycle is inside the 1.50-2.00s candidate window")
-	_expect(slowest.combat_derived.cycle_seconds >= 1.50 and slowest.combat_derived.cycle_seconds <= 2.0, "16-grid long/heavy cycle is inside the 1.50-2.00s candidate window")
+	_expect(fastest.combat_derived.cycle_seconds >= 0.40 and fastest.combat_derived.cycle_seconds <= 0.46, "1-grid ultra-short/light cycle is inside the 0.40-0.46s exposure candidate window")
+	_expect(four_grid_light.combat_derived.cycle_seconds >= 0.49 and four_grid_light.combat_derived.cycle_seconds <= 0.54, "4-grid short/light cycle is inside the 0.49-0.54s exposure candidate window")
+	_expect(eight_grid_balanced.combat_derived.cycle_seconds >= 0.76 and eight_grid_balanced.combat_derived.cycle_seconds <= 0.80, "8-grid standard/balanced cycle is inside the 0.76-0.80s exposure candidate window")
+	_expect(sixteen_grid_balanced.combat_derived.cycle_seconds >= 1.02 and sixteen_grid_balanced.combat_derived.cycle_seconds <= 1.07, "16-grid long/balanced cycle is inside the 1.02-1.07s exposure candidate window")
+	_expect(slowest.combat_derived.cycle_seconds >= 1.16 and slowest.combat_derived.cycle_seconds <= 1.23, "16-grid long/heavy cycle is inside the 1.16-1.23s exposure candidate window")
 	var cycle_ratio := slowest.combat_derived.cycle_seconds / fastest.combat_derived.cycle_seconds
-	_expect(cycle_ratio >= 4.0 and cycle_ratio <= 6.0, "1-grid light to 16-grid heavy cycle ratio is inside the 4-6x candidate window")
-	_expect(fastest.combat_derived.active_seconds * 4.0 < slowest.combat_derived.active_seconds, "visible active-swing angular velocity differs by more than four times")
+	_expect(cycle_ratio >= 2.5 and cycle_ratio <= 3.0, "1-grid light to 16-grid heavy cycle ratio is inside the bounded 2.5-3.0x exposure window")
+	var active_ratio := slowest.combat_derived.active_seconds / fastest.combat_derived.active_seconds
+	_expect(active_ratio >= 3.0 and active_ratio < 4.0, "visible active timing remains distinct without retaining the old four-times extreme")
 	_expect(fastest.combat_derived.cycle_seconds >= CombatDerived.MIN_CYCLE_SECONDS, "ultra-short cadence retains the safety floor")
 	var public_fields: Dictionary = matrix["16_grid"].heavy.spec.to_dict()
 	_expect(not public_fields.has("mass_profile") and not public_fields.has("combat_derived") and not public_fields.has("geometry_evidence"), "B1 does not expand the public WeaponSpec")
+	_test_b1_5_exposure_fixture_cycles(canvas_size)
 	_test_longitudinal_reach_mass_independence(canvas_size)
+
+
+func _test_b1_5_exposure_fixture_cycles(canvas_size: Vector2) -> void:
+	var boundary_spans := {"minimum": 0.0, "maximum": 1.0}
+	var boundary_reaches := {"minimum": 72.0, "maximum": 228.0}
+	var boundary_base_cycles := {"minimum": 0.50, "maximum": 1.01}
+	for boundary_name: String in boundary_spans:
+		var boundary_start := Vector2(canvas_size.x * 0.03, canvas_size.y * 0.45)
+		var boundary_finish := boundary_start + Vector2(canvas_size.x * float(boundary_spans[boundary_name]), canvas_size.y * 0.10)
+		var boundary_source: Array[PackedVector2Array] = [
+			PackedVector2Array([boundary_start, boundary_finish]),
+		]
+		var boundary_profile := DrawingGeometryProfile.from_snapshot(boundary_source, canvas_size, "balanced")
+		var boundary_spec := WeaponCompiler.new().compile("a plain steel sword")
+		boundary_profile.apply_to_spec(boundary_spec)
+		_expect(is_equal_approx(boundary_profile.effective_reach, float(boundary_reaches[boundary_name])), "%s geometry boundary clamps to the existing reach bound" % boundary_name)
+		_expect(is_equal_approx(boundary_profile.combat_derived.base_cycle_seconds, float(boundary_base_cycles[boundary_name])), "%s reach boundary selects the bounded exposure anchor" % boundary_name)
+		_expect(boundary_profile.combat_derived.cycle_seconds >= CombatDerived.MIN_CYCLE_SECONDS and boundary_profile.combat_derived.cycle_seconds <= CombatDerived.MAX_CYCLE_SECONDS, "%s cadence boundary retains the global cycle floor and ceiling" % boundary_name)
+
+	var fixture_spans := {"short": 0.10, "standard": 0.42, "long": 0.88}
+	var expected_reaches := {"short": 72.0, "standard": 123.0, "long": 220.0}
+	var candidate_cycle_windows := {
+		"short": Vector2(0.53, 0.57),
+		"standard": Vector2(0.76, 0.80),
+		"long": Vector2(1.08, 1.12),
+	}
+	var fixture_cycles: Dictionary = {}
+	for fixture_name: String in fixture_spans:
+		var start := Vector2(canvas_size.x * 0.06, canvas_size.y * 0.52)
+		var finish := start + Vector2(canvas_size.x * float(fixture_spans[fixture_name]), canvas_size.y * 0.03)
+		var source: Array[PackedVector2Array] = [
+			PackedVector2Array([start, start.lerp(finish, 0.5), finish]),
+		]
+		var profile := DrawingGeometryProfile.from_snapshot(source, canvas_size, "balanced")
+		var spec := WeaponCompiler.new().compile("a plain steel sword")
+		var original_damage := spec.damage
+		profile.apply_to_spec(spec)
+		var cycle: float = profile.combat_derived.cycle_seconds
+		var window: Vector2 = candidate_cycle_windows[fixture_name]
+		fixture_cycles[fixture_name] = cycle
+		_expect(profile.mass_profile == "balanced", "%s exposure fixture retains the controlled balanced mass axis" % fixture_name)
+		_expect(is_equal_approx(profile.effective_reach, float(expected_reaches[fixture_name])), "%s exposure fixture retains its existing reach authority" % fixture_name)
+		_expect(spec.damage == original_damage and spec.damage == 36, "%s exposure fixture leaves fixed melee damage at 36" % fixture_name)
+		_expect(cycle >= window.x and cycle <= window.y, "%s balanced/slow-recovery cycle %.3f is inside %.2f-%.2fs" % [fixture_name, cycle, window.x, window.y])
+		_expect(is_equal_approx(cycle, snappedf(1.0 / spec.attack_speed, 0.001)), "%s exposure fixture keeps attack_speed as the single complete-cycle authority" % fixture_name)
+		_expect(profile.combat_derived.cycle_seconds >= CombatDerived.MIN_CYCLE_SECONDS and profile.combat_derived.cycle_seconds <= CombatDerived.MAX_CYCLE_SECONDS, "%s exposure fixture retains the global cycle bounds" % fixture_name)
+		_expect(profile.combat_derived.to_dict().contact_model.regions.is_empty(), "%s exposure fixture does not enable B2 contact regions" % fixture_name)
+	_expect(float(fixture_cycles.short) < float(fixture_cycles.standard) and float(fixture_cycles.standard) < float(fixture_cycles.long), "B1/B1.5 exposure fixtures retain short < standard < long cadence")
 
 
 func _test_longitudinal_reach_mass_independence(canvas_size: Vector2) -> void:
@@ -465,6 +615,536 @@ func _test_longitudinal_reach_mass_independence(canvas_size: Vector2) -> void:
 	var heavy: DrawingGeometryProfile = profiles.heavy
 	_expect(is_equal_approx(light.normalized_length, balanced.normalized_length) and is_equal_approx(balanced.normalized_length, heavy.normalized_length), "identical longitudinal evidence stays identical across mass inputs")
 	_expect(light.effective_reach == balanced.effective_reach and balanced.effective_reach == heavy.effective_reach, "light/balanced/heavy cannot change effective reach for identical longitudinal evidence")
+
+
+func _test_weapon_role_balance_matrix() -> void:
+	var file := FileAccess.open("res://tests/weapon_role_balance_matrix.json", FileAccess.READ)
+	_expect(file != null, "B1.5 weapon-role matrix is readable")
+	if file == null:
+		return
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	_expect(parsed is Dictionary, "B1.5 weapon-role matrix parses as an object")
+	if parsed is not Dictionary:
+		return
+	var matrix: Dictionary = parsed
+	var scenarios: Array = matrix.get("scenario_order", [])
+	_expect(scenarios == ["stationary", "moving", "shield", "group"], "B1.5 records each required target scenario independently")
+	var cases: Array = matrix.get("role_cases", [])
+	_expect(cases.size() == 7, "B1.5 matrix contains the seven authorized weapon roles")
+	var roles: Dictionary = {}
+	var patterns: Dictionary = {}
+	var runtime_by_role: Dictionary = {}
+	var canvas_size := Vector2(640.0, 300.0)
+	for case: Dictionary in cases:
+		var case_id := str(case.get("id", "missing-id"))
+		var role_id := str(case.get("role_id", ""))
+		var expected_pattern := str(case.get("attack_pattern", ""))
+		var compiler := WeaponCompiler.new()
+		var spec: WeaponSpec
+		if case.has("validated_overrides"):
+			var raw := WeaponSpec.fallback().to_dict()
+			raw.merge(case.validated_overrides, true)
+			spec = compiler.compile_raw(raw)
+		else:
+			spec = compiler.compile(str(case.get("description", "")), {"aspect_ratio": 2.0, "point_count": 12})
+		_expect(spec.attack_pattern == expected_pattern, "%s executes the expected attack module" % case_id)
+		_expect(spec.weapon_form == str(case.get("weapon_form", "")), "%s preserves its weapon-form semantics" % case_id)
+		_expect(spec.element == str(case.get("element", "")), "%s preserves its element" % case_id)
+		var geometry: Dictionary = case.get("geometry", {})
+		var geometry_profile: DrawingGeometryProfile = null
+		if spec.attack_pattern == "melee_slash":
+			var normalized_span := float(geometry.get("normalized_span", 0.40))
+			var cross_axis_load := float(geometry.get("cross_axis_load", 0.14))
+			var start_x := canvas_size.x * 0.03
+			var end_x := start_x + canvas_size.x * normalized_span
+			var half_height := canvas_size.y * cross_axis_load * 0.5
+			var center_y := canvas_size.y * 0.5
+			var stroke := PackedVector2Array([
+				Vector2(start_x, center_y - half_height),
+				Vector2(end_x - 8.0, center_y - half_height),
+				Vector2(end_x, center_y),
+				Vector2(end_x - 8.0, center_y + half_height),
+				Vector2(start_x, center_y + half_height),
+			])
+			var source: Array[PackedVector2Array] = [stroke]
+			geometry_profile = DrawingGeometryProfile.from_snapshot(source, canvas_size)
+			geometry_profile.apply_to_spec(spec)
+			_expect(geometry_profile.mass_profile == str(geometry.get("mass_profile", "")), "%s keeps mass independent and auditable" % case_id)
+		var role_profile := WeaponRoleProfile.derive(spec, geometry_profile)
+		var role := role_profile.to_dict()
+		var cycle_seconds := float(role.cycle_seconds)
+		var travel_seconds := float(role.projectile_travel_seconds)
+		_expect(spec.is_valid() and bool(compiler.last_record.runtime_valid), "%s remains runtime-valid" % case_id)
+		_expect(spec.power_score <= PowerBudget.MAX_POWER, "%s remains within the explicit PowerBudget" % case_id)
+		_expect(str(role.role_id) == role_id, "%s derives the expected internal role family" % case_id)
+		_expect(str(role.authority) == "WeaponRoleProfile" and str(role.status) == "TO VALIDATE" and str(role.role_family_status) == "authorized_b1_5_role", "%s labels internal role authority without a production-balance claim" % case_id)
+		_expect(is_finite(cycle_seconds) and cycle_seconds > 0.0, "%s exposes a finite positive complete cycle" % case_id)
+		_expect(is_finite(spec.attack_range) and spec.attack_range > 0.0, "%s exposes finite positive reach/travel range" % case_id)
+		_expect(is_finite(travel_seconds) and travel_seconds >= 0.0, "%s exposes finite auditable projectile travel" % case_id)
+		_expect(Array(role.advantages).size() > 0 and Array(case.get("advantages", [])).size() > 0, "%s derives at least one role advantage" % case_id)
+		_expect(Array(role.deterministic_costs).size() > 0 and Array(case.get("costs", [])).size() > 0 and spec.drawback != "none", "%s derives and executes at least one deterministic cost" % case_id)
+		_expect(Array(role.audit_reasons).size() > 0 and str(role.audit_reasons[0]).contains(role_id), "%s retains its role derivation reason" % case_id)
+		_expect(int(role.power_score) == spec.power_score and is_equal_approx(float(role.power_components.total), float(PowerBudget.calculate(spec.to_dict()).total)), "%s role audit agrees with the unchanged public PowerBudget" % case_id)
+		var phase_sum := float(role.startup_seconds) + float(role.active_seconds) + float(role.recovery_seconds)
+		_expect(is_equal_approx(phase_sum, cycle_seconds), "%s startup + active + recovery owns the complete cycle" % case_id)
+		_expect(float(role.commit_delay_seconds) > 0.0 and float(role.commit_delay_seconds) <= cycle_seconds, "%s commit timing is finite and bounded by the cycle" % case_id)
+		var repeated := WeaponRoleProfile.derive(WeaponSpec.from_dict(spec.to_dict()), geometry_profile).to_dict()
+		_expect(role == repeated, "%s identical validated semantics and geometry derive identical serialized role output" % case_id)
+		var public_spec := spec.to_dict()
+		_expect(not public_spec.has("role_id") and not public_spec.has("weapon_role") and not public_spec.has("role_profile"), "%s keeps the internal role layer out of public WeaponSpec" % case_id)
+		var case_scenarios: Dictionary = case.get("scenarios", {})
+		for scenario: String in scenarios:
+			_expect(case_scenarios.has(scenario) and Array(case_scenarios[scenario].get("evidence", [])).size() > 0, "%s records %s evidence without an aggregate substitute" % [case_id, scenario])
+		_expect(str(role.moving_target_risk) in ["low", "medium", "high"], "%s moving-target risk is explicit and bounded" % case_id)
+		_expect(str(role.shield_rule) in ["blocked_to_20_percent", "bypassed_by_area_blast", "outbound_blocked_return_bypasses", "bypassed_by_piercing"], "%s shield behavior is explicit" % case_id)
+		_expect(int(role.body_hit_limit) == -1 or int(role.body_hit_limit) >= 1, "%s grouped-target body limit is explicit" % case_id)
+		roles[role_id] = true
+		patterns[spec.attack_pattern] = true
+		runtime_by_role[role_id] = {
+			"spec": spec,
+			"role": role,
+			"cycle_seconds": cycle_seconds,
+			"travel_seconds": travel_seconds,
+		}
+
+	_expect(roles.keys().all(func(role: Variant) -> bool: return not str(role).is_empty()) and roles.size() == 7, "B1.5 role IDs are unique and non-empty")
+	_expect(patterns.size() == 5, "B1.5 role cases retain all five executable attack modules")
+	if runtime_by_role.has("short_melee") and runtime_by_role.has("standard_melee") and runtime_by_role.has("long_melee"):
+		var short: WeaponSpec = runtime_by_role.short_melee.spec
+		var standard: WeaponSpec = runtime_by_role.standard_melee.spec
+		var long: WeaponSpec = runtime_by_role.long_melee.spec
+		_expect(short.attack_range < standard.attack_range and standard.attack_range < long.attack_range, "B1.5 melee roles retain short < standard < long reach")
+		_expect(float(runtime_by_role.short_melee.cycle_seconds) < float(runtime_by_role.standard_melee.cycle_seconds) and float(runtime_by_role.standard_melee.cycle_seconds) < float(runtime_by_role.long_melee.cycle_seconds), "B1.5 melee roles trade cadence for reach")
+		_expect(short.damage == standard.damage and standard.damage == long.damage, "B1.5 does not leak length into melee damage or B2 contact behavior")
+	if runtime_by_role.has("straight_ranged") and runtime_by_role.has("short_melee"):
+		var ranged: WeaponSpec = runtime_by_role.straight_ranged.spec
+		var short_melee: WeaponSpec = runtime_by_role.short_melee.spec
+		_expect(ranged.attack_range > short_melee.attack_range, "straight ranged gains safety/range over short melee")
+		_expect(ranged.damage * ranged.attack_speed < short_melee.damage * short_melee.attack_speed and ranged.drawback == "low_impact", "straight ranged does not also gain the highest sustained single-target value for free")
+	if runtime_by_role.has("thrown_blast"):
+		var blast: WeaponSpec = runtime_by_role.thrown_blast.spec
+		_expect(blast.area_radius > 0.0 and blast.delivery == "thrown" and blast.trajectory == "arc", "thrown blast retains delayed arc delivery plus explicit group radius")
+		_expect(float(runtime_by_role.thrown_blast.role.blast_damage_delay_seconds) > 0.0 and float(runtime_by_role.thrown_blast.cycle_seconds) > float(runtime_by_role.straight_ranged.cycle_seconds), "thrown blast pays explicit detonation delay and a slower complete cycle")
+		_expect(int(runtime_by_role.thrown_blast.role.body_hit_limit) == -1, "thrown blast group value remains radius-limited rather than body-count limited")
+	if runtime_by_role.has("boomerang"):
+		var boomerang: WeaponSpec = runtime_by_role.boomerang.spec
+		_expect(boomerang.return_speed > 0.0 and boomerang.special_ability == "return_strike", "boomerang retains a distinct budgeted return path")
+		_expect(bool(runtime_by_role.boomerang.role.return_hit_opportunity) and int(runtime_by_role.boomerang.role.per_target_hit_limit) == 2 and int(runtime_by_role.boomerang.role.per_phase_per_target_limit) == 1, "boomerang has exactly bounded per-target outbound and return opportunities")
+	if runtime_by_role.has("piercing"):
+		var piercing: WeaponSpec = runtime_by_role.piercing.spec
+		var piercing_role: Dictionary = runtime_by_role.piercing.role
+		_expect(piercing.pierce_count > 1 and piercing.drawback == "narrow_arc", "piercing retains its schema-compatible bounded drawback enum")
+		_expect(is_equal_approx(float(piercing_role.projectile_hit_radius), WeaponRoleProfile.NARROW_PROJECTILE_HIT_RADIUS), "piercing retains its diagnostic narrow collision geometry")
+		_expect(int(piercing_role.body_hit_limit) == piercing.pierce_count, "piercing body-hit limit equals its bounded public pierce count")
+		_expect(
+			Array(piercing_role.get("piercing_damage_multipliers", [])) == [1.0, 0.7, 0.45],
+			"piercing serializes the fixed first/second/third-body damage multipliers",
+		)
+		_expect(
+			str(piercing_role.get("movement_lock_policy", "")) == "horizontal_during_startup"
+			and bool(piercing_role.get("movement_locked_during_startup", false)),
+			"piercing serializes its startup-only horizontal movement commitment",
+		)
+
+	var compatibility_cases: Array = matrix.get("compatibility_cases", [])
+	_expect(compatibility_cases.size() == 1, "B1.5 retains one explicit direct-blast compatibility case outside the seven product roles")
+	for compatibility_case: Dictionary in compatibility_cases:
+		var compatibility_spec := WeaponCompiler.new().compile(str(compatibility_case.get("description", "")), {}, "area_blast")
+		var compatibility_role := WeaponRoleProfile.derive(compatibility_spec).to_dict()
+		_expect(str(compatibility_role.role_id) == "direct_blast", "held/direct area_blast is audited honestly as direct_blast")
+		_expect(str(compatibility_role.role_family_status) == "compatibility_existing_path", "direct_blast is excluded from the seven authorized product roles")
+		_expect(compatibility_spec.delivery == "held" and compatibility_spec.trajectory == "direct" and compatibility_spec.weapon_form == "generic", "direct_blast does not masquerade as a thrown grenade")
+		_expect(Array(compatibility_role.advantages).size() > 0 and Array(compatibility_role.deterministic_costs).size() > 0, "direct_blast records its real radius advantage and proximity/cooldown cost")
+
+	var element_cases: Array = matrix.get("element_execution_cases", [])
+	var elements: Dictionary = {}
+	var element_patterns: Dictionary = {}
+	for element_case: Dictionary in element_cases:
+		var element_spec := WeaponCompiler.new().compile(str(element_case.get("description", "")), {}, str(element_case.get("attack_pattern", "")))
+		_expect(element_spec.is_valid(), "%s remains an executable element/module combination" % str(element_case.get("id", "element-case")))
+		_expect(element_spec.attack_pattern == str(element_case.get("attack_pattern", "")) and element_spec.element == str(element_case.get("element", "")), "%s compiles the requested element and module" % str(element_case.get("id", "element-case")))
+		elements[element_spec.element] = true
+		element_patterns[element_spec.attack_pattern] = true
+	_expect(elements.size() == 4, "B1.5 element smoke retains normal, fire, ice, and electric")
+	_expect(element_patterns.size() == 5, "B1.5 element smoke touches all five executable modules")
+
+
+func _test_role_entry_path_parity() -> void:
+	var description := "a plain steel sword"
+	var drawing_summary := {"aspect_ratio": 2.0, "point_count": 12}
+	var canvas_size := Vector2(640.0, 300.0)
+	var stroke := PackedVector2Array([
+		Vector2(20.0, 129.0), Vector2(273.0, 129.0), Vector2(281.0, 150.0),
+		Vector2(273.0, 171.0), Vector2(20.0, 171.0),
+	])
+	var source: Array[PackedVector2Array] = [stroke]
+	var geometry := DrawingGeometryProfile.from_snapshot(source, canvas_size)
+	var semantic_spec := WeaponCompiler.new().compile(description, drawing_summary)
+	var semantic_dict := semantic_spec.to_dict()
+
+	var local_spec := WeaponSpec.from_dict(semantic_dict)
+	geometry.apply_to_spec(local_spec)
+	var local_projection := _role_parity_projection(local_spec, geometry)
+
+	var interpreter := WeaponInterpreter.new()
+	root.add_child(interpreter)
+	interpreter.active_request_id = "role-parity-provider"
+	var provider_validation := interpreter._validate_server_result({
+		"success": true,
+		"provider_invoked": true,
+		"request_id": "role-parity-provider",
+		"weapon_spec": semantic_dict,
+		"confidence": 0.95,
+		"corrections": [],
+		"fallback_reason": "",
+		"provider_metadata": {
+			"provider": WeaponInterpreter.REQUIRED_PROVIDER,
+			"model": WeaponInterpreter.REQUIRED_MODEL,
+			"attempts": 1,
+		},
+		"estimated_cost": "UNKNOWN",
+	})
+	_expect(bool(provider_validation.get("ok", false)), "B1.5 provider entry accepts the fixed validated semantic fixture")
+	var provider_spec := WeaponSpec.from_dict(provider_validation.result.weapon_spec)
+	geometry.apply_to_spec(provider_spec)
+	var provider_projection := _role_parity_projection(provider_spec, geometry)
+
+	# These are the exact project-owned compiler calls used by the manual-repair
+	# and Developer/Test handlers. Browser coverage below exercises the actual UI
+	# handlers; this unit gate fixes their semantic/geometry input for strict data parity.
+	var manual_compiler := WeaponCompiler.new()
+	var manual_spec := manual_compiler.compile(description, drawing_summary, "melee_slash", true)
+	geometry.apply_to_spec(manual_spec)
+	var manual_projection := _role_parity_projection(manual_spec, geometry)
+	var developer_compiler := WeaponCompiler.new()
+	var developer_spec := developer_compiler.compile(description, drawing_summary, "melee_slash", true)
+	geometry.apply_to_spec(developer_spec)
+	var developer_projection := _role_parity_projection(developer_spec, geometry)
+
+	_expect(local_projection == provider_projection, "fixed local and provider entries derive identical role/timing/reach/cost output")
+	_expect(local_projection == manual_projection, "fixed local and manual-repair compiler entries derive identical role/timing/reach/cost output")
+	_expect(local_projection == developer_projection, "fixed local and Developer/Test compiler entries derive identical role/timing/reach/cost output")
+	_expect(str(local_projection.role_id) == "standard_melee" and str(local_projection.timing_authority) == "CombatDerived", "entry parity retains the B0/B1 melee timing authority")
+	interpreter.queue_free()
+
+
+func _role_parity_projection(spec: WeaponSpec, geometry: DrawingGeometryProfile) -> Dictionary:
+	var role := WeaponRoleProfile.derive(spec, geometry).to_dict()
+	return {
+		"role_id": role.role_id,
+		"timing_authority": "CombatDerived" if geometry != null and geometry.applies_to(spec) else "WeaponRoleProfile",
+		"cycle_seconds": role.cycle_seconds,
+		"startup_seconds": role.startup_seconds,
+		"active_seconds": role.active_seconds,
+		"commit_delay_seconds": role.commit_delay_seconds,
+		"recovery_seconds": role.recovery_seconds,
+		"effective_reach": role.effective_reach,
+		"projectile_travel_seconds": role.projectile_travel_seconds,
+		"projectile_travel_model": role.projectile_travel_model,
+		"advantages": role.advantages,
+		"deterministic_costs": role.deterministic_costs,
+		"moving_target_risk": role.moving_target_risk,
+		"shield_rule": role.shield_rule,
+		"body_hit_limit": role.body_hit_limit,
+		"drawback": spec.drawback,
+		"weakness": spec.weakness_label(),
+		"power_score": role.power_score,
+	}
+
+
+func _test_role_runtime_behavior_oracles() -> void:
+	var raw := WeaponSpec.fallback().to_dict()
+	raw.merge({
+		"name": "Direct Blast Fixture", "weapon_class": "melee", "weapon_form": "generic",
+		"delivery": "held", "trajectory": "direct", "impact": "contact",
+		"area_effect": "explosion", "attack_pattern": "area_blast", "element": "normal",
+		"damage": 34, "attack_speed": 0.7, "range": 220.0,
+		"special_ability": "splash_wave", "status_effect": "none",
+		"drawback": "cooldown_lock", "area_radius": 165.0,
+	}, true)
+	var direct_spec := WeaponCompiler.new().compile_raw(raw)
+	var direct_role := WeaponRoleProfile.derive(direct_spec).to_dict()
+	_expect(str(direct_role.role_id) == "direct_blast" and str(direct_role.projectile_travel_model) == "none", "direct_blast executes as a player-centred compatibility path without fake projectile travel")
+	var near_group_a := TrainingDummy.new()
+	var near_group_b := TrainingDummy.new()
+	var near_shield := TrainingDummy.new()
+	var far_target := TrainingDummy.new()
+	near_group_a.configure("group", "DIRECT GROUP A", 100)
+	near_group_b.configure("group", "DIRECT GROUP B", 100)
+	near_shield.configure("shield", "DIRECT SHIELD", 100)
+	far_target.configure("stationary", "DIRECT FAR", 100)
+	root.add_child(near_group_a)
+	root.add_child(near_group_b)
+	root.add_child(near_shield)
+	root.add_child(far_target)
+	near_group_a.global_position = Vector2(50.0, 0.0)
+	near_group_b.global_position = Vector2(105.0, 0.0)
+	near_shield.global_position = Vector2(150.0, 0.0)
+	far_target.global_position = Vector2(210.0, 0.0)
+	var blast := ForgeAreaBlast.new()
+	blast.configure(direct_spec, Vector2.RIGHT)
+	root.add_child(blast)
+	var completed: Array[int] = []
+	blast.hits_complete.connect(func(count: int, total: int) -> void: completed.assign([count, total]))
+	await blast.hits_complete
+	_expect(completed == [3, direct_spec.damage * 3], "direct_blast actually damages every in-radius body once")
+	_expect(near_shield.health == 100 - direct_spec.damage, "direct_blast actually bypasses shield reduction")
+	_expect(far_target.health == 100, "direct_blast proximity cost actually excludes a body outside area_radius")
+	for target: TrainingDummy in [near_group_a, near_group_b, near_shield, far_target]:
+		target.queue_free()
+
+	var piercing_spec := WeaponCompiler.new().compile("a spear that pierces shields")
+	var projectile := ForgeProjectile.new()
+	projectile.configure(piercing_spec, [], Vector2.RIGHT)
+	root.add_child(projectile)
+	await process_frame
+	var collision: CollisionShape2D = null
+	for child: Node in projectile.get_children():
+		if child is CollisionShape2D:
+			collision = child as CollisionShape2D
+			break
+	var circle: CircleShape2D = null
+	if collision != null:
+		circle = collision.shape as CircleShape2D
+	_expect(circle != null and is_equal_approx(circle.radius, WeaponRoleProfile.NARROW_PROJECTILE_HIT_RADIUS), "piercing diagnostic collision geometry remains narrow without being its primary role cost")
+	projectile.queue_free()
+	await process_frame
+
+
+func _test_piercing_bow_role_separation() -> void:
+	var bow_raw := WeaponSpec.fallback().to_dict()
+	bow_raw.merge({
+		"name": "Bow Role Regression", "weapon_class": "ranged", "weapon_form": "bow",
+		"delivery": "projectile", "trajectory": "direct", "impact": "contact",
+		"area_effect": "none", "attack_pattern": "straight_projectile", "element": "normal",
+		"damage": 26, "attack_speed": 1.3, "range": 675.0,
+		"special_ability": "none", "status_effect": "none", "drawback": "low_impact",
+		"projectile_speed": 620.0, "pierce_count": 1,
+	}, true)
+	var piercing_raw := WeaponSpec.fallback().to_dict()
+	piercing_raw.merge({
+		"name": "Piercing Role Regression", "weapon_class": "ranged", "weapon_form": "spear",
+		"delivery": "projectile", "trajectory": "direct", "impact": "piercing",
+		"area_effect": "none", "attack_pattern": "piercing", "element": "normal",
+		"damage": 29, "attack_speed": 1.05, "range": 700.0,
+		"special_ability": "shield_break", "status_effect": "none", "drawback": "narrow_arc",
+		"projectile_speed": 720.0, "pierce_count": 3,
+	}, true)
+	var bow_spec := WeaponCompiler.new().compile_raw(bow_raw)
+	var piercing_spec := WeaponCompiler.new().compile_raw(piercing_raw)
+	var bow_role := WeaponRoleProfile.derive(bow_spec).to_dict()
+	var piercing_role := WeaponRoleProfile.derive(piercing_spec).to_dict()
+	_expect(
+		is_equal_approx(float(bow_role.cycle_seconds), 0.769)
+		and is_equal_approx(float(bow_role.startup_seconds), 0.138)
+		and bow_spec.damage == 26,
+		"Bow retains its pre-Piercing-fix attack timing and base damage",
+	)
+	_expect(
+		float(piercing_role.startup_seconds) >= float(bow_role.startup_seconds) * 1.5
+		and float(piercing_role.cycle_seconds) >= float(bow_role.cycle_seconds) * 1.2,
+		"Piercing startup and complete cycle are significantly longer than Bow",
+	)
+	_expect(
+		Array(piercing_role.get("piercing_damage_multipliers", [])) == [1.0, 0.7, 0.45],
+		"Piercing role owns the deterministic 100/70/45 percent damage schedule",
+	)
+
+	var bow_first := TrainingDummy.new()
+	var bow_second := TrainingDummy.new()
+	var bow_shield := TrainingDummy.new()
+	bow_first.configure("group", "BOW FIRST", 100)
+	bow_second.configure("group", "BOW SECOND", 100)
+	bow_shield.configure("shield", "BOW SHIELD", 100)
+	for target: TrainingDummy in [bow_first, bow_second, bow_shield]:
+		root.add_child(target)
+	var bow_projectile := ForgeProjectile.new()
+	bow_projectile.configure(bow_spec, [], Vector2.RIGHT)
+	root.add_child(bow_projectile)
+	bow_projectile.monitoring = false
+	await process_frame
+	bow_projectile._on_body_entered(bow_first)
+	bow_projectile._on_body_entered(bow_second)
+	var bow_records: Array = bow_projectile.qa_visual_state().get("hit_records", [])
+	_expect(
+		bow_first.health == 74 and bow_second.health == 100 and bow_records.size() == 1,
+		"Bow stops on the first body and cannot damage a second target from the same shot",
+	)
+	var bow_shield_projectile := ForgeProjectile.new()
+	bow_shield_projectile.configure(bow_spec, [], Vector2.RIGHT)
+	root.add_child(bow_shield_projectile)
+	bow_shield_projectile.monitoring = false
+	await process_frame
+	bow_shield_projectile._on_body_entered(bow_shield)
+	_expect(bow_shield.health == 94, "Bow retains frontal shield reduction at 20 percent rounded up")
+
+	var piercing_targets: Array[TrainingDummy] = []
+	for index in 4:
+		var target := TrainingDummy.new()
+		target.configure("group", "PIERCE %d" % (index + 1), 100)
+		piercing_targets.append(target)
+		root.add_child(target)
+	var piercing_projectile := ForgeProjectile.new()
+	piercing_projectile.configure(piercing_spec, [], Vector2.RIGHT)
+	root.add_child(piercing_projectile)
+	piercing_projectile.monitoring = false
+	await process_frame
+	for target: TrainingDummy in piercing_targets:
+		piercing_projectile._on_body_entered(target)
+	var hit_records: Array = piercing_projectile.qa_visual_state().get("hit_records", [])
+	var record_projection: Array[Dictionary] = []
+	for record: Dictionary in hit_records:
+		record_projection.append({
+			"hit_index": int(record.get("hit_index", 0)),
+			"damage_multiplier": float(record.get("damage_multiplier", 0.0)),
+			"base_damage": int(record.get("base_damage", 0)),
+			"requested_damage": int(record.get("requested_damage", 0)),
+			"amount": int(record.get("amount", 0)),
+		})
+	_expect(
+		piercing_targets.map(func(target: TrainingDummy) -> int: return target.health) == [71, 80, 87, 100],
+		"Piercing applies 29/20/13 damage to the first three bodies and zero to the fourth",
+	)
+	_expect(
+		record_projection == [
+			{"hit_index": 1, "damage_multiplier": 1.0, "base_damage": 29, "requested_damage": 29, "amount": 29},
+			{"hit_index": 2, "damage_multiplier": 0.7, "base_damage": 29, "requested_damage": 20, "amount": 20},
+			{"hit_index": 3, "damage_multiplier": 0.45, "base_damage": 29, "requested_damage": 13, "amount": 13},
+		],
+		"Piercing projectile serializes every bounded hit index, multiplier, base, request and actual damage",
+	)
+	var piercing_shield := TrainingDummy.new()
+	piercing_shield.configure("shield", "PIERCE SHIELD", 100)
+	root.add_child(piercing_shield)
+	var piercing_shield_projectile := ForgeProjectile.new()
+	piercing_shield_projectile.configure(piercing_spec, [], Vector2.RIGHT)
+	root.add_child(piercing_shield_projectile)
+	piercing_shield_projectile.monitoring = false
+	await process_frame
+	piercing_shield_projectile._on_body_entered(piercing_shield)
+	var shield_records: Array = piercing_shield_projectile.qa_visual_state().get("hit_records", [])
+	_expect(
+		piercing_shield.health == 71
+		and shield_records.size() == 1
+		and int((shield_records[0] as Dictionary).get("amount", 0)) == 29,
+		"Piercing first-hit damage still bypasses frontal shield reduction",
+	)
+
+	var bow_player := ForgePlayer.new()
+	root.add_child(bow_player)
+	bow_player.equip(bow_spec, [])
+	bow_player.movement_bounds = Vector2(0.0, 1200.0)
+	bow_player.global_position = Vector2(300.0, 0.0)
+	bow_player.attack()
+	bow_player.set_touch_axis(1.0)
+	await bow_player.attack_requested
+	var bow_commit_state := bow_player.held_visual_state()
+	_expect(
+		bow_player.global_position.x > 304.0
+		and not bool(bow_commit_state.get("movement_locked", true))
+		and not bool(bow_commit_state.get("last_attack_movement_locked_during_startup", true)),
+		"Bow keeps horizontal movement during startup and is not changed by Piercing commitment",
+	)
+	bow_player.set_touch_axis(0.0)
+
+	var piercing_player := ForgePlayer.new()
+	root.add_child(piercing_player)
+	piercing_player.equip(piercing_spec, [])
+	piercing_player.movement_bounds = Vector2(0.0, 1200.0)
+	piercing_player.global_position = Vector2(300.0, 0.0)
+	piercing_player.attack()
+	piercing_player.set_touch_axis(1.0)
+	await physics_frame
+	var locked_x := piercing_player.global_position.x
+	var locked_state := piercing_player.held_visual_state()
+	_expect(
+		absf(locked_x - 300.0) <= 0.5
+		and bool(locked_state.get("movement_locked", false))
+		and str(locked_state.get("movement_lock_reason", "")) == "piercing_startup",
+		"Piercing startup locks real horizontal player movement with an explicit reason",
+	)
+	await piercing_player.attack_requested
+	var commit_state := piercing_player.held_visual_state()
+	var resumed_position := false
+	for _frame in 4:
+		await physics_frame
+		if piercing_player.global_position.x > locked_x + 1.0:
+			resumed_position = true
+			break
+	var post_commit_state := piercing_player.held_visual_state()
+	_expect(
+		not bool(commit_state.get("movement_locked", true))
+		and resumed_position
+		and not bool(post_commit_state.get("movement_locked", true)),
+		"Piercing movement resumes immediately after projectile commit",
+	)
+	var recovered := false
+	for _frame in 180:
+		await physics_frame
+		var recovery_state := piercing_player.held_visual_state()
+		if float(recovery_state.get("cooldown", 1.0)) <= 0.0:
+			recovered = not bool(recovery_state.get("movement_locked", true))
+			break
+	var completed_state := piercing_player.held_visual_state()
+	_expect(
+		recovered
+		and bool(completed_state.get("last_attack_movement_locked_during_startup", false))
+		and not bool(completed_state.get("movement_locked", true)),
+		"Piercing startup lock is observed, serialized and cannot persist through recovery",
+	)
+	piercing_player.set_touch_axis(0.0)
+
+	for target: TrainingDummy in [bow_first, bow_second, bow_shield, piercing_shield]:
+		target.queue_free()
+	for target: TrainingDummy in piercing_targets:
+		target.queue_free()
+	# Every projectile above is already queued by its bounded finish path. Do not
+	# materialize a typed array containing those freed instances during cleanup.
+	bow_player.queue_free()
+	piercing_player.queue_free()
+	await process_frame
+
+
+func _test_element_combat_effect_events() -> void:
+	var normal := TrainingDummy.new()
+	normal.configure("stationary", "ELEMENT NORMAL", 100)
+	root.add_child(normal)
+	var normal_events: Array[Dictionary] = []
+	normal.damage_report.connect(func(label: String, amount: int, note: String) -> void: normal_events.append({"label": label, "amount": amount, "note": note}))
+	normal.take_damage(10, "none", "straight_projectile", Vector2.RIGHT)
+	_expect(normal.health == 90 and normal_events.size() == 1 and str(normal_events[0].note) == "NONE", "normal executes one unmodified combat damage event")
+
+	var fire := TrainingDummy.new()
+	fire.configure("stationary", "ELEMENT FIRE", 100)
+	root.add_child(fire)
+	var fire_health_events: Array[int] = []
+	fire.health_changed.connect(func(current: int, _maximum: int) -> void: fire_health_events.append(current))
+	fire.take_damage(10, "burn", "straight_projectile", Vector2.RIGHT)
+	await fire.health_changed
+	await fire.health_changed
+	_expect(fire_health_events == [90, 87, 84] and fire.health == 84, "fire executes the immediate hit plus exactly two delayed burn damage events")
+
+	var ice := TrainingDummy.new()
+	ice.configure("moving", "ELEMENT ICE", 100)
+	root.add_child(ice)
+	var ice_events: Array[Dictionary] = []
+	ice.damage_report.connect(func(_label: String, amount: int, note: String) -> void: ice_events.append({"amount": amount, "note": note}))
+	ice.take_damage(10, "freeze", "straight_projectile", Vector2.RIGHT)
+	await physics_frame
+	_expect(ice_events.size() == 1 and str(ice_events[0].note).contains("SLOWED") and absf(ice.velocity.x) < ice.patrol_speed, "ice executes a damage event and reduces real moving-target velocity")
+
+	var electric := TrainingDummy.new()
+	electric.configure("moving", "ELEMENT ELECTRIC", 100)
+	root.add_child(electric)
+	var electric_events: Array[Dictionary] = []
+	electric.damage_report.connect(func(_label: String, amount: int, note: String) -> void: electric_events.append({"amount": amount, "note": note}))
+	electric.take_damage(10, "shock", "straight_projectile", Vector2.RIGHT)
+	await physics_frame
+	_expect(electric_events.size() == 1 and str(electric_events[0].note).contains("STAGGER") and electric.velocity.is_zero_approx(), "electric executes a damage event and actually staggers moving-target velocity to zero")
+
+	for target: TrainingDummy in [normal, fire, ice, electric]:
+		target.queue_free()
+	await process_frame
 
 
 func _test_attack_pattern_touch_selector() -> void:
@@ -681,6 +1361,239 @@ func _test_player_combat_gate() -> void:
 	player.queue_free()
 
 
+func _test_c0_player_health() -> void:
+	var player := ForgePlayer.new()
+	var health_events: Array[int] = []
+	var damage_events: Array[int] = []
+	var death_events: Array[int] = []
+	player.health_changed.connect(func(current: int, _maximum: int) -> void: health_events.append(current))
+	player.damaged.connect(func(amount: int, _current: int) -> void: damage_events.append(amount))
+	player.died.connect(func() -> void: death_events.append(1))
+	root.add_child(player)
+	player.set_combat_enabled(true)
+
+	var first_damage: int = player.take_damage(25)
+	_expect(
+		first_damage == 25
+		and player.health == 75
+		and damage_events == [25],
+		"C0 player health applies and audits bounded non-lethal damage",
+	)
+	var lethal_damage: int = player.take_damage(999)
+	_expect(
+		lethal_damage == 75
+		and player.health == 0
+		and player.is_dead
+		and death_events.size() == 1
+		and not player.combat_enabled,
+		"C0 player death clamps at zero, emits once, and disables combat",
+	)
+	var ignored_damage: int = player.take_damage(20)
+	_expect(
+		ignored_damage == 0
+		and player.health == 0
+		and death_events.size() == 1
+		and damage_events == [25, 75],
+		"C0 dead player rejects duplicate damage and death transitions",
+	)
+	player.reset_health()
+	player.set_combat_enabled(true)
+	_expect(
+		player.health == ForgePlayer.MAX_HEALTH
+		and not player.is_dead
+		and player.combat_enabled
+		and health_events[-1] == ForgePlayer.MAX_HEALTH,
+		"C0 Retry health reset restores one clean active player state",
+	)
+	player.queue_free()
+
+
+func _test_c0_terminal_and_collision_invariants() -> void:
+	const MIN_BODY_SEPARATION := 53.0
+	var player := ForgePlayer.new()
+	var attack_emissions: Array[int] = []
+	player.attack_requested.connect(func(_spec: WeaponSpec, _origin: Vector2, _direction: Vector2, _strokes: Array[PackedVector2Array]) -> void: attack_emissions.append(1))
+	root.add_child(player)
+	await physics_frame
+	player.current_spec = WeaponSpec.fallback()
+	player.movement_bounds = Vector2(70.0, 1210.0)
+	player.global_position = Vector2(240.0, 220.0)
+	var terminal_position := player.global_position
+	player.set_combat_enabled(false)
+	player.set_touch_axis(1.0)
+	player._physics_process(0.5)
+	player.attack()
+	_expect(
+		player.global_position.is_equal_approx(terminal_position)
+		and player.velocity.is_zero_approx()
+		and attack_emissions.is_empty(),
+		"C0 terminal combat gate rejects held touch movement and attack resolution",
+	)
+
+	player.set_touch_axis(0.0)
+	player.set_combat_enabled(true)
+	var enemy := CombatEnemy.new()
+	enemy.configure_combat_enemy()
+	enemy.set_target(player)
+	root.add_child(enemy)
+	enemy.set_presentation_active(true, false)
+	enemy.set_simulation_enabled(false)
+
+	player.global_position = Vector2(200.0, 220.0)
+	enemy.set_arena_position(Vector2(300.0, 216.0))
+	await physics_frame
+	player.set_touch_axis(1.0)
+	for _step in 20:
+		player._physics_process(0.05)
+	var left_separation := enemy.global_position.x - player.global_position.x
+	_expect(
+		player.global_position.x < enemy.global_position.x
+		and left_separation >= MIN_BODY_SEPARATION - 0.5,
+		"C0 sustained collision from the left preserves ordering and minimum body separation",
+	)
+
+	player.set_touch_axis(0.0)
+	player.global_position = Vector2(400.0, 220.0)
+	enemy.set_arena_position(Vector2(300.0, 216.0))
+	await physics_frame
+	player.set_touch_axis(-1.0)
+	for _step in 20:
+		player._physics_process(0.05)
+	var right_separation := player.global_position.x - enemy.global_position.x
+	_expect(
+		player.global_position.x > enemy.global_position.x
+		and right_separation >= MIN_BODY_SEPARATION - 0.5,
+		"C0 sustained collision from the right preserves ordering and minimum body separation",
+	)
+
+	enemy.set_presentation_active(false, false)
+	await physics_frame
+	player.global_position.x = 70.0
+	player.set_touch_axis(-1.0)
+	for _step in 12:
+		player._physics_process(0.05)
+	var left_edge_position := player.global_position.x
+	player.global_position.x = 1210.0
+	player.set_touch_axis(1.0)
+	for _step in 12:
+		player._physics_process(0.05)
+	var right_edge_position := player.global_position.x
+	_expect(
+		left_edge_position >= 70.0
+		and right_edge_position <= 1210.0,
+		"C0 sustained movement cannot cross either arena edge",
+	)
+	player.set_touch_axis(0.0)
+	enemy.queue_free()
+	player.queue_free()
+
+
+func _test_c0_enemy_state_machine() -> void:
+	var player := ForgePlayer.new()
+	root.add_child(player)
+	player.global_position = Vector2(200.0, 200.0)
+	player.reset_health()
+	player.set_combat_enabled(true)
+
+	var enemy := CombatEnemy.new()
+	enemy.configure_combat_enemy()
+	enemy.set_target(player)
+	var events: Array[Dictionary] = []
+	var landed_damage: Array[int] = []
+	enemy.combat_event.connect(func(kind: String, detail: Dictionary) -> void:
+		var entry: Dictionary = detail.duplicate(true)
+		entry["kind"] = kind
+		events.append(entry)
+	)
+	enemy.strike_landed.connect(func(amount: int) -> void: landed_damage.append(amount))
+	root.add_child(enemy)
+	enemy.reset_combat(Vector2(270.0, 196.0))
+	enemy.set_simulation_enabled(true)
+
+	enemy._physics_process(0.016)
+	_expect(
+		enemy.state_name() == "telegraph"
+		and is_equal_approx(float(enemy.qa_state().get("state_time_remaining", 0.0)), CombatEnemy.TELEGRAPH_SECONDS),
+		"C0 enemy enters an observable deterministic telegraph in range",
+	)
+	enemy._physics_process(CombatEnemy.TELEGRAPH_SECONDS)
+	_expect(enemy.state_name() == "strike", "C0 enemy telegraph commits to the strike phase")
+	enemy._physics_process(0.01)
+	var health_after_first_strike: int = player.health
+	enemy._physics_process(0.01)
+	_expect(
+		health_after_first_strike == ForgePlayer.MAX_HEALTH - CombatEnemy.STRIKE_DAMAGE
+		and player.health == health_after_first_strike
+		and landed_damage == [CombatEnemy.STRIKE_DAMAGE],
+		"C0 enemy applies at most one player damage event per strike",
+	)
+	enemy._physics_process(CombatEnemy.STRIKE_SECONDS)
+	_expect(enemy.state_name() == "recover", "C0 enemy strike enters explicit recovery")
+	enemy._physics_process(CombatEnemy.RECOVERY_SECONDS)
+	_expect(enemy.state_name() == "approach", "C0 enemy recovery returns to approach")
+	var observed_states: Array[String] = []
+	for event: Dictionary in events:
+		if str(event.get("kind", "")) == "enemy_state":
+			observed_states.append(str(event.get("state", "")))
+	_expect(
+		"approach" in observed_states
+		and "telegraph" in observed_states
+		and "strike" in observed_states
+		and "recover" in observed_states,
+		"C0 enemy event audit preserves approach/telegraph/strike/recovery evidence",
+	)
+
+	enemy.take_damage(999, "none", "melee_slash", Vector2.RIGHT)
+	_expect(
+		enemy.health == 0
+		and enemy.state_name() == "defeated"
+		and not bool(enemy.qa_state().get("simulation_enabled", true)),
+		"C0 enemy defeat stops its attack simulation",
+	)
+	enemy.reset_combat(Vector2(270.0, 196.0))
+	_expect(
+		enemy.health == enemy.max_health
+		and enemy.state_name() == "inactive"
+		and not bool(enemy.qa_state().get("strike_applied", true)),
+		"C0 enemy Retry reset restores health and clears committed strike state",
+	)
+	enemy.queue_free()
+	player.queue_free()
+
+
+func _test_c0_comparison_gate() -> void:
+	var short_dominates := _c0_short_triple_win_gate(
+		{"time_to_first_hit_ms": 400, "ttk_ms": 1800, "damage_taken": 0},
+		{"time_to_first_hit_ms": 500, "ttk_ms": 2200, "damage_taken": 20},
+		{"time_to_first_hit_ms": 650, "ttk_ms": 2600, "damage_taken": 40},
+	)
+	_expect(short_dominates, "C0 comparison oracle detects a short-weapon triple win")
+	var long_exposure_advantage := _c0_short_triple_win_gate(
+		{"time_to_first_hit_ms": 400, "ttk_ms": 1800, "damage_taken": 40},
+		{"time_to_first_hit_ms": 500, "ttk_ms": 2200, "damage_taken": 20},
+		{"time_to_first_hit_ms": 650, "ttk_ms": 2600, "damage_taken": 0},
+	)
+	_expect(
+		not long_exposure_advantage,
+		"C0 comparison oracle passes when long reach buys a damage-exposure advantage",
+	)
+
+
+func _c0_short_triple_win_gate(
+	short_metrics: Dictionary,
+	standard_metrics: Dictionary,
+	long_metrics: Dictionary,
+) -> bool:
+	return (
+		float(short_metrics.get("time_to_first_hit_ms", INF)) < float(standard_metrics.get("time_to_first_hit_ms", INF))
+		and float(short_metrics.get("time_to_first_hit_ms", INF)) < float(long_metrics.get("time_to_first_hit_ms", INF))
+		and float(short_metrics.get("ttk_ms", INF)) < float(standard_metrics.get("ttk_ms", INF))
+		and float(short_metrics.get("ttk_ms", INF)) < float(long_metrics.get("ttk_ms", INF))
+		and float(short_metrics.get("damage_taken", INF)) < float(standard_metrics.get("damage_taken", INF))
+		and float(short_metrics.get("damage_taken", INF)) < float(long_metrics.get("damage_taken", INF))
+	)
+
+
 func _test_rapid_melee_input_buffer() -> void:
 	var canvas_size := Vector2(640.0, 300.0)
 	var stroke := PackedVector2Array([
@@ -697,7 +1610,7 @@ func _test_rapid_melee_input_buffer() -> void:
 	root.add_child(player)
 	player.equip(spec, source, profile)
 	var cycle := player.attack_cycle_seconds()
-	_expect(cycle >= 0.25 and cycle <= 0.40, "rapid-input fixture uses the bounded ultra-short cycle")
+	_expect(cycle >= 0.40 and cycle <= 0.46, "rapid-input fixture uses the bounded ultra-short exposure cycle")
 	player.attack()
 	for _tap in 8:
 		player.attack()
@@ -712,6 +1625,53 @@ func _test_rapid_melee_input_buffer() -> void:
 	if emission_times.size() == 2:
 		var hit_gap_seconds := float(emission_times[1] - emission_times[0]) / 1000.0
 		_expect(hit_gap_seconds >= cycle * 0.90, "buffered hit windows do not overlap")
+	player.queue_free()
+
+
+func _test_nonlethal_hit_preserves_attack_input() -> void:
+	var canvas_size := Vector2(640.0, 300.0)
+	var source: Array[PackedVector2Array] = [
+		PackedVector2Array([
+			Vector2(20.0, 144.0),
+			Vector2(220.0, 144.0),
+			Vector2(230.0, 150.0),
+		]),
+	]
+	var profile := DrawingGeometryProfile.from_snapshot(source, canvas_size, "balanced")
+	var spec := WeaponCompiler.new().compile("a plain steel sword")
+	profile.apply_to_spec(spec)
+	var player := ForgePlayer.new()
+	var emissions: Array[int] = []
+	player.attack_requested.connect(
+		func(_spec: WeaponSpec, _origin: Vector2, _direction: Vector2, _strokes: Array[PackedVector2Array]) -> void:
+			emissions.append(Time.get_ticks_msec())
+	)
+	root.add_child(player)
+	player.equip(spec, source, profile)
+	player.set_combat_enabled(true)
+	player.attack()
+	var startup_damage := player.take_damage(20)
+	await create_timer(player.attack_hit_delay_seconds() + 0.02).timeout
+	var recovery_damage := player.take_damage(20)
+	await create_timer(player.attack_cycle_seconds() + 0.12).timeout
+	await physics_frame
+	var before_second := player.held_visual_state()
+	player.attack()
+	await create_timer(player.attack_hit_delay_seconds() + 0.08).timeout
+	var after_second := player.held_visual_state()
+	_expect(
+		startup_damage == 20
+		and recovery_damage == 20
+		and player.health == 60
+		and player.combat_enabled,
+		"non-lethal enemy hits never disable the authoritative player combat gate",
+	)
+	_expect(
+		emissions.size() == 2
+		and int(after_second.accepted_attack_count) == int(before_second.accepted_attack_count) + 1
+		and str(after_second.last_attack_request_outcome) == "started",
+		"ATTACK remains executable after non-lethal startup and recovery damage",
+	)
 	player.queue_free()
 
 

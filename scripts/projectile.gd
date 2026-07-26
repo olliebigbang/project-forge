@@ -2,10 +2,19 @@ class_name ForgeProjectile
 extends Area2D
 
 signal hit_target(target_name: String, damage: int)
+signal hit_resolved(
+	target_name: String,
+	hit_index: int,
+	damage_multiplier: float,
+	base_damage: int,
+	requested_damage: int,
+	amount: int,
+)
 signal finished(pattern: String)
 signal area_impact(impact_position: Vector2, direction: Vector2, impact_reason: String)
 
 var _spec: WeaponSpec
+var _role_profile: WeaponRoleProfile
 var _bundle: Dictionary = {}
 var _direction := Vector2.RIGHT
 var _distance_travelled := 0.0
@@ -14,6 +23,7 @@ var _player: ForgePlayer
 var _returning := false
 var _hit_keys: Dictionary = {}
 var _hit_count := 0
+var _hit_records: Array[Dictionary] = []
 var _strokes: Array[PackedVector2Array] = []
 var _velocity := Vector2.ZERO
 var _elapsed := 0.0
@@ -40,6 +50,7 @@ func configure(
 	landing_surface_y: float = INF,
 ) -> void:
 	_spec = spec
+	_role_profile = WeaponRoleProfile.derive(spec)
 	_bundle = bundle.duplicate(true) if not bundle.is_empty() else WeaponVisualBundle.from_spec(spec)
 	_direction = direction.normalized()
 	_player = player
@@ -53,7 +64,7 @@ func _ready() -> void:
 	monitoring = true
 	var collider := CollisionShape2D.new()
 	var shape := CircleShape2D.new()
-	shape.radius = 22.0 if str(_bundle.get("projectile_kind", "")) in ["boomerang", "grenade"] else 11.0
+	shape.radius = _role_profile.projectile_hit_radius
 	collider.shape = shape
 	add_child(collider)
 	body_entered.connect(_on_body_entered)
@@ -137,7 +148,7 @@ func _apply_rotation(delta: float) -> void:
 
 
 func _on_body_entered(body: Node) -> void:
-	if not body.has_method("take_damage") or _spec == null:
+	if _finish_emitted or not body.has_method("take_damage") or _spec == null:
 		return
 	if _spec.delivery == "thrown" and _spec.area_effect == "explosion":
 		_detonate("contact")
@@ -147,12 +158,40 @@ func _on_body_entered(body: Node) -> void:
 	if _hit_keys.has(key):
 		return
 	_hit_keys[key] = true
-	var actual: int = body.take_damage(_spec.damage, _spec.status_effect, _spec.attack_pattern, _direction)
+	var hit_index := _hit_count + 1
+	var damage_multiplier := _role_profile.damage_multiplier_for_hit(hit_index)
+	var requested_damage := _role_profile.damage_for_hit(_spec.damage, hit_index)
+	var actual: int = body.take_damage(
+		requested_damage,
+		_spec.status_effect,
+		_spec.attack_pattern,
+		_direction,
+	)
+	if actual <= 0:
+		return
 	_hit_count += 1
+	var hit_record := {
+		"target": str(body.get("target_label")),
+		"hit_index": hit_index,
+		"damage_multiplier": damage_multiplier,
+		"base_damage": _spec.damage,
+		"requested_damage": requested_damage,
+		"amount": actual,
+		"damage_rounding_rule": _role_profile.damage_rounding_rule,
+	}
+	_hit_records.append(hit_record)
 	hit_target.emit(str(body.get("target_label")), actual)
+	hit_resolved.emit(
+		str(body.get("target_label")),
+		hit_index,
+		damage_multiplier,
+		_spec.damage,
+		requested_damage,
+		actual,
+	)
 	if _spec.attack_pattern == "straight_projectile":
 		_finish_and_free()
-	elif _spec.attack_pattern == "piercing" and _hit_count >= _spec.pierce_count:
+	elif _spec.attack_pattern == "piercing" and _hit_count >= _role_profile.body_hit_limit:
 		_finish_and_free()
 
 
@@ -193,6 +232,10 @@ func qa_visual_state() -> Dictionary:
 		"landing_center_y": _landing_center_y,
 		"landing_radius": _landing_radius,
 		"landing_error": absf(global_position.y - _landing_center_y) if _landed_on_ground else -1.0,
+		"hit_count": _hit_count,
+		"hit_records": _hit_records.duplicate(true),
+		"weapon_role": _role_profile.to_dict() if _role_profile != null else {},
+		"role_profile": _role_profile.to_dict() if _role_profile != null else {},
 	}, true)
 	return visual_state
 
