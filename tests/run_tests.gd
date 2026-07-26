@@ -33,6 +33,7 @@ func _init() -> void:
 	_test_c0_enemy_state_machine()
 	_test_c0_comparison_gate()
 	await _test_rapid_melee_input_buffer()
+	await _test_nonlethal_hit_preserves_attack_input()
 	_test_target_rules()
 	var result := {"matrix_cases": _matrix_cases, "passed": _passed, "failed": _failed}
 	var output := FileAccess.open("user://m1a_test_results.json", FileAccess.WRITE)
@@ -1624,6 +1625,53 @@ func _test_rapid_melee_input_buffer() -> void:
 	if emission_times.size() == 2:
 		var hit_gap_seconds := float(emission_times[1] - emission_times[0]) / 1000.0
 		_expect(hit_gap_seconds >= cycle * 0.90, "buffered hit windows do not overlap")
+	player.queue_free()
+
+
+func _test_nonlethal_hit_preserves_attack_input() -> void:
+	var canvas_size := Vector2(640.0, 300.0)
+	var source: Array[PackedVector2Array] = [
+		PackedVector2Array([
+			Vector2(20.0, 144.0),
+			Vector2(220.0, 144.0),
+			Vector2(230.0, 150.0),
+		]),
+	]
+	var profile := DrawingGeometryProfile.from_snapshot(source, canvas_size, "balanced")
+	var spec := WeaponCompiler.new().compile("a plain steel sword")
+	profile.apply_to_spec(spec)
+	var player := ForgePlayer.new()
+	var emissions: Array[int] = []
+	player.attack_requested.connect(
+		func(_spec: WeaponSpec, _origin: Vector2, _direction: Vector2, _strokes: Array[PackedVector2Array]) -> void:
+			emissions.append(Time.get_ticks_msec())
+	)
+	root.add_child(player)
+	player.equip(spec, source, profile)
+	player.set_combat_enabled(true)
+	player.attack()
+	var startup_damage := player.take_damage(20)
+	await create_timer(player.attack_hit_delay_seconds() + 0.02).timeout
+	var recovery_damage := player.take_damage(20)
+	await create_timer(player.attack_cycle_seconds() + 0.12).timeout
+	await physics_frame
+	var before_second := player.held_visual_state()
+	player.attack()
+	await create_timer(player.attack_hit_delay_seconds() + 0.08).timeout
+	var after_second := player.held_visual_state()
+	_expect(
+		startup_damage == 20
+		and recovery_damage == 20
+		and player.health == 60
+		and player.combat_enabled,
+		"non-lethal enemy hits never disable the authoritative player combat gate",
+	)
+	_expect(
+		emissions.size() == 2
+		and int(after_second.accepted_attack_count) == int(before_second.accepted_attack_count) + 1
+		and str(after_second.last_attack_request_outcome) == "started",
+		"ATTACK remains executable after non-lethal startup and recovery damage",
+	)
 	player.queue_free()
 
 

@@ -787,6 +787,44 @@ report.lifecycle = await runIsolatedCase("enemy-lifecycle-idle-defeat-retry-refo
   };
 });
 
+report.touch_after_nonlethal_hit = await runIsolatedCase("touch-attack-after-nonlethal-hit", async (page) => {
+  await startFixture(page, "standard");
+  const firstRecovery = await waitForState(page, "first non-lethal enemy hit", [
+    { path: "enemy_phase", operator: "equals", value: "recovery" },
+    { path: "player_health", operator: "equals", value: 80 },
+  ]);
+  assert(firstRecovery.attack_button_disabled === false, "ATTACK was disabled after the first non-lethal hit");
+  assert(firstRecovery.player_combat.combat_enabled === true, "player combat gate closed after the first non-lethal hit");
+  const firstIntent = firstRecovery.ui_attack_intent_count;
+  const firstAttack = firstRecovery.player_attack_count;
+  await tapControl(page, "attack");
+  const afterFirstTouch = await waitForState(page, "touch ATTACK after first hit", [
+    { path: "ui_attack_intent_count", operator: "greater_than", value: firstIntent },
+    { path: "player_attack_count", operator: "greater_than", value: firstAttack },
+  ], 5_000);
+
+  const secondRecovery = await waitForState(page, "second non-lethal enemy hit", [
+    { path: "enemy_phase", operator: "equals", value: "recovery" },
+    { path: "enemy_attack_count", operator: "greater_than", value: firstRecovery.enemy_attack_count },
+    { path: "player_health", operator: "equals", value: 60 },
+  ], 10_000);
+  assert(secondRecovery.attack_button_disabled === false, "ATTACK was disabled after the second non-lethal hit");
+  const secondIntent = secondRecovery.ui_attack_intent_count;
+  const secondAttack = secondRecovery.player_attack_count;
+  await tapControl(page, "attack");
+  const afterSecondTouch = await waitForState(page, "touch ATTACK after second hit", [
+    { path: "ui_attack_intent_count", operator: "greater_than", value: secondIntent },
+    { path: "player_attack_count", operator: "greater_than", value: secondAttack },
+  ], 5_000);
+  return {
+    first_hit_health: firstRecovery.player_health,
+    first_touch_outcome: afterFirstTouch.held_visual.last_attack_request_outcome,
+    second_hit_health: secondRecovery.player_health,
+    second_touch_outcome: afterSecondTouch.held_visual.last_attack_request_outcome,
+    attack_button_disabled: afterSecondTouch.attack_button_disabled,
+  };
+});
+
 report.terminal_victory = await runIsolatedCase("victory-terminal-freeze", async (page) => {
   await startFixture(page, "short");
   await sendCommand(page, "c0_input", { move_axis: 1 });
@@ -1066,9 +1104,23 @@ report.mobile_regression = await runIsolatedCase("keyboard-orientation-regressio
   assert(open.doneRect.width >= 44 && open.doneRect.height >= 44, "Done touch target is below 44 px");
   assert(open.inputFontSize >= 16, "Description input can trigger iOS zoom");
   await page.locator("#forge-description-done").click();
-  await page.evaluate(() => window.__forgeM1B1Test.clearVisualViewport());
-  const closed = await waitForMobile(page, "keyboard close", "metrics.keyboardOpen", false);
+  // Safari may restore the keyboard and browser chrome in the same frame and
+  // then emit no later resize. Exercise that exact race instead of relying on
+  // a second toolbar event to repair the Canvas.
+  await page.evaluate(() => window.__forgeM1B1Test.setVisualViewport({
+    width: 844,
+    height: 390,
+    offsetLeft: 0,
+    offsetTop: 0,
+    innerWidth: 844,
+    innerHeight: 390,
+    scale: 1,
+  }));
+  const closed = await waitForMobile(page, "keyboard close", "metrics.textEntryActive", false);
   assert(closed.inputValue === description, "keyboard close lost Description");
+  assert(Math.abs(closed.metrics.canvasRect.height - 390) <= 2, "same-frame keyboard/toolbar restore left a bottom black strip");
+  assert(Math.abs(closed.metrics.canvasRect.y + closed.metrics.canvasRect.height - 390) <= 2, "restored Canvas does not reach the Visual Viewport bottom");
+  await page.evaluate(() => window.__forgeM1B1Test.clearVisualViewport());
 
   await page.setViewportSize({ width: 390, height: 844 });
   await waitForState(page, "portrait gate", [

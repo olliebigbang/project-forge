@@ -83,6 +83,7 @@ var _web_sync_elapsed := 0.0
 var _last_stable_landscape_css_size := Vector2.ZERO
 var _status_revision := 0
 var _qa_attack_count := 0
+var _qa_ui_attack_intent_count := 0
 var _qa_last_attack_pattern := ""
 var _qa_projectile_origin := Vector2.ZERO
 var _qa_area_impact_position := Vector2.ZERO
@@ -322,9 +323,13 @@ func _build_hud() -> void:
 
 	attack_button = _button("ATTACK", ORANGE, 20)
 	attack_button.name = "AttackButton"
+	# iOS can cancel a release-only BaseButton sequence when a second finger is
+	# already holding movement. Commit the intent on touch-down and let
+	# ForgePlayer remain the single authority for cooldown and terminal gates.
+	attack_button.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
 	attack_button.position = Vector2(size.x - 172, size.y - 100)
 	attack_button.size = Vector2(150, 82)
-	attack_button.pressed.connect(player.attack)
+	attack_button.button_down.connect(_on_attack_button_down)
 	attack_button.disabled = true
 	add_child(attack_button)
 	_build_round_overlay()
@@ -511,6 +516,12 @@ func _build_forge_overlay() -> void:
 	description_input.mouse_filter = Control.MOUSE_FILTER_STOP
 	description_input.gui_input.connect(_on_description_gui_input)
 	description_input.text_changed.connect(_on_native_description_changed)
+	if OS.has_feature("web"):
+		# Web text is rendered by the native HTML input so arbitrary IME text
+		# does not fall through to Godot's Latin-only fallback font while the
+		# overlay is temporarily hidden during a request.
+		description_input.add_theme_color_override("font_color", Color.TRANSPARENT)
+		description_input.add_theme_color_override("font_placeholder_color", Color.TRANSPARENT)
 	description_row.add_child(description_input)
 	clear_description_button = _button("×", CYAN, 24)
 	clear_description_button.name = "ClearDescriptionButton"
@@ -1022,18 +1033,19 @@ func _is_confirmable_result(result: Dictionary) -> bool:
 
 func _request_snapshot_line(prefix: String) -> String:
 	var request_id := str(last_request_snapshot.get("request_id", "pending"))
-	var description := str(last_request_snapshot.get("description", ""))
 	var drawing: Dictionary = last_request_snapshot.get("drawing_summary", {})
-	var bounded_description := description.left(72)
-	if description.length() > 72:
-		bounded_description += "…"
-	return "%s %s  •  \"%s\"  •  %d stroke(s) / %d point(s)" % [
+	return "%s %s  •  DESCRIPTION SAVED  •  %d stroke(s) / %d point(s)" % [
 		prefix,
 		request_id,
-		bounded_description,
 		int(drawing.get("stroke_count", last_request_snapshot.get("stroke_count", 0))),
 		int(drawing.get("point_count", 0)),
 	]
+
+
+func _on_attack_button_down() -> void:
+	_qa_ui_attack_intent_count += 1
+	player.attack()
+	_update_qa_bridge()
 
 
 func _update_review_copy() -> void:
@@ -2171,6 +2183,8 @@ func _update_qa_bridge() -> void:
 		"http_response_code": interpreter.last_http_response_code,
 		"feedback_count": _qa_feedback_count,
 		"attack_count": _qa_attack_count,
+		"ui_attack_intent_count": _qa_ui_attack_intent_count,
+		"attack_button_disabled": attack_button.disabled,
 		"last_attack_pattern": _qa_last_attack_pattern,
 		"combat_message": combat_status.text,
 		"hud_weakness": _active_hud_weakness(),

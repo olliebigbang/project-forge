@@ -38,6 +38,8 @@ var _movement_locked := false
 var _movement_lock_reason := "none"
 var _movement_lock_generation := 0
 var _last_attack_movement_locked_during_startup := false
+var _attack_request_count := 0
+var _last_attack_request_outcome := "none"
 
 
 func _ready() -> void:
@@ -72,6 +74,7 @@ func _physics_process(delta: float) -> void:
 		and is_zero_approx(_melee_attack_facing)
 	):
 		_attack_buffered = false
+		_last_attack_request_outcome = "buffer_drained"
 		_start_attack()
 	var keyboard_axis := Input.get_axis("move_left", "move_right")
 	var axis := clampf(keyboard_axis + touch_axis, -1.0, 1.0)
@@ -159,17 +162,27 @@ func set_diagnostic_label_visible(value: bool) -> void:
 
 
 func attack() -> void:
-	if not combat_enabled or current_spec == null:
+	_attack_request_count += 1
+	if not combat_enabled:
+		_last_attack_request_outcome = "blocked_combat_disabled"
+		return
+	if current_spec == null:
+		_last_attack_request_outcome = "blocked_missing_spec"
 		return
 	var role_profile := _active_role_profile()
 	if role_profile != null and role_profile.role_id == "boomerang" and _detached_visual_count > 0:
+		_last_attack_request_outcome = "blocked_detached_boomerang"
 		return
 	if attack_cooldown > 0.0 or not is_zero_approx(_melee_attack_facing):
 		if _is_held_melee():
 			# A boolean is the complete one-slot queue: repeated taps while busy
 			# cannot create overlapping hit windows or an unbounded attack burst.
 			_attack_buffered = true
+			_last_attack_request_outcome = "buffered"
+		else:
+			_last_attack_request_outcome = "blocked_cooldown"
 		return
+	_last_attack_request_outcome = "started"
 	_start_attack()
 
 
@@ -319,6 +332,8 @@ func held_visual_state() -> Dictionary:
 		"attack_buffered": _attack_buffered,
 		"max_buffered_attacks": MAX_BUFFERED_ATTACKS,
 		"accepted_attack_count": _accepted_attack_count,
+		"attack_request_count": _attack_request_count,
+		"last_attack_request_outcome": _last_attack_request_outcome,
 		"movement_locked": _movement_locked,
 		"movement_lock_reason": _movement_lock_reason,
 		"movement_lock_generation": _movement_lock_generation,

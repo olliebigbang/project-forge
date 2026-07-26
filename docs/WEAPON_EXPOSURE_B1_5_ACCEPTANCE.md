@@ -1,6 +1,6 @@
 # Weapon Exposure B1.5 — Strategy Matrix Acceptance
 
-Status: **CONFIRMED automated candidate / TO VALIDATE on physical iPhone**
+Status: **REOPENED after physical iPhone blocker evidence / corrected automated candidate TO VALIDATE**
 
 ## Purpose
 
@@ -89,6 +89,8 @@ contact region, hit-stun, interruption, or sweet spot is authorized here.
 - **TO VALIDATE:** physical iPhone combat feel.
 
 See `docs/WEAPON_EXPOSURE_B1_5_REPORT.md`.
+The reopened mobile blocker diagnosis and correction evidence is in
+`docs/B1_5_IPHONE_INPUT_VIEWPORT_REPORT.md`.
 Exact browser evidence was generated from
 `f12bb5aac14b616b3ae6f7d7bd9292fb2e0f336c` under
 `output/playwright/b1-5-strategy-matrix-f12bb5a/`.

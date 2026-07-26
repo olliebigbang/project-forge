@@ -109,7 +109,6 @@
     }
 
     const focused = inputFocused();
-    const entryActive = state.textEntryArmed || focused || state.closing;
     state.keyboardOpen = Boolean((state.textEntryArmed || focused) && keyboardDrop(current));
 
     if (state.closing && state.stable) {
@@ -117,6 +116,11 @@
       if (restored) state.closing = false;
     }
 
+    // Recompute after the closing transition. Safari can restore the keyboard
+    // and browser chrome in the same visualViewport frame without emitting a
+    // later resize. Reusing the pre-transition value leaves the Canvas frozen
+    // at the old height and exposes a permanent black strip below it.
+    const entryActive = state.textEntryArmed || focused || state.closing;
     const keepStable = entryActive && state.stable && isLandscape(state.stable);
     if (!keepStable) state.stable = { ...current };
     const canvasViewport = keepStable ? state.stable : current;

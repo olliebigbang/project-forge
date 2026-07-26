@@ -1,6 +1,6 @@
 # Project Forge current status
 
-Last updated: **2026-07-25 (Australia/Sydney)**
+Last updated: **2026-07-26 (Australia/Sydney)**
 
 This is the fast-moving runtime and delivery-status entry point. It does not
 replace `GDD.md`, `ARCHITECTURE.md`, `DECISIONS.md`, or milestone acceptance
@@ -54,7 +54,7 @@ rollback readiness. No cleanup is authorized by this governance task.
 | Weapon Physics B1 controlled melee physicality | **CONFIRMED complete and released** |
 | Weapon Physics B1.5 role balance | **CONFIRMED corrected implementation `dafec14` on Draft PR #11; new CI/preview and physical-iPhone gate pending** |
 | Core Combat C0 lethal micro-playtest | **CONFIRMED diagnostic implementation complete; technical gates pass; gameplay balance gate fails in Chromium and WebKit** |
-| Weapon Exposure B1.5 | **CONFIRMED automated candidate: bounded cadence and two-strategy Chromium/WebKit gates pass; physical-iPhone feel pending** |
+| Weapon Exposure B1.5 | **REOPENED by physical-iPhone input/viewport evidence; corrected automated candidate passes focused Chromium/WebKit and awaits a new isolated preview plus physical-iPhone re-test** |
 | M1B2 | **CONFIRMED not started** |
 | Next gameplay validation | **TO VALIDATE: physical-iPhone short/standard/long Pressure and Spacing feel; B2/M1B2 remain blocked** |
 
@@ -78,6 +78,9 @@ authorization to begin development.
   non-dominance gates; physical-iPhone feel remains **TO VALIDATE**. See
   `docs/CORE_COMBAT_C0_REPORT.md` and
   `docs/WEAPON_EXPOSURE_B1_5_REPORT.md`.
+- **CONFIRMED:** scoped correction of the physical-iPhone ATTACK touch path,
+  same-frame Canvas restore race, and explicit Chinese form/element repair.
+  **TO VALIDATE:** the corrected candidate on a new isolated public preview.
 - **CONFIRMED:** read-only audits of Git, GitHub, Sites metadata, retained
   evidence, branches, and worktrees.
 - **CONFIRMED:** scoped fixes to this workflow-hardening branch when they do not

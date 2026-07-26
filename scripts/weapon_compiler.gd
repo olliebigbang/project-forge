@@ -136,7 +136,7 @@ func _detect_pattern(text: String) -> String:
 
 
 func _detect_weapon_form(text: String) -> String:
-	if _contains_any(text, ["grenade", "throwing bomb", "hand bomb"]): return "grenade"
+	if _contains_any(text, ["grenade", "throwing bomb", "hand bomb", "手榴弹", "手雷"]): return "grenade"
 	if _contains_any(text, ["boomerang", "returning crescent"]): return "boomerang"
 	if _contains_any(text, ["bow", "longbow", "shortbow"]): return "bow"
 	if _contains_any(text, ["spear", "javelin", "lance"]): return "spear"
