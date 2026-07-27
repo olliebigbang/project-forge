@@ -33,11 +33,13 @@ assets, balance data, or development direction from Cat Battle or another projec
   B1 release or closeout branches, and do not move/delete any stable tag.
 - **CONFIRMED** Weapon Physics/Exposure B1.5 passed physical iPhone Safari
   acceptance on 2026-07-27 using Sites Version 29 from PR #12 HEAD `1365f0d`.
-  Release closure is in progress; do not start B2, M1B2, cadence, grenade-charge,
-  or belt-combat implementation from the closure branch.
-- **CONFIRMED** Current stable runtime delivery was built from `main` at `2c7b8f5`, tag
-  `v0.3.0-weapon-physics-b1`, and Sites Version 25. Sites Version 23 plus
-  `v0.2.1-m1b1.2` are the direct rollback pair.
+  PR #12 merged as `d88ee97`; Sites Version 30 deploys that exact `main` commit,
+  and `v0.4.0-weapon-exposure-b1.5` is the stable tag.
+- Do not start B2, M1B2, cadence, grenade-charge, or belt-combat implementation
+  from a B1.5 release or closeout branch.
+- **CONFIRMED** Sites Version 29 is the accepted-device runtime rollback.
+  `v0.3.0-weapon-physics-b1` and Sites Version 25 retain the prior B1 stable
+  baseline.
 - The M1A forge uses five persistent attack-pattern test buttons. Never restore
   an `OptionButton`, `PopupMenu`, or full-screen modal selector for this flow.
 
@@ -64,7 +66,7 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
   cadence acceptance, PR #7, CI, merge, stable deployment, production smoke,
   stable tag, and rollback verification completed on 2026-07-22.
 
-## Current release-closure scope: Weapon Physics B1.5
+## Current stable scope: Weapon Physics B1.5
 
 - **CONFIRMED:** the product owner authorized the isolated Weapon Physics B1.5
   role-balance milestone on 2026-07-23. Its executable contract is
@@ -78,9 +80,9 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
   until the controlled physicality experiments establish required fields.
 - Do not start B2 or M1B2, and do not add contact-region or visual-understanding
   semantics, during B1.5.
-- The physical-device gate is closed. Only final PR gates, merge, main rebuild,
-  stable deployment smoke, tag, rollback verification, and knowledge closeout
-  are authorized before selecting another gameplay milestone.
+- The physical-device, PR, CI, merge, main rebuild, stable deployment, tag, and
+  rollback-retention gates are closed. The next gameplay milestone remains
+  **TBD** until separately authorized.
 
 ## Preserved M1B1 boundaries
 
@@ -147,16 +149,18 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
 
 - Follow `docs/DEVELOPMENT_WORKFLOW.md`; every major task starts from a scoped
   issue and an isolated worktree based on current `origin/main`.
-- Stable runtime source: `main` at `2c7b8f5` when this guide was last reconciled;
-  governance-only commits may advance the branch without a Sites deployment.
-- Current stable tag: `v0.3.0-weapon-physics-b1`.
-- Direct rollback tag: `v0.2.1-m1b1.2`; historical stable tags
-  `v0.2.0-m1b1` and `v0.1.0-m1a` remain retained.
+- Stable runtime source: `main` at `d88ee97` when this guide was last
+  reconciled; governance-only commits may advance the branch without a Sites
+  deployment.
+- Current stable tag: `v0.4.0-weapon-exposure-b1.5`.
+- Direct accepted-runtime rollback: Sites Version 29 from `1365f0d`.
+  Prior stable tag `v0.3.0-weapon-physics-b1` and historical tags
+  `v0.2.1-m1b1.2`, `v0.2.0-m1b1`, and `v0.1.0-m1a` remain retained.
 - Completed B1 branch: `codex/feat/weapon-physics-b1` (merged PR #7; retained
   until cleanup is separately approved).
-- Accepted B1.5 integration branch: `codex/fix/b1-5-iphone-input-viewport`
-  (Draft PR #12, HEAD `1365f0d`; physical-iPhone accepted, release closeout in
-  progress). PR #11 and its branch remain retained superseded evidence.
+- Completed B1.5 integration branch: `codex/fix/b1-5-iphone-input-viewport`
+  (PR #12 merged as `d88ee97`; physical-iPhone accepted). PR #11 and its branch
+  remain retained superseded evidence.
 - Stable B1 tag: `v0.3.0-weapon-physics-b1`; retained rollback tag:
   `v0.2.1-m1b1.2`.
 - Compact Landscape uses CSS `visualViewport` dimensions; do not size mobile

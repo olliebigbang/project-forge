@@ -1,11 +1,11 @@
 # Project Forge — Game Design Document
 
 Version: 0.1 (organized from the supplied GDD)  
-Stable delivery milestone: **Weapon Physics B1 controlled melee physicality — CONFIRMED and released as `v0.3.0-weapon-physics-b1`**
-Current production: **CONFIRMED Sites Version 25 from `main` `2c7b8f5`; direct rollback is Sites Version 23 plus `v0.2.1-m1b1.2`**
-Current release closure: **CONFIRMED Weapon Exposure B1.5 physical-iPhone
-acceptance on Sites Version 29 / PR #12 HEAD `1365f0d`; stable main
-merge/deployment/tag verification is in progress**
+Stable delivery milestone: **Weapon Physics/Exposure B1.5 — CONFIRMED and released as `v0.4.0-weapon-exposure-b1.5`**
+Current production: **CONFIRMED Sites Version 30 from `main` `d88ee97`; direct accepted-runtime rollback is Sites Version 29 / `1365f0d`**
+Current release closure: **CONFIRMED complete after physical-iPhone acceptance,
+PR #12 merge, two passing CI runs, reproducible main build, stable Sites
+deployment, tag, and rollback retention**
 Stable mobile acceptance: **CONFIRMED on physical iPhone Safari; accepted preview code merged by PR #7 and deployed to the stable Site on 2026-07-22**
 
 ## 1. Product identity
