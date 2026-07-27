@@ -140,3 +140,14 @@ cleanup, orientation recovery, and Safari toolbar recovery.
 belt combat as Project Forge's future primary combat direction. This is a
 product-direction decision, not authorization to deploy it as the public default
 or to remove the side-view regression baseline.
+
+## Integration closure
+
+**CONFIRMED:** PR #15 final HEAD `5655619` passed two required `validate`
+checks, received an independent Reality Checker `GO`, and merged to `main` as
+`ee2583c3664d4013d165d7276f8222238cd49152`. Tag
+`v0.5.0-m2-belt-spike` records that accepted Git milestone.
+
+**CONFIRMED:** no production deployment was performed. The production Site
+remains Version 30 on the B1.5 runtime; the belt scene remains an explicit route
+and the old side-view Combat Lab remains the public default.
