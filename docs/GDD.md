@@ -13,8 +13,8 @@ Stable mobile acceptance: **CONFIRMED on physical iPhone Safari; accepted previe
 - **CONFIRMED** Working title: **Project Forge**.
 - **CONFIRMED** This is a new standalone project unrelated to Cat Battle or any
   previous game.
-- **CONFIRMED** Genre: AI-assisted creative weapon generation plus 2D side-view
-  action stages.
+- **CONFIRMED** Genre: AI-assisted creative weapon generation plus landscape
+  2D/2.5D belt-scrolling action stages.
 - **CONFIRMED** Primary target platforms: iOS and Android.
 - **CONFIRMED** Trial platform: Web browser.
 - **CONFIRMED** Engine: Godot 4.
@@ -86,9 +86,13 @@ stages.
 
 ## 4. Combat
 
-- **ASSUMPTION** The preferred format is single-screen, side-view action combat.
-- **CONFIRMED (target experience)** Players can move left/right, perform a normal
-  attack, use a weapon ability, dodge, and inspect health/cooldowns.
+- **CONFIRMED** The preferred future combat format is a bounded belt battlefield
+  with horizontal and depth movement. The accepted fixed-height side-view Combat
+  Lab remains executable as a regression and rollback baseline while integration
+  proceeds.
+- **CONFIRMED (target experience)** Players can move horizontally and in depth,
+  perform a normal attack, use a weapon ability, dodge, and inspect
+  health/cooldowns.
 - **CONFIRMED** Mobile controls place movement on the left and attack, ability,
   and dodge on the right.
 - **CONFIRMED** Landscape safe areas must be supported; interaction must not rely

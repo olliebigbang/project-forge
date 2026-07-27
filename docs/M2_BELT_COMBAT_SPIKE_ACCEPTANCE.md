@@ -1,11 +1,13 @@
 # M2 Belt Combat Spike Acceptance
 
-Status: **CONFIRMED authorized and physical prototype accepted / TO VALIDATE gameplay direction**
+Status: **CONFIRMED technical, physical-device, and product-direction acceptance**
 
 Authorized by the product owner on 2026-07-27 after the Weapon Exposure B1.5
-release closeout. This is an isolated comparison prototype. It does not replace
-the accepted side-view Combat Lab unless physical-device evidence supports that
-later product decision.
+release closeout. This began as an isolated comparison prototype.
+Physical-device evidence passed, and the product owner selected belt combat as
+the future primary direction on 2026-07-27. The accepted side-view Combat Lab
+remains executable as the current default regression and rollback baseline until
+a later integration gate changes that routing.
 
 ## Product question
 
@@ -100,7 +102,7 @@ more enjoyable on a landscape phone than the current fixed-height side view?
 | M2B-16 | 844x390, 852x393, and 915x412 show the complete room and touch controls without clipping or overlap |
 | M2B-17 | Portrait gate, keyboard restoration, Safari toolbar changes, and the stable Canvas do not regress |
 | M2B-18 | Godot tests, Web build, Sites preview build, Chromium, and version-matched WebKit pass with no new application console errors |
-| M2B-19 | **CONFIRMED:** the product owner completed the real-iPhone Safari checklist on 2026-07-27 and reported all items passed; the final side-view-versus-belt product choice remains a separate decision |
+| M2B-19 | **CONFIRMED:** the product owner completed the real-iPhone Safari checklist on 2026-07-27, reported all items passed, and selected belt combat as the future primary direction |
 | M2B-20 | A living enemy blocks direct body overlap but its foot-sized collision does not prevent a diagonal depth escape; every defeated enemy immediately becomes non-blocking and Retry restores living collision |
 | M2B-21 | Straight and piercing projectiles lock one bounded two-dimensional target point at attack start, launch from the actual muzzle toward that point, and cannot retarget or become near-vertical during startup |
 
@@ -118,6 +120,12 @@ The belt scene advances only if physical-device evidence shows that:
 If the evidence is neutral or worse, retain the fixed-height side view. A
 working prototype alone is not acceptance of the belt-combat direction.
 
+**CONFIRMED PASS:** the automated, browser, and physical-iPhone evidence passed,
+and the product owner approved belt combat as the future primary combat
+direction on 2026-07-27. The current PR retains explicit prototype routing and
+the old Combat Lab; making belt combat the public default requires a later
+integration acceptance gate.
+
 ## Physical-device result
 
 **CONFIRMED:** commit
@@ -128,6 +136,7 @@ diagonal escape around living enemies, immediate non-blocking defeated enemies,
 Retry collision restoration, simultaneous touch movement/attack, lifecycle
 cleanup, orientation recovery, and Safari toolbar recovery.
 
-**TO VALIDATE:** this pass proves the prototype is usable on the target device;
-it does not by itself choose belt combat as Project Forge's final combat
-direction.
+**CONFIRMED:** after reviewing the accepted prototype, the product owner chose
+belt combat as Project Forge's future primary combat direction. This is a
+product-direction decision, not authorization to deploy it as the public default
+or to remove the side-view regression baseline.

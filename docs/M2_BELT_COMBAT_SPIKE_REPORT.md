@@ -1,6 +1,6 @@
 # M2 Belt Combat Spike Delivery Report
 
-Status: **CONFIRMED technical prototype and physical-iPhone acceptance complete / TO VALIDATE product direction**
+Status: **CONFIRMED technical prototype, physical-iPhone, and product-direction acceptance complete**
 
 Date: 2026-07-27
 
@@ -12,10 +12,11 @@ continuous eight-direction touch control, deterministic target assistance,
 three encounter fixtures, five distinct two-dimensional attack executions, and
 the existing lethal Retry/Reforge loop.
 
-This report does not approve belt combat as the final Project Forge direction.
 The product owner completed the physical-iPhone prototype checklist on
-2026-07-27 and reported every item passed. Choosing belt combat over the stable
-side-view combat remains a separate product decision.
+2026-07-27, reported every item passed, and then approved belt combat as Project
+Forge's future primary combat direction. The current implementation remains
+behind an explicit prototype entry and preserves the stable side-view Combat Lab
+as the default regression and rollback baseline.
 
 ## Scope and boundaries
 
@@ -210,5 +211,6 @@ recovery.
   consume a newly compiled live weapon through the normal player flow; the
   tested `equip_weapon()` boundary accepts an already repaired/runtime-valid
   `WeaponSpec`.
-- Physical iPhone prototype usability is **CONFIRMED**. The product choice
-  between side-view and belt combat remains **TO VALIDATE**.
+- Physical iPhone prototype usability and the future primary belt-combat
+  direction are **CONFIRMED**. Public-default routing and live compiled-weapon
+  integration remain later scoped gates.
