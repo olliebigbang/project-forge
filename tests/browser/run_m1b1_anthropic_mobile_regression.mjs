@@ -382,6 +382,18 @@ try {
     );
   const state = () => bridgeCall("state");
   const controls = () => bridgeCall("controls");
+  const beltState = () =>
+    page.evaluate(() => window.__forgeBeltCombat?.state?.() || {});
+  const beltCommand = (name, payload = {}) =>
+    page.evaluate(
+      ({ commandName, commandPayload }) => {
+        if (typeof window.__forgeBeltCombat?.command !== "function") {
+          throw new Error(`Belt QA bridge command missing: ${commandName}`);
+        }
+        window.__forgeBeltCombat.command(commandName, commandPayload);
+      },
+      { commandName: name, commandPayload: payload },
+    );
   const center = (rect) => {
     assert(rect && rect.width > 0 && rect.height > 0, `Hidden control: ${JSON.stringify(rect)}`);
     return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
@@ -419,6 +431,18 @@ try {
     return waitFor(
       (value) => value.screen === "forge" && value.phase === "idle",
       "idle forge",
+    );
+  };
+  const waitForBelt = async (predicate, label, timeout = 15000) => {
+    const started = Date.now();
+    let latest = null;
+    while (Date.now() - started < timeout) {
+      latest = await beltState();
+      if (predicate(latest)) return latest;
+      await sleep(40);
+    }
+    throw new Error(
+      `Timed out waiting for ${label}: ${JSON.stringify(latest)}`,
     );
   };
   const waitForViewportLayout = async (viewport, timeout = 15000) => {
@@ -640,14 +664,33 @@ try {
     );
     await capture("live-confirmation");
     await tapControl("confirm");
-    let combat = await waitFor((value) => value.screen === "combat", "live combat");
-    assert(!combat.selector_visible, "Selector leaked into live combat");
-    const attackCount = combat.attack_count;
-    await tapControl("attack");
-    combat = await waitFor((value) => value.attack_count > attackCount, "live attack");
-    assert(combat.last_attack_pattern === "boomerang", "Live weapon executed wrong attack module");
+    let combat = await waitForBelt(
+      (value) =>
+        value.screen === "belt_combat" &&
+        value.combat_route === "belt_live" &&
+        value.route_payload_consumed === true,
+      "live belt combat",
+    );
+    assert(
+      combat.developer_test_mode === false,
+      "Normal confirmation leaked Developer/Test Mode into belt combat",
+    );
+    assert(
+      combat.weapon_spec?.attack_pattern === "boomerang",
+      "Live belt route equipped the wrong attack module",
+    );
+    const attackCount = combat.accepted_attack_count;
+    await beltCommand("attack");
+    combat = await waitForBelt(
+      (value) => value.accepted_attack_count > attackCount,
+      "live belt attack",
+    );
+    assert(
+      combat.weapon_spec?.attack_pattern === "boomerang",
+      "Live weapon executed wrong attack module",
+    );
     await capture("live-combat-boomerang-attack");
-    await tapControl("reforge");
+    await beltCommand("reforge");
     await waitForForge();
   } else {
     const preservedDescription = "a delayed electric boomerang for mobile cancellation";

@@ -187,7 +187,11 @@ const report = {
   console_errors: [],
 };
 
-const browser = await browserType.launch({ headless: true });
+const launchOptions = { headless: true };
+if (process.env.M1B1_QA_BROWSER_EXECUTABLE) {
+  launchOptions.executablePath = process.env.M1B1_QA_BROWSER_EXECUTABLE;
+}
+const browser = await browserType.launch(launchOptions);
 
 async function runIsolated(caseName, viewport, body) {
   const context = await browser.newContext({
