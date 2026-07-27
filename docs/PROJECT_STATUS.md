@@ -11,31 +11,36 @@ reports.
 | Item | Status |
 | --- | --- |
 | Remote default branch | **CONFIRMED:** `main` |
-| Current production source on `main` | **CONFIRMED:** `2c7b8f5021506bece6b60cb2c649ae7f3fbb961e` |
+| Current production source on `main` | **CONFIRMED:** `d88ee9710e1d253e421e6b64f05167579d649fc2` |
 | Weapon Physics B1 merge | **CONFIRMED:** PR #7, merge `b37e524c206c5f4490ce612fb5e3d54838e8ebdd` |
 | Runtime closeout documentation merge | **CONFIRMED:** PR #8, merge `2c7b8f5021506bece6b60cb2c649ae7f3fbb961e` |
-| Current stable tag | **CONFIRMED:** `v0.3.0-weapon-physics-b1` |
-| Production Site | **CONFIRMED:** Version 25 at <https://project-forge-weapon-lab.hongningliu0130.chatgpt.site> |
-| Production archive hash | **CONFIRMED:** `sha256:13bec17c923b0476aacd1abef09718aebb91549205f0429e04487836de0b8922` |
-| Equivalent smoke-tested build | **CONFIRMED:** Sites Version 24 has the same archive hash |
-| Repository visibility | **CONFIRMED:** Private; Issues enabled |
+| Weapon Physics/Exposure B1.5 merge | **CONFIRMED:** PR #12, merge `d88ee9710e1d253e421e6b64f05167579d649fc2` |
+| Current stable tag | **CONFIRMED:** `v0.4.0-weapon-exposure-b1.5` |
+| Production Site | **CONFIRMED:** Version 30 at <https://project-forge-weapon-lab.hongningliu0130.chatgpt.site> |
+| Production archive content hash | **CONFIRMED:** `sha256:dd7e8684c5efba9c42f9a67c7b0321348388c8bcbd496150404a96cb48e7a3fe` |
+| Accepted-device build | **CONFIRMED:** Sites Version 29 from PR #12 HEAD `1365f0d` |
+| Repository visibility | **CONFIRMED:** Public; Issues enabled |
 
-Sites Version 25 records the current production source from `main`. Version 24 deployed the gameplay merge
-`b37e524` and passed HTTP, Chromium, WebKit, mobile-input, four weapon-role,
-and one explicitly authorized Anthropic smoke gate. The equal archive hash proves
-that the Version 25 code bundle is equivalent; it does not rewrite the historical
-Version 24 smoke record. Governance-only commits may advance the Git branch
-without changing this runtime identity; deployment status must be stated
-separately from repository integration status.
+Sites Version 30 records and deploys the B1.5 merge from `main` at `d88ee97`.
+Version 29 deployed runtime commit `1365f0d` and passed the authoritative physical
+iPhone Safari gate. The commits differ because `698008a` added acceptance
+documentation and `d88ee97` is the merge commit; no gameplay runtime change
+exists between the accepted v29 runtime and the v30 release source.
+Governance-only commits may advance the Git branch without changing this runtime
+identity; deployment status must be stated separately from repository
+integration status.
 
 ## Rollback chain
 
-1. **CONFIRMED direct runtime rollback:** Sites Version 23.
-2. **CONFIRMED direct Git rollback:** `v0.2.1-m1b1.2` at
-   `9e0ff3b174c1c38d2dcb35f0717775e2a9d9aaef`.
-3. **CONFIRMED historical M1B1 stable point:** `v0.2.0-m1b1` at
+1. **CONFIRMED direct accepted-runtime rollback:** Sites Version 29 from
+   `1365f0d420a77cb03efc3d83850ebecbae7c90dd`.
+2. **CONFIRMED direct Git release point:**
+   `v0.4.0-weapon-exposure-b1.5` at `d88ee9710e1d253e421e6b64f05167579d649fc2`.
+3. **CONFIRMED prior B1 stable point:** Sites Version 25 plus
+   `v0.3.0-weapon-physics-b1`.
+4. **CONFIRMED historical M1B1 stable point:** `v0.2.0-m1b1` at
    `e363e7321705f5b13983c4ee8731bc5eb9a9c555`.
-4. **CONFIRMED historical M1A stable point:** `v0.1.0-m1a` at
+5. **CONFIRMED historical M1A stable point:** `v0.1.0-m1a` at
    `b09bd8fb6fa7d4466251f73e6d647823682d513e`.
 
 Retained release archives, test evidence, branches, and worktrees are part of
@@ -52,11 +57,11 @@ rollback readiness. No cleanup is authorized by this governance task.
 | M1B1.2 absolute held-melee reach | **CONFIRMED complete** |
 | Weapon Physics B0 authority contract | **CONFIRMED complete** |
 | Weapon Physics B1 controlled melee physicality | **CONFIRMED complete and released** |
-| Weapon Physics B1.5 role balance | **CONFIRMED accepted integrated candidate on Draft PR #12 HEAD `1365f0d`; release closeout in progress** |
+| Weapon Physics B1.5 role balance | **CONFIRMED complete and released by PR #12 / `d88ee97`** |
 | Core Combat C0 lethal micro-playtest | **CONFIRMED diagnostic implementation complete; technical gates pass; gameplay balance gate fails in Chromium and WebKit** |
-| Weapon Exposure B1.5 | **CONFIRMED on Sites Version 29 and physical iPhone Safari on 2026-07-27; stable merge/deploy/tag pending** |
+| Weapon Exposure B1.5 | **CONFIRMED complete; physical iPhone v29 accepted, Sites v30 stable, tag `v0.4.0-weapon-exposure-b1.5`** |
 | M1B2 | **CONFIRMED not started** |
-| Next gameplay validation | **TBD after B1.5 release closeout; B2/M1B2 remain blocked and belt combat/cadence are only future probes** |
+| Next gameplay validation | **TBD; B2/M1B2 remain blocked and belt combat/cadence are only future probes** |
 
 B2 and M1B2 descriptions remain roadmap candidates only. They are not
 authorization to begin development.
@@ -65,8 +70,8 @@ authorization to begin development.
 
 - **CONFIRMED:** documentation reconciliation and engineering governance.
 - **CONFIRMED:** provider-free local tests, builds, CI, and browser automation.
-- **CONFIRMED:** scoped deterministic Weapon Physics B1.5 role derivation,
-  execution and QA evidence under `docs/WEAPON_ROLE_BALANCE_B1_5_ACCEPTANCE.md`.
+- **CONFIRMED:** B1.5 documentation reconciliation, read-only release audits,
+  and retention of its QA evidence.
 - **CONFIRMED:** scoped Core Combat C0 implementation is functional on its
   isolated branch: 1,147 Godot assertions pass, Web/Sites builds pass, and the
   provider-free Chromium/WebKit functional matrix has zero application console
@@ -102,9 +107,9 @@ authorization to begin development.
 
 ## GitHub control-plane audit
 
-Read-only audit on 2026-07-23:
+Release audit on 2026-07-27:
 
-- **CONFIRMED:** repository is Private, default branch is `main`, and Issues are
+- **CONFIRMED:** repository is Public, default branch is `main`, and Issues are
   enabled.
 - **CONFIRMED:** `main` protection requires the `validate` status check with
   strict up-to-date branches.
@@ -117,11 +122,11 @@ Read-only audit on 2026-07-23:
   review is not enabled.
 - **CONFIRMED:** there are no repository rulesets in addition to branch
   protection.
-- **CONFIRMED:** the latest `main` CI for `2c7b8f5` succeeded in run
-  [29927724188](https://github.com/olliebigbang/project-forge/actions/runs/29927724188).
+- **CONFIRMED:** both required `validate` checks for PR #12 HEAD `698008a`
+  succeeded before merge `d88ee97`.
 - **CONFIRMED:** stable and rollback tags
-  `v0.3.0-weapon-physics-b1`, `v0.2.1-m1b1.2`, `v0.2.0-m1b1`, and
-  `v0.1.0-m1a` exist on the remote.
+  `v0.4.0-weapon-exposure-b1.5`, `v0.3.0-weapon-physics-b1`,
+  `v0.2.1-m1b1.2`, `v0.2.0-m1b1`, and `v0.1.0-m1a` exist on the remote.
 - **TO VALIDATE:** reviewer ownership is not confirmed; do not create
   `CODEOWNERS` by guessing a user or team.
 
@@ -169,20 +174,21 @@ worktrees. Their exact paths remain discoverable through
   density, balance point, or moment of inertia.
 - **TO VALIDATE:** contact regions, tip/root damage, sweet spots, interruption,
   shield/multi-target physical response, and matching feedback are absent.
-- **CONFIRMED (active B1.5 corrected automated candidate):** deterministic
-  execution, 1119 Godot assertions, Web/Sites builds and full Chromium/WebKit
-  8-role x 4-target evidence pass from implementation commit `dafec14`. Bow
-  remains mobile/first-target/shield-blocked; Piercing uses a longer
-  startup-only movement commitment and 29/20/13 three-body damage decay.
-- **TO VALIDATE (active B1.5):** corrected Draft PR CI, replacement isolated
-  preview and
-  physical-iPhone combat-feel review.
+- **TO VALIDATE (browser-harness stability):** the full C0 fairness runner is
+  deterministic in the exact-commit local/CI gates but crossed one damage
+  quantum and one fixture-staging tolerance in two public production runs.
+  Mobile input smoke and physical iPhone acceptance pass; do not treat remote
+  wall-clock jitter as new gameplay evidence until the harness is hardened.
+- **CONFIRMED (released B1.5):** deterministic execution, 1187 Godot
+  assertions, Web/Sites builds, CI, Chromium/functional WebKit evidence, and
+  physical-iPhone acceptance are retained. Bow remains
+  mobile/first-target/shield-blocked; Piercing uses a longer startup-only
+  movement commitment and 29/20/13 three-body damage decay.
+- **CONFIRMED:** PR #12, stable Sites Version 30, tag
+  `v0.4.0-weapon-exposure-b1.5`, and the Version 29 rollback are closed.
 - **TBD:** authentication, production moderation policy, telemetry retention,
   and traffic-scale validation.
-- **CONFIRMED:** B1.5 is the active milestone; B2 and M1B2 remain **TBD**.
+- **CONFIRMED:** B1.5 is released; B2 and M1B2 remain **TBD**.
 
-The next action is CI and a replacement isolated preview from the corrected
-Draft PR #11 HEAD, followed by physical-iPhone acceptance. Sites v26 is retained
-evidence but is superseded for this gate.
-Merge, stable release designation, cleanup, B2 and M1B2 each require a later
-explicit decision.
+The next gameplay milestone is **TBD**. Cleanup, B2 and M1B2 each require a
+later explicit decision. Sites v26 and PR #11 remain superseded evidence.

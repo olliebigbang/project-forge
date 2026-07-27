@@ -22,8 +22,8 @@ Corrected runtime implementation commit: `dafec14`
 - **CONFIRMED:** both browser engines pass the strengthened mobile,
   manual-correction, Developer/Test and `direct_blast` behavior oracles.
 - **CONFIRMED:** Draft PR #11 and Sites v26 are superseded integration evidence.
-  Draft PR #12 contains the complete accepted change set and both of its current
-  CI `validate` runs pass.
+  PR #12 contains the complete accepted change set, both required CI `validate`
+  runs passed, and it merged as `d88ee97`.
 - **CONFIRMED:** the product owner accepted Sites Version 29 on a physical
   iPhone Safari on 2026-07-27.
 - **CONFIRMED:** no real provider call was made for B1.5 testing. Browser tests
@@ -170,12 +170,13 @@ was not changed to manufacture evidence.
 - **CONFIRMED:** PR #12 CI, Sites Version 29 source identity, public Chromium,
   functional WebKit, guarded Claude retry evidence, and physical iPhone Safari
   acceptance are complete.
-- **TO VALIDATE:** stable main rebuild/deployment smoke and rollback verification
-  remain release-closeout steps.
+- **CONFIRMED:** the reproducible main build was deployed as Sites Version 30;
+  `v0.4.0-weapon-exposure-b1.5` points to merge `d88ee97`, and Sites Version 29
+  is retained as the direct accepted-device rollback.
 - **TO VALIDATE:** production role thresholds, moving-target tuning and the
   extreme short-melee DPS are intentionally not declared balanced.
 - **TBD / out of scope:** B2 tip/root/sweet spots, interruption, material physics
   and M1B2 drawing semantics.
 
-The candidate is approved for release closeout through PR #12. Cleanup and
-B2/M1B2 remain unauthorized.
+The candidate is released through PR #12. Cleanup and B2/M1B2 remain
+unauthorized.

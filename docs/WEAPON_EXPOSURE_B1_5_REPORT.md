@@ -123,6 +123,43 @@ between standard and long.
 ## Release closure
 
 The product owner accepted the integrated v29 candidate on a physical iPhone
-Safari on 2026-07-27. The remaining work is release engineering only: final PR
-HEAD gates, merge, reproducible main build, stable deployment smoke, tag, and
-rollback verification. This acceptance does not authorize B2 or M1B2.
+Safari on 2026-07-27. PR #12 subsequently merged as `d88ee97`; both required CI
+runs passed; the reproducible main build was deployed as Sites Version 30 and
+tagged `v0.4.0-weapon-exposure-b1.5`. Sites Version 29 remains the direct
+accepted-device runtime rollback. This release does not authorize B2 or M1B2.
+
+## Stable release verification
+
+- **CONFIRMED:** PR #12 merged as
+  `d88ee9710e1d253e421e6b64f05167579d649fc2`; both required `validate` runs
+  completed successfully.
+- **CONFIRMED:** a detached worktree at that exact merge passed
+  `scripts/test.ps1` with 32 Godot matrix cases, 1187 assertions and zero
+  failures, plus all Worker, WASM, Interpreter, D1, Anthropic adapter, budget,
+  and hostile-safety suites.
+- **CONFIRMED:** `scripts/build_web.ps1` and
+  `scripts/build_sites_preview.ps1` succeeded. Godot emitted only the known
+  restricted-host certificate/editor-settings warnings after the Sites bundle
+  was complete.
+- **CONFIRMED:** Sites Version 30 records source commit `d88ee97` and is the
+  current production deployment at
+  `https://project-forge-weapon-lab.hongningliu0130.chatgpt.site`.
+- **CONFIRMED:** the production Chromium iPhone-blocker suite passed touch
+  ATTACK after damage, simultaneous move plus attack, Chinese Description
+  synchronization, keyboard/toolbar restore, zero black-strip pixels, and zero
+  application console errors without a provider call.
+- **CONFIRMED functional / known harness warning:** the production WebKit path
+  completed the same functional assertions and failed its final warning gate
+  only on WebKit's own `window.styleMedia` deprecation warning. Known WebGL
+  diagnostics remain filtered platform output.
+- **TO VALIDATE (test stability, not release functionality):** the full public
+  C0 fairness runner produced two different strict timing-boundary failures on
+  consecutive runs: one aggregate 20-damage exposure quantum and one 9.6 px
+  fixture-staging tolerance miss. The exact-commit local suite and both CI runs
+  pass, and the physical iPhone gate is authoritative. Future browser-harness
+  work should remove remote wall-clock/staging jitter before using this suite
+  as a production smoke oracle.
+- **CONFIRMED:** no additional paid-provider call was made for Version 30. The
+  v29 guarded Claude timeout/fail-closed plus explicit successful retry remains
+  valid because the accepted runtime code is unchanged; the later commits add
+  acceptance documentation and merge provenance only.

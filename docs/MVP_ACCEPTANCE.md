@@ -4,12 +4,14 @@ This file preserves the completed M0, M1A, M1B1, M1B1.1, M1B1.2, and Weapon
 Physics B1 gates. The detailed B1 contract and evidence are in
 `docs/WEAPON_PHYSICS_B1_ACCEPTANCE.md`.
 **CONFIRMED:** M1B1.1 and M1B1.2 are completed, PR #7 and PR #8 are merged,
-`v0.3.0-weapon-physics-b1` is the stable tag, and production Sites Version 25
-records runtime source `main` `2c7b8f5`. Sites Version 23 plus `v0.2.1-m1b1.2` are the
-direct rollback pair. M1B2 has not started.
+`v0.4.0-weapon-exposure-b1.5` is the stable tag, and production Sites Version
+30 records runtime source `main` `d88ee97`. Sites Version 29 / `1365f0d` is the
+direct accepted-device runtime rollback. M1B2 has not started.
 **CONFIRMED:** Weapon Physics B1.5 is accepted on the integrated Sites Version
 29 / PR #12 HEAD `1365f0d` after physical iPhone Safari testing on 2026-07-27.
-Stable release closeout remains in progress. Its separate gate is
+PR #12 merged as `d88ee97`; both required CI runs passed; the reproducible main
+build was deployed as Sites Version 30 and tagged
+`v0.4.0-weapon-exposure-b1.5`. Its separate gate is
 `docs/WEAPON_ROLE_BALANCE_B1_5_ACCEPTANCE.md`.
 **CONFIRMED:** Core Combat C0 was authorized on 2026-07-25 as a dependent,
 isolated playability experiment based on the corrected B1.5 candidate. It does

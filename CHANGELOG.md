@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — Weapon Physics B1.5 accepted candidate
+## v0.4.0-weapon-exposure-b1.5 — 2026-07-27
 
 ### Added
 
@@ -32,8 +32,13 @@
   strategy/mobile gates.
 - **CONFIRMED:** Sites Version 29 passed product-owner physical iPhone Safari
   acceptance on 2026-07-27.
-- Stable merge, main deployment, tag and rollback verification remain release
-  closeout steps. PR #11 and Sites v26 are retained superseded evidence.
+- **CONFIRMED:** PR #12 merged as `d88ee97`; both required CI runs passed.
+- **CONFIRMED:** Sites Version 30 deploys exact `main` commit `d88ee97`.
+- **CONFIRMED:** `v0.4.0-weapon-exposure-b1.5` is the stable tag. Sites Version
+  29 is the accepted-device runtime rollback; `v0.3.0-weapon-physics-b1` and
+  Sites Version 25 retain the prior B1 stable baseline.
+- PR #11, Sites v26, branches, worktrees, screenshots, logs, and release
+  archives remain retained evidence pending separate cleanup approval.
 
 ## v0.3.0-weapon-physics-b1 — 2026-07-22
 

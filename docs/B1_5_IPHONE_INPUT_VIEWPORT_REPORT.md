@@ -37,9 +37,10 @@ iPhone Safari and reported `v29真机通过`.
 - **CONFIRMED:** the guarded Claude path interpreted `冰冻手榴弹` as an ice
   grenade with thrown/arc/explosion semantics. A first timeout failed closed and
   an explicit user retry succeeded; no fallback weapon was equipped.
-- **CONFIRMED:** the accepted source is Draft PR #12 HEAD `1365f0d`; merge,
-  stable deployment, tag, and rollback verification remain release-closeout
-  steps rather than part of the device claim.
+- **CONFIRMED:** the accepted source is PR #12 HEAD `1365f0d`; PR #12 later
+  merged as `d88ee97`, was rebuilt from `main`, deployed as Sites Version 30,
+  and tagged `v0.4.0-weapon-exposure-b1.5`. Sites Version 29 remains the direct
+  accepted-device runtime rollback.
 
 ## Separate root causes and corrections
 
