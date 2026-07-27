@@ -214,3 +214,15 @@ recovery.
 - Physical iPhone prototype usability and the future primary belt-combat
   direction are **CONFIRMED**. Public-default routing and live compiled-weapon
   integration remain later scoped gates.
+
+## Merge and rollback record
+
+- PR #15 final HEAD: `5655619e437581f068221502d4edb3dd0554d937`.
+- Required CI: two `validate` checks **PASS**.
+- Independent release review: Reality Checker **GO**, no P0/P1 merge blocker.
+- `main` merge: `ee2583c3664d4013d165d7276f8222238cd49152`.
+- Accepted Git tag: `v0.5.0-m2-belt-spike`.
+- Production deployment: **not performed**; Sites Version 30 remains unchanged.
+- Runtime rollback: the accepted `39b077e` preview package and evidence remain
+  retained; `v0.4.0-weapon-exposure-b1.5` remains the deployed stable Git
+  rollback point.

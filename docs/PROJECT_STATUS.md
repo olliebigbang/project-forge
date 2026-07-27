@@ -11,11 +11,13 @@ reports.
 | Item | Status |
 | --- | --- |
 | Remote default branch | **CONFIRMED:** `main` |
-| Current production source on `main` | **CONFIRMED:** `d88ee9710e1d253e421e6b64f05167579d649fc2` |
+| Current source on `main` | **CONFIRMED:** `ee2583c3664d4013d165d7276f8222238cd49152` |
 | Weapon Physics B1 merge | **CONFIRMED:** PR #7, merge `b37e524c206c5f4490ce612fb5e3d54838e8ebdd` |
 | Runtime closeout documentation merge | **CONFIRMED:** PR #8, merge `2c7b8f5021506bece6b60cb2c649ae7f3fbb961e` |
 | Weapon Physics/Exposure B1.5 merge | **CONFIRMED:** PR #12, merge `d88ee9710e1d253e421e6b64f05167579d649fc2` |
-| Current stable tag | **CONFIRMED:** `v0.4.0-weapon-exposure-b1.5` |
+| M2 belt-combat accepted-prototype merge | **CONFIRMED:** PR #15, merge `ee2583c3664d4013d165d7276f8222238cd49152` |
+| Current Git milestone tag | **CONFIRMED:** `v0.5.0-m2-belt-spike` |
+| Current deployed stable tag | **CONFIRMED:** `v0.4.0-weapon-exposure-b1.5` |
 | Production Site | **CONFIRMED:** Version 30 at <https://project-forge-weapon-lab.hongningliu0130.chatgpt.site> |
 | Production archive content hash | **CONFIRMED:** `sha256:dd7e8684c5efba9c42f9a67c7b0321348388c8bcbd496150404a96cb48e7a3fe` |
 | Accepted-device build | **CONFIRMED:** Sites Version 29 from PR #12 HEAD `1365f0d` |
@@ -30,17 +32,25 @@ Governance-only commits may advance the Git branch without changing this runtime
 identity; deployment status must be stated separately from repository
 integration status.
 
+PR #15 later advanced `main` to `ee2583c` and tag
+`v0.5.0-m2-belt-spike` records that accepted Git milestone. It does not change
+the production Site, which remains Version 30 on the B1.5 runtime. The belt scene
+remains behind its explicit prototype route, and the side-view Combat Lab remains
+the public default and rollback baseline.
+
 ## Rollback chain
 
 1. **CONFIRMED direct accepted-runtime rollback:** Sites Version 29 from
    `1365f0d420a77cb03efc3d83850ebecbae7c90dd`.
-2. **CONFIRMED direct Git release point:**
+2. **CONFIRMED accepted M2 Git milestone:**
+   `v0.5.0-m2-belt-spike` at PR #15 merge `ee2583c`.
+3. **CONFIRMED direct deployed Git release point:**
    `v0.4.0-weapon-exposure-b1.5` at `d88ee9710e1d253e421e6b64f05167579d649fc2`.
-3. **CONFIRMED prior B1 stable point:** Sites Version 25 plus
+4. **CONFIRMED prior B1 stable point:** Sites Version 25 plus
    `v0.3.0-weapon-physics-b1`.
-4. **CONFIRMED historical M1B1 stable point:** `v0.2.0-m1b1` at
+5. **CONFIRMED historical M1B1 stable point:** `v0.2.0-m1b1` at
    `e363e7321705f5b13983c4ee8731bc5eb9a9c555`.
-5. **CONFIRMED historical M1A stable point:** `v0.1.0-m1a` at
+6. **CONFIRMED historical M1A stable point:** `v0.1.0-m1a` at
    `b09bd8fb6fa7d4466251f73e6d647823682d513e`.
 
 Retained release archives, test evidence, branches, and worktrees are part of
@@ -61,7 +71,7 @@ rollback readiness. No cleanup is authorized by this governance task.
 | Core Combat C0 lethal micro-playtest | **CONFIRMED diagnostic implementation complete; technical gates pass; gameplay balance gate fails in Chromium and WebKit** |
 | Weapon Exposure B1.5 | **CONFIRMED complete; physical iPhone v29 accepted, Sites v30 stable, tag `v0.4.0-weapon-exposure-b1.5`** |
 | M1B2 | **CONFIRMED not started** |
-| M2 belt-combat comparison spike | **CONFIRMED technical and physical-iPhone acceptance on `39b077e`; belt combat approved as the future primary direction; stable Combat Lab remains the current default regression baseline** |
+| M2 belt-combat comparison spike | **CONFIRMED complete and merged by PR #15 / `ee2583c`; physical-iPhone runtime `39b077e` accepted; belt combat approved as the future primary direction; stable Combat Lab remains the current default regression baseline** |
 | Next gameplay validation after spike | **TO VALIDATE:** separately scoped live-WeaponSpec belt integration; B2/M1B2 and cadence remain unstarted |
 
 B2 and M1B2 descriptions remain roadmap candidates only. They are not
@@ -69,11 +79,10 @@ authorization to begin development.
 
 ## Work currently allowed
 
-- **CONFIRMED:** PR #15 review and integration of the isolated M2 belt-combat
-  comparison spike defined by `docs/M2_BELT_COMBAT_SPIKE_ACCEPTANCE.md`. Its
-  technical and physical-iPhone gates passed on commit `39b077e`, and the
-  product owner selected belt combat as the future primary direction. The PR
-  must retain explicit prototype routing and the old Combat Lab.
+- **CONFIRMED:** documentation closeout and read-only verification of the merged
+  M2 belt-combat comparison spike. PR #15 merged as `ee2583c`,
+  `v0.5.0-m2-belt-spike` records the accepted Git milestone, and production
+  deployment remains unchanged.
 - **CONFIRMED:** documentation reconciliation and engineering governance.
 - **CONFIRMED:** provider-free local tests, builds, CI, and browser automation.
 - **CONFIRMED:** B1.5 documentation reconciliation, read-only release audits,
