@@ -29,14 +29,23 @@ function Invoke-GodotCheck {
     $safeLabel = $Label -replace "[^A-Za-z0-9]+", "-"
     $logFile = Join-Path $logDirectory ("{0}-{1}.log" -f $safeLabel, [guid]::NewGuid().ToString("N"))
     $effectiveArguments = @($Arguments) + @("--log-file", $logFile)
+    # Windows PowerShell 5 wraps every native stderr line as an ErrorRecord and
+    # turns it into a terminating exception under the script-wide Stop policy.
+    # Godot can emit a non-blocking certificate-store diagnostic on stderr while
+    # still returning zero. Capture the complete stream, then enforce the exit
+    # code and explicit diagnostic checks below.
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     $output = @(& $script:Godot @effectiveArguments 2>&1)
     $exitCode = $LASTEXITCODE
+    $ErrorActionPreference = $previousErrorActionPreference
     $output | ForEach-Object { Write-Host $_ }
     if ($exitCode -ne 0) {
         throw "$Label failed with exit code $exitCode"
     }
     $diagnostics = $output -join "`n"
-    if ($diagnostics -match "(?m)SCRIPT ERROR:|^ERROR:|FAIL  ") {
+    $actionableDiagnostics = $diagnostics -replace "(?m)^.*ERROR: Failed to read the root certificate store\.\s*", ""
+    if ($actionableDiagnostics -match "(?m)SCRIPT ERROR:|^ERROR:|FAIL  ") {
         throw "$Label emitted a script, runtime, or assertion failure despite exit code 0"
     }
 }
@@ -49,6 +58,9 @@ Invoke-GodotCheck "Project import and script parse" @(
 )
 Invoke-GodotCheck "Deterministic unit tests" @(
     "--headless", "--path", $repoRoot, "--script", "res://tests/run_tests.gd"
+)
+Invoke-GodotCheck "M2 belt combat spike tests" @(
+    "--headless", "--path", $repoRoot, "--script", "res://tests/belt_combat_spike_test.gd"
 )
 Invoke-GodotCheck "Main-scene runtime smoke" @(
     "--headless", "--path", $repoRoot, "--quit-after", "120"

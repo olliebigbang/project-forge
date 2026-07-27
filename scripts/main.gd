@@ -123,9 +123,22 @@ var _round_movement_distance: float = 0.0
 var _round_last_player_position: Vector2 = Vector2.ZERO
 var _round_player_damage_events: Array[Dictionary] = []
 var _round_enemy_damage_events: Array[Dictionary] = []
+static var _suppress_belt_route_once: bool = false
+static var _belt_route_requested: bool = false
+static var _belt_return_forge_state: Dictionary = {}
 
 
 func _ready() -> void:
+	if _detect_belt_spike_mode():
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var belt_scene: PackedScene = load("res://scenes/belt_combat_spike.tscn") as PackedScene
+		if belt_scene == null:
+			push_error("M2 belt combat spike scene could not be loaded.")
+			return
+		var belt_spike: BeltCombatSpike = belt_scene.instantiate() as BeltCombatSpike
+		belt_spike.forge_return_requested.connect(_return_from_belt_spike)
+		add_child(belt_spike)
+		return
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	developer_mode = _detect_developer_mode()
 	interpreter = WeaponInterpreter.new()
@@ -148,6 +161,7 @@ func _ready() -> void:
 	_on_viewport_resized()
 	queue_redraw()
 	call_deferred("_update_qa_bridge")
+	call_deferred("_restore_belt_return_forge_state")
 
 
 func _process(delta: float) -> void:
@@ -1948,6 +1962,72 @@ func _detect_developer_mode() -> bool:
 	))
 
 
+func _detect_belt_spike_mode() -> bool:
+	if _suppress_belt_route_once:
+		_suppress_belt_route_once = false
+		return false
+	if _belt_route_requested:
+		_belt_route_requested = false
+		return true
+	if OS.has_feature("web"):
+		return bool(JavaScriptBridge.eval(
+			"(() => { const p = new URLSearchParams(window.location.search); return p.get('mode') === 'belt' || p.get('qa') === 'm2belt'; })()",
+			true,
+		))
+	return OS.get_cmdline_user_args().has("--belt-spike")
+
+
+func _return_from_belt_spike() -> void:
+	_suppress_belt_route_once = true
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval(
+			"(() => { const u = new URL(window.location.href); u.searchParams.delete('mode'); if (u.searchParams.get('qa') === 'm2belt') u.searchParams.delete('qa'); history.replaceState(null, '', u.pathname + u.search + u.hash); })()",
+			true,
+		)
+	get_tree().reload_current_scene()
+
+
+func _enter_belt_spike_from_current_state() -> void:
+	if drawing_canvas == null or description_input == null:
+		return
+	var preserved_strokes: Array[PackedVector2Array] = drawing_canvas.get_strokes_snapshot()
+	if preserved_strokes.is_empty() and not current_strokes.is_empty():
+		preserved_strokes = StrokeFit.duplicate_strokes(current_strokes)
+	var preserved_description: String = _description_draft
+	if preserved_description.is_empty():
+		preserved_description = description_input.text.left(512)
+	_belt_return_forge_state = {
+		"description": preserved_description,
+		"strokes": StrokeFit.duplicate_strokes(preserved_strokes),
+	}
+	_belt_route_requested = true
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval(
+			"(() => { const u = new URL(window.location.href); u.searchParams.set('qa', 'm2belt'); history.replaceState(null, '', u.pathname + u.search + u.hash); })()",
+			true,
+		)
+	get_tree().reload_current_scene()
+
+
+func _restore_belt_return_forge_state() -> void:
+	if _belt_return_forge_state.is_empty() or drawing_canvas == null or description_input == null:
+		return
+	var restored_strokes_value: Variant = _belt_return_forge_state.get("strokes", [])
+	var restored_strokes: Array[PackedVector2Array] = []
+	if restored_strokes_value is Array:
+		for stroke_value: Variant in restored_strokes_value:
+			if stroke_value is PackedVector2Array:
+				var restored_stroke: PackedVector2Array = stroke_value
+				restored_strokes.append(restored_stroke.duplicate())
+	drawing_canvas.strokes = restored_strokes
+	drawing_canvas.queue_redraw()
+	drawing_canvas.drawing_changed.emit()
+	_set_description(str(_belt_return_forge_state.get("description", "")))
+	_belt_return_forge_state = {}
+	_sync_web_description_overlay()
+	_update_qa_bridge()
+
+
 func _detect_locale(text: String) -> String:
 	for index in text.length():
 		var codepoint := text.unicode_at(index)
@@ -2014,6 +2094,9 @@ func _on_qa_command(command: String, payload: Dictionary) -> void:
 				_reforge_from_round_result()
 			elif current_spec != null:
 				_open_reforge()
+		"belt_spike_enter":
+			_enter_belt_spike_from_current_state()
+			return
 	_update_qa_bridge()
 
 

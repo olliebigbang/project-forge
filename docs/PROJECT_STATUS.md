@@ -61,13 +61,19 @@ rollback readiness. No cleanup is authorized by this governance task.
 | Core Combat C0 lethal micro-playtest | **CONFIRMED diagnostic implementation complete; technical gates pass; gameplay balance gate fails in Chromium and WebKit** |
 | Weapon Exposure B1.5 | **CONFIRMED complete; physical iPhone v29 accepted, Sites v30 stable, tag `v0.4.0-weapon-exposure-b1.5`** |
 | M1B2 | **CONFIRMED not started** |
-| Next gameplay validation | **TBD; B2/M1B2 remain blocked and belt combat/cadence are only future probes** |
+| M2 belt-combat comparison spike | **CONFIRMED technical and physical-iPhone acceptance on `39b077e`; belt combat approved as the future primary direction; stable Combat Lab remains the current default regression baseline** |
+| Next gameplay validation after spike | **TO VALIDATE:** separately scoped live-WeaponSpec belt integration; B2/M1B2 and cadence remain unstarted |
 
 B2 and M1B2 descriptions remain roadmap candidates only. They are not
 authorization to begin development.
 
 ## Work currently allowed
 
+- **CONFIRMED:** PR #15 review and integration of the isolated M2 belt-combat
+  comparison spike defined by `docs/M2_BELT_COMBAT_SPIKE_ACCEPTANCE.md`. Its
+  technical and physical-iPhone gates passed on commit `39b077e`, and the
+  product owner selected belt combat as the future primary direction. The PR
+  must retain explicit prototype routing and the old Combat Lab.
 - **CONFIRMED:** documentation reconciliation and engineering governance.
 - **CONFIRMED:** provider-free local tests, builds, CI, and browser automation.
 - **CONFIRMED:** B1.5 documentation reconciliation, read-only release audits,
@@ -95,7 +101,10 @@ authorization to begin development.
 
 ## Work currently prohibited
 
-- Starting B2, M1B2, or gameplay work outside the authorized C0 contract.
+- Making belt combat the public default or deleting the stable side-view Combat
+  Lab before a separately scoped live-WeaponSpec integration and routing gate.
+- Starting B2, M1B2, cadence/automatic firearms, charged grenades, or gameplay
+  work outside the belt-spike acceptance contract.
 - Changing player UI, public `WeaponSpec` Schema, `PowerBudget` pricing,
   Provider, D1, or deployment business logic. Gameplay and weapon-physics changes
   are limited to the approved B1.5 acceptance contract.

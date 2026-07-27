@@ -13,8 +13,8 @@ Stable mobile acceptance: **CONFIRMED on physical iPhone Safari; accepted previe
 - **CONFIRMED** Working title: **Project Forge**.
 - **CONFIRMED** This is a new standalone project unrelated to Cat Battle or any
   previous game.
-- **CONFIRMED** Genre: AI-assisted creative weapon generation plus 2D side-view
-  action stages.
+- **CONFIRMED** Genre: AI-assisted creative weapon generation plus landscape
+  2D/2.5D belt-scrolling action stages.
 - **CONFIRMED** Primary target platforms: iOS and Android.
 - **CONFIRMED** Trial platform: Web browser.
 - **CONFIRMED** Engine: Godot 4.
@@ -86,9 +86,13 @@ stages.
 
 ## 4. Combat
 
-- **ASSUMPTION** The preferred format is single-screen, side-view action combat.
-- **CONFIRMED (target experience)** Players can move left/right, perform a normal
-  attack, use a weapon ability, dodge, and inspect health/cooldowns.
+- **CONFIRMED** The preferred future combat format is a bounded belt battlefield
+  with horizontal and depth movement. The accepted fixed-height side-view Combat
+  Lab remains executable as a regression and rollback baseline while integration
+  proceeds.
+- **CONFIRMED (target experience)** Players can move horizontally and in depth,
+  perform a normal attack, use a weapon ability, dodge, and inspect
+  health/cooldowns.
 - **CONFIRMED** Mobile controls place movement on the left and attack, ability,
   and dodge on the right.
 - **CONFIRMED** Landscape safe areas must be supported; interaction must not rely
@@ -409,6 +413,12 @@ rolling for a higher damage value.
   is explicitly outside M1B1; only bounded `drawing_summary` metadata is sent.
 - **M2 — vertical slice:** production combat character, three normal monsters, one
   boss, 3–4 stages, win/loss/retry, base audio, animation, feedback.
+  Before that vertical slice, an isolated **M2 Belt Combat Spike** compares the
+  accepted fixed-height side view against one single-screen battlefield with
+  horizontal and depth movement. It reuses the existing lethal loop and five
+  weapon roles, adds no production progression, and cannot replace the stable
+  Combat Lab without physical-iPhone evidence. See
+  `docs/M2_BELT_COMBAT_SPIKE_ACCEPTANCE.md`.
 - **M3 — voice and mobile test:** voice-to-text, Android internal test, iOS
   TestFlight, device matrix, performance, background recovery.
 - **M4 — proceed decision:** expand only if creation itself is fun, weapons differ
