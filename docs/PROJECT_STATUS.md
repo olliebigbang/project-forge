@@ -11,7 +11,7 @@ reports.
 | Item | Status |
 | --- | --- |
 | Remote default branch | **CONFIRMED:** `main` |
-| Current source on `main` | **CONFIRMED:** `ee2583c3664d4013d165d7276f8222238cd49152` |
+| Current accepted M2 gameplay merge on `main` | **CONFIRMED:** `ee2583c3664d4013d165d7276f8222238cd49152`; later governance-only merges do not change this runtime identity |
 | Weapon Physics B1 merge | **CONFIRMED:** PR #7, merge `b37e524c206c5f4490ce612fb5e3d54838e8ebdd` |
 | Runtime closeout documentation merge | **CONFIRMED:** PR #8, merge `2c7b8f5021506bece6b60cb2c649ae7f3fbb961e` |
 | Weapon Physics/Exposure B1.5 merge | **CONFIRMED:** PR #12, merge `d88ee9710e1d253e421e6b64f05167579d649fc2` |
