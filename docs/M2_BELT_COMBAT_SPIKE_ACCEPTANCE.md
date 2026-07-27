@@ -101,6 +101,8 @@ more enjoyable on a landscape phone than the current fixed-height side view?
 | M2B-17 | Portrait gate, keyboard restoration, Safari toolbar changes, and the stable Canvas do not regress |
 | M2B-18 | Godot tests, Web build, Sites preview build, Chromium, and version-matched WebKit pass with no new application console errors |
 | M2B-19 | A physical iPhone comparison records whether belt combat improves weapon-role readability and touch control |
+| M2B-20 | A living enemy blocks direct body overlap but its foot-sized collision does not prevent a diagonal depth escape; every defeated enemy immediately becomes non-blocking and Retry restores living collision |
+| M2B-21 | Straight and piercing projectiles lock one bounded two-dimensional target point at attack start, launch from the actual muzzle toward that point, and cannot retarget or become near-vertical during startup |
 
 ## Product decision gate
 

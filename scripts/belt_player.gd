@@ -6,6 +6,7 @@ signal attack_committed(
 	spec: WeaponSpec,
 	origin: Vector2,
 	direction: Vector2,
+	target_point: Vector2,
 	strokes: Array[PackedVector2Array],
 	attack_generation: int,
 )
@@ -26,6 +27,9 @@ const ARENA_FOOT_MARGIN: float = 42.0
 const WEAPON_REST_POSITION: Vector2 = Vector2(20.0, -14.0)
 const TARGET_ASSIST_DISTANCE: float = 520.0
 const TARGET_ASSIST_Y_WEIGHT: float = 1.35
+const TARGET_ASSIST_MAX_VERTICAL_RATIO: float = 0.65
+const FOOTPRINT_RADIUS: float = 13.0
+const FOOTPRINT_OFFSET: Vector2 = Vector2(0.0, 15.0)
 
 var arena_bounds: Rect2 = Rect2(70.0, 238.0, 1140.0, 380.0)
 var health: int = MAX_HEALTH
@@ -47,6 +51,7 @@ var _attack_active: bool = false
 var _attack_committed: bool = false
 var _attack_buffered: bool = false
 var _attack_direction: Vector2 = Vector2.RIGHT
+var _attack_target_point: Vector2 = Vector2.ZERO
 var _detached_visual: bool = false
 var _is_dead: bool = false
 
@@ -55,11 +60,10 @@ func _ready() -> void:
 	collision_layer = 1
 	collision_mask = 8
 	var collision_shape: CollisionShape2D = CollisionShape2D.new()
-	var body_shape: CapsuleShape2D = CapsuleShape2D.new()
-	body_shape.radius = 20.0
-	body_shape.height = 70.0
-	collision_shape.shape = body_shape
-	collision_shape.position = Vector2(0.0, -30.0)
+	var footprint_shape: CircleShape2D = CircleShape2D.new()
+	footprint_shape.radius = FOOTPRINT_RADIUS
+	collision_shape.shape = footprint_shape
+	collision_shape.position = FOOTPRINT_OFFSET
 	add_child(collision_shape)
 	weapon_visual = WeaponVisual.new()
 	weapon_visual.name = "HeldWeaponVisual"
@@ -204,6 +208,7 @@ func clear_attack_state() -> void:
 	_attack_elapsed = 0.0
 	_attack_cycle = 0.0
 	_attack_direction = Vector2(facing, 0.0)
+	_attack_target_point = global_position + _attack_direction * TARGET_ASSIST_DISTANCE
 	restore_held_visual()
 
 
@@ -233,9 +238,21 @@ func attack_origin(projectile_kind: String = "none") -> Vector2:
 
 func aim_direction() -> Vector2:
 	if is_instance_valid(_assist_target):
-		var aim: Vector2 = global_position.direction_to(_assist_target.global_position)
-		if aim.length_squared() > 0.001:
-			return aim
+		var offset: Vector2 = _assist_target.global_position - global_position
+		if offset.length_squared() > 0.001:
+			var horizontal_sign: float = signf(offset.x)
+			if is_zero_approx(horizontal_sign):
+				horizontal_sign = facing
+			var bounded_offset: Vector2 = Vector2(
+				horizontal_sign * maxf(absf(offset.x), 1.0),
+				clampf(
+					offset.y,
+					-absf(offset.x) * TARGET_ASSIST_MAX_VERTICAL_RATIO,
+					absf(offset.x) * TARGET_ASSIST_MAX_VERTICAL_RATIO,
+				),
+			)
+			if bounded_offset.length_squared() > 0.001:
+				return bounded_offset.normalized()
 	return Vector2(facing, 0.0)
 
 
@@ -282,6 +299,10 @@ func qa_state() -> Dictionary:
 		"attack_cycle": _attack_cycle,
 		"attack_generation": _attack_generation,
 		"attack_direction": {"x": _attack_direction.x, "y": _attack_direction.y},
+		"attack_target_point": {
+			"x": _attack_target_point.x,
+			"y": _attack_target_point.y,
+		},
 		"movement_locked": _movement_locked_during_startup(),
 		"assist_target": _assist_target.enemy_id if is_instance_valid(_assist_target) else "",
 		"held_visible": weapon_visual.visible if is_instance_valid(weapon_visual) else false,
@@ -297,6 +318,12 @@ func _start_attack() -> void:
 	_attack_elapsed = 0.0
 	_attack_cycle = maxf(current_role_profile.cycle_seconds, 0.001)
 	_attack_direction = aim_direction()
+	var target_distance: float = TARGET_ASSIST_DISTANCE
+	if is_instance_valid(_assist_target):
+		target_distance = global_position.distance_to(_assist_target.global_position)
+	elif current_spec != null:
+		target_distance = current_spec.attack_range
+	_attack_target_point = global_position + _attack_direction * maxf(target_distance, 1.0)
 	if absf(_attack_direction.x) > 0.08:
 		facing = signf(_attack_direction.x)
 
@@ -323,6 +350,7 @@ func _update_attack_state(delta: float) -> void:
 			current_spec,
 			attack_origin(projectile_kind),
 			_attack_direction,
+			_attack_target_point,
 			StrokeFit.duplicate_strokes(current_strokes),
 			_attack_generation,
 		)

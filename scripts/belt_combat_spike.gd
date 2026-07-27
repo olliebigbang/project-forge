@@ -523,6 +523,7 @@ func _on_player_attack_committed(
 	spec: WeaponSpec,
 	origin: Vector2,
 	direction: Vector2,
+	target_point: Vector2,
 	strokes: Array[PackedVector2Array],
 	attack_generation: int,
 ) -> void:
@@ -535,7 +536,7 @@ func _on_player_attack_committed(
 		"direction": {"x": direction.x, "y": direction.y},
 	})
 	if spec.delivery == "thrown" and spec.trajectory == "arc":
-		_launch_projectile(spec, origin, direction, strokes)
+		_launch_projectile(spec, origin, direction, target_point, strokes)
 		return
 	match spec.attack_pattern:
 		"melee_slash":
@@ -543,7 +544,7 @@ func _on_player_attack_committed(
 		"area_blast":
 			_launch_blast(spec, player.global_position, direction)
 		"straight_projectile", "boomerang", "piercing":
-			_launch_projectile(spec, origin, direction, strokes)
+			_launch_projectile(spec, origin, direction, target_point, strokes)
 
 
 func _launch_melee(spec: WeaponSpec, origin: Vector2, direction: Vector2) -> void:
@@ -592,15 +593,28 @@ func _launch_projectile(
 	spec: WeaponSpec,
 	origin: Vector2,
 	direction: Vector2,
+	target_point: Vector2,
 	strokes: Array[PackedVector2Array],
 ) -> void:
 	var bundle: Dictionary = WeaponVisualBundle.from_spec(spec)
 	if str(bundle.get("projectile_kind", "none")) == "none":
 		return
-	var impact_position: Vector2 = _projectile_impact_position(origin, direction, spec)
-	var launch_direction: Vector2 = origin.direction_to(impact_position)
+	# The target point is frozen when the attack starts. Rebuild the final
+	# direction from the actual muzzle origin so the projectile neither retargets
+	# during startup nor travels on a parallel line beside the locked target.
+	var launch_direction: Vector2 = origin.direction_to(target_point)
 	if launch_direction.length_squared() <= 0.001:
-		launch_direction = direction.normalized()
+		launch_direction = (
+			direction.normalized()
+			if direction.length_squared() > 0.001
+			else Vector2(player.facing, 0.0)
+		)
+	var impact_position: Vector2 = _projectile_impact_position(
+		origin,
+		launch_direction,
+		target_point,
+		spec,
+	)
 	var projectile: BeltProjectile = BeltProjectile.new()
 	projectile.configure(spec, strokes, launch_direction, player, impact_position)
 	projectile.global_position = origin
@@ -615,14 +629,12 @@ func _launch_projectile(
 func _projectile_impact_position(
 	origin: Vector2,
 	direction: Vector2,
+	target_point: Vector2,
 	spec: WeaponSpec,
 ) -> Vector2:
-	var assist: BeltEnemy = player.assist_target()
-	var impact: Vector2
-	if is_instance_valid(assist):
-		impact = assist.global_position
-	else:
-		impact = origin + direction.normalized() * clampf(spec.attack_range * 0.50, 72.0, 200.0)
+	var impact: Vector2 = target_point
+	if impact.distance_squared_to(origin) <= 1.0:
+		impact = origin + direction * clampf(spec.attack_range * 0.50, 72.0, 200.0)
 	return Vector2(
 		clampf(impact.x, player.arena_bounds.position.x, player.arena_bounds.end.x),
 		clampf(impact.y, player.arena_bounds.position.y, player.arena_bounds.end.y),

@@ -31,6 +31,9 @@ const TELEGRAPH_SECONDS: float = 0.62
 const STRIKE_SECONDS: float = 0.20
 const RECOVERY_SECONDS: float = 0.82
 const STRIKE_DAMAGE: int = 20
+const GROUP_FOOTPRINT_RADIUS: float = 12.0
+const STANDARD_FOOTPRINT_RADIUS: float = 15.0
+const FOOTPRINT_OFFSET: Vector2 = Vector2(0.0, 17.0)
 
 var enemy_id: String = "enemy"
 var enemy_kind: String = "moving"
@@ -50,6 +53,7 @@ var _stagger_remaining: float = 0.0
 var _status_epoch: int = 0
 var _spawn_position: Vector2 = Vector2.ZERO
 var _formation_offset: Vector2 = Vector2.ZERO
+var _collision_shape: CollisionShape2D
 
 
 func configure(
@@ -72,13 +76,17 @@ func _ready() -> void:
 	collision_layer = 8
 	collision_mask = 1
 	add_to_group("belt_enemy")
-	var collision_shape: CollisionShape2D = CollisionShape2D.new()
-	var body_shape: CapsuleShape2D = CapsuleShape2D.new()
-	body_shape.radius = 22.0 if enemy_kind == "group" else 26.0
-	body_shape.height = 68.0 if enemy_kind == "group" else 78.0
-	collision_shape.shape = body_shape
-	collision_shape.position = Vector2(0.0, -27.0)
-	add_child(collision_shape)
+	_collision_shape = CollisionShape2D.new()
+	var footprint_shape: CircleShape2D = CircleShape2D.new()
+	footprint_shape.radius = (
+		GROUP_FOOTPRINT_RADIUS
+		if enemy_kind == "group"
+		else STANDARD_FOOTPRINT_RADIUS
+	)
+	_collision_shape.shape = footprint_shape
+	_collision_shape.position = FOOTPRINT_OFFSET
+	add_child(_collision_shape)
+	_set_collision_enabled(true)
 	queue_redraw()
 
 
@@ -138,6 +146,7 @@ func reset_enemy() -> void:
 	_slow_remaining = 0.0
 	_stagger_remaining = 0.0
 	_set_phase(Phase.INACTIVE)
+	_set_collision_enabled(true)
 	queue_redraw()
 
 
@@ -153,8 +162,10 @@ func qa_set_health(value: int) -> void:
 	if health == 0:
 		_simulation_enabled = false
 		_set_phase(Phase.DEFEATED)
+		_set_collision_enabled(false)
 	elif phase == Phase.DEFEATED:
 		_set_phase(Phase.APPROACH if _simulation_enabled else Phase.INACTIVE)
+		_set_collision_enabled(true)
 	queue_redraw()
 
 
@@ -199,6 +210,7 @@ func take_damage(
 		_simulation_enabled = false
 		velocity = Vector2.ZERO
 		_set_phase(Phase.DEFEATED)
+		_set_collision_enabled(false)
 		defeated.emit(self)
 	queue_redraw()
 	return actual
@@ -230,6 +242,14 @@ func qa_state() -> Dictionary:
 		"facing": {"x": facing.x, "y": facing.y},
 		"slow_remaining": _slow_remaining,
 		"stagger_remaining": _stagger_remaining,
+		"collision_enabled": collision_layer != 0,
+		"collision_layer": collision_layer,
+		"collision_mask": collision_mask,
+		"collision_shape_disabled": (
+			_collision_shape.disabled
+			if is_instance_valid(_collision_shape)
+			else true
+		),
 	}
 
 
@@ -294,6 +314,7 @@ func _apply_burn(epoch: int) -> void:
 			_simulation_enabled = false
 			velocity = Vector2.ZERO
 			_set_phase(Phase.DEFEATED)
+			_set_collision_enabled(false)
 			defeated.emit(self)
 			return
 		queue_redraw()
@@ -301,6 +322,13 @@ func _apply_burn(epoch: int) -> void:
 
 func _append_note(existing: String, addition: String) -> String:
 	return addition if existing.is_empty() or existing == "NONE" else "%s / %s" % [existing, addition]
+
+
+func _set_collision_enabled(enabled: bool) -> void:
+	collision_layer = 8 if enabled else 0
+	collision_mask = 1 if enabled else 0
+	if is_instance_valid(_collision_shape):
+		_collision_shape.set_deferred("disabled", not enabled)
 
 
 func _clamp_to_arena() -> void:

@@ -53,7 +53,7 @@ side-view combat.
 ### Godot and backend
 
 - `./scripts/test.ps1`: **PASS**, exit 0.
-- Dedicated belt-combat suite: **144 assertions, 0 failed**.
+- Dedicated belt-combat suite: **170 assertions, 0 failed**.
 - The deterministic long-frame case compares one `0.12s` projectile step with
   twelve `0.01s` steps and confirms identical hit count, damage, terminal state,
   and zero remaining transients.
@@ -147,6 +147,21 @@ An independent visual review initially returned **NEEDS WORK**:
    show the horizontal ground ellipse.
 4. Selected fixture/weapon buttons used a dim disabled text color. Selected
    controls now retain the normal readable text color alongside their highlight.
+5. Physical-iPhone review found that a Piercing attack could commit toward one
+   target and then calculate impact from a different target after startup. The
+   locked target point now travels with the attack request, while the final
+   launch vector is rebuilt from the actual muzzle. Straight and Piercing tests
+   switch targets during startup and verify the emitted projectile still follows
+   the original bounded target point.
+6. Full-height player and enemy capsules treated torso overlap as a hard wall in
+   the battlefield plane. Living actors now collide through small foot
+   footprints: direct overlap remains blocked, but diagonal depth escape is
+   possible. QA defeat, direct damage, and burn death all disable enemy collision
+   immediately; Retry restores it.
+
+**TO VALIDATE:** items 5 and 6 pass deterministic Godot plus Chromium/WebKit
+automation, but still require a new physical-iPhone pass before this spike can
+advance through M2B-19.
 
 ## Physical iPhone comparison checklist
 
@@ -158,12 +173,20 @@ An independent visual review initially returned **NEEDS WORK**:
 4. Test SLASH, SHOT, BOOMERANG, BLAST, and PIERCE against MOVING, SHIELD, and
    GROUP; note whether their spatial roles are easier to understand than in the
    stable side-view scene.
-5. Confirm BLAST has visible travel and a horizontal landing ellipse.
-6. Lose once, Retry, then Reforge; no attack, touch, projectile, or detached
+5. With GROUP + PIERCE, move vertically while attacking repeatedly. Every spear
+   must travel toward the locked forward target; none may turn near-vertical or
+   leave the arena through its top or bottom edge.
+6. Walk directly into a living enemy and confirm it still blocks overlap. Then
+   move diagonally around the same enemy and confirm the player can escape in
+   depth instead of being hard-locked by a torso-sized collider.
+7. Defeat an enemy and walk through its former position. Select Retry and confirm
+   the restored living enemy blocks direct overlap again.
+8. Confirm BLAST has visible travel and a horizontal landing ellipse.
+9. Lose once, Retry, then Reforge; no attack, touch, projectile, or detached
    weapon state should remain.
-7. Before entering the prototype, load a Forge fixture or make a drawing and
+10. Before entering the prototype, load a Forge fixture or make a drawing and
    Description; after Reforge, confirm both are still present.
-8. Rotate portrait/landscape and expand/collapse Safari toolbars; the scene must
+11. Rotate portrait/landscape and expand/collapse Safari toolbars; the scene must
    recover without black screen, clipping, or lost touch.
 
 ## Known limitations
