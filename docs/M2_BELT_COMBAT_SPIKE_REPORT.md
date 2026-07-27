@@ -1,6 +1,6 @@
 # M2 Belt Combat Spike Delivery Report
 
-Status: **CONFIRMED technical prototype complete / TO VALIDATE physical iPhone and product direction**
+Status: **CONFIRMED technical prototype and physical-iPhone acceptance complete / TO VALIDATE product direction**
 
 Date: 2026-07-27
 
@@ -13,8 +13,9 @@ three encounter fixtures, five distinct two-dimensional attack executions, and
 the existing lethal Retry/Reforge loop.
 
 This report does not approve belt combat as the final Project Forge direction.
-That decision remains gated by a physical-iPhone comparison against the stable
-side-view combat.
+The product owner completed the physical-iPhone prototype checklist on
+2026-07-27 and reported every item passed. Choosing belt combat over the stable
+side-view combat remains a separate product decision.
 
 ## Scope and boundaries
 
@@ -159,11 +160,19 @@ An independent visual review initially returned **NEEDS WORK**:
    possible. QA defeat, direct damage, and burn death all disable enemy collision
    immediately; Retry restores it.
 
-**TO VALIDATE:** items 5 and 6 pass deterministic Godot plus Chromium/WebKit
-automation, but still require a new physical-iPhone pass before this spike can
-advance through M2B-19.
+**CONFIRMED:** items 5 and 6 pass deterministic Godot plus Chromium/WebKit
+automation and the product owner's physical-iPhone run. The accepted candidate
+is commit `39b077ed4d41dd4a3af3bdae3927556a52e6a03a` at:
+
+<https://project-forge-b1-preview.hongningliu0130.chatgpt.site/?qa=m2belt&release=m2-belt-39b077e>
 
 ## Physical iPhone comparison checklist
+
+**CONFIRMED PASS (2026-07-27):** the product owner ran this checklist on a real
+iPhone Safari and reported all items passed, including the corrected Piercing
+direction, diagonal escape around a living enemy, defeated-enemy passage,
+touch/attack continuity, Retry/Reforge cleanup, orientation, and Safari toolbar
+recovery.
 
 1. Open the independent preview in landscape and confirm the default link still
    opens Forge while the belt query opens only the prototype.
@@ -201,5 +210,5 @@ advance through M2B-19.
   consume a newly compiled live weapon through the normal player flow; the
   tested `equip_weapon()` boundary accepts an already repaired/runtime-valid
   `WeaponSpec`.
-- Physical iPhone usability and the product choice between side-view and belt
-  combat remain **TO VALIDATE**.
+- Physical iPhone prototype usability is **CONFIRMED**. The product choice
+  between side-view and belt combat remains **TO VALIDATE**.

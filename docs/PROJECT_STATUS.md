@@ -61,7 +61,7 @@ rollback readiness. No cleanup is authorized by this governance task.
 | Core Combat C0 lethal micro-playtest | **CONFIRMED diagnostic implementation complete; technical gates pass; gameplay balance gate fails in Chromium and WebKit** |
 | Weapon Exposure B1.5 | **CONFIRMED complete; physical iPhone v29 accepted, Sites v30 stable, tag `v0.4.0-weapon-exposure-b1.5`** |
 | M1B2 | **CONFIRMED not started** |
-| M2 belt-combat comparison spike | **CONFIRMED authorized / TO VALIDATE in isolated branch; does not replace the stable Combat Lab** |
+| M2 belt-combat comparison spike | **CONFIRMED technical and physical-iPhone prototype acceptance on `39b077e`; final combat-direction choice remains TO VALIDATE and the stable Combat Lab is unchanged** |
 | Next gameplay validation after spike | **TBD; B2/M1B2 and cadence remain unstarted** |
 
 B2 and M1B2 descriptions remain roadmap candidates only. They are not
@@ -69,11 +69,11 @@ authorization to begin development.
 
 ## Work currently allowed
 
-- **CONFIRMED:** the isolated M2 belt-combat comparison spike defined by
-  `docs/M2_BELT_COMBAT_SPIKE_ACCEPTANCE.md`. It may add one independent scene,
-  X/Y movement, mobile controls, three encounter fixtures, and two-dimensional
-  execution of the existing five attack roles without changing the stable
-  Provider, Schema, PowerBudget, or Weapon Physics authority.
+- **CONFIRMED:** documentation closeout and read-only review of the isolated M2
+  belt-combat comparison spike defined by
+  `docs/M2_BELT_COMBAT_SPIKE_ACCEPTANCE.md`. Its technical and physical-iPhone
+  prototype gates passed on commit `39b077e`; no further gameplay expansion is
+  authorized by that acceptance.
 - **CONFIRMED:** documentation reconciliation and engineering governance.
 - **CONFIRMED:** provider-free local tests, builds, CI, and browser automation.
 - **CONFIRMED:** B1.5 documentation reconciliation, read-only release audits,
@@ -101,8 +101,9 @@ authorization to begin development.
 
 ## Work currently prohibited
 
-- Replacing the stable side-view Combat Lab before automated comparison and
-  physical-iPhone acceptance of the belt spike.
+- Replacing the stable side-view Combat Lab before an explicit product decision.
+  Automated comparison and physical-iPhone prototype acceptance have passed,
+  but that evidence does not silently choose the final combat direction.
 - Starting B2, M1B2, cadence/automatic firearms, charged grenades, or gameplay
   work outside the belt-spike acceptance contract.
 - Changing player UI, public `WeaponSpec` Schema, `PowerBudget` pricing,
