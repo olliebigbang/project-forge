@@ -24,6 +24,10 @@ func _run() -> void:
 	_check(_spike.player.arena_bounds.has_point(_spike.player.global_position), "player starts inside arena")
 
 	await _test_weapon_fixtures()
+	await _test_player_and_developer_presentation()
+	await _test_live_payload_identity_and_copy_boundary()
+	await _test_invalid_live_payload_fails_closed()
+	await _test_live_elements()
 	await _test_xy_movement_and_bounds()
 	await _test_assist_and_horizontal_lock()
 	await _test_footprint_collision_and_defeated_passage()
@@ -46,6 +50,87 @@ func _test_weapon_fixtures() -> void:
 			"%s role consumes authoritative reach" % pattern,
 		)
 	await physics_frame
+
+
+func _test_player_and_developer_presentation() -> void:
+	_check(_spike.developer_test_mode, "standalone belt scene is an explicit Developer/Test route")
+	for pattern: String in BeltCombatSpike.ATTACK_PATTERNS:
+		var developer_weapon_button: Control = _spike.find_child(
+			"Weapon%s" % pattern.to_pascal_case(),
+			true,
+			false,
+		) as Control
+		_check(
+			developer_weapon_button != null and developer_weapon_button.is_visible_in_tree(),
+			"Developer/Test route retains %s fixture control" % pattern,
+		)
+	for encounter: String in BeltCombatSpike.ENCOUNTERS:
+		var developer_encounter_button: Control = _spike.find_child(
+			"Encounter%s" % encounter.to_pascal_case(),
+			true,
+			false,
+		) as Control
+		_check(
+			developer_encounter_button != null and developer_encounter_button.is_visible_in_tree(),
+			"Developer/Test route retains %s encounter control" % encounter,
+		)
+
+	var packed_scene: PackedScene = load("res://scenes/belt_combat_spike.tscn") as PackedScene
+	var live_spike: BeltCombatSpike = packed_scene.instantiate() as BeltCombatSpike
+	live_spike.developer_test_mode = false
+	root.add_child(live_spike)
+	await process_frame
+	await physics_frame
+	_check(
+		live_spike.player.current_spec == null and not live_spike.player.combat_enabled,
+		"normal-player belt waits fail-closed for a live routed payload",
+	)
+	_check(
+		not live_spike.select_weapon("melee_slash"),
+		"normal-player belt cannot select a deterministic weapon fixture",
+	)
+	for pattern: String in BeltCombatSpike.ATTACK_PATTERNS:
+		var live_weapon_button: Control = live_spike.find_child(
+			"Weapon%s" % pattern.to_pascal_case(),
+			true,
+			false,
+		) as Control
+		_check(
+			live_weapon_button != null and not live_weapon_button.is_visible_in_tree(),
+			"normal-player belt hides %s fixture control" % pattern,
+		)
+	for encounter: String in BeltCombatSpike.ENCOUNTERS:
+		var live_encounter_button: Control = live_spike.find_child(
+			"Encounter%s" % encounter.to_pascal_case(),
+			true,
+			false,
+		) as Control
+		_check(
+			live_encounter_button != null and not live_encounter_button.is_visible_in_tree(),
+			"normal-player belt hides %s encounter control" % encounter,
+		)
+	var live_source: Dictionary = _make_live_weapon("area_blast", "fire")
+	_check(
+		live_spike.equip_weapon(
+			live_source.spec,
+			live_source.strokes,
+			live_source.geometry,
+		),
+		"normal-player belt accepts only the explicit live payload",
+	)
+	await physics_frame
+	_check(
+		live_spike.player.combat_enabled
+		and live_spike.player.current_spec.attack_pattern == "area_blast",
+		"normal-player belt enables combat only after live equip",
+	)
+	_check(
+		not live_spike.select_weapon("boomerang")
+		and live_spike.player.current_spec.attack_pattern == "area_blast",
+		"fixture selection cannot overwrite the normal-player live weapon",
+	)
+	live_spike.queue_free()
+	await process_frame
 
 
 func _test_xy_movement_and_bounds() -> void:
@@ -74,6 +159,162 @@ func _test_five_attack_adaptations() -> void:
 	await _test_boomerang()
 	await _test_area_blast()
 	await _test_piercing()
+
+
+func _test_live_payload_identity_and_copy_boundary() -> void:
+	_spike.select_encounter("moving")
+	await physics_frame
+	var source: Dictionary = _make_live_weapon("melee_slash", "ice")
+	var spec: WeaponSpec = source.spec
+	var strokes: Array[PackedVector2Array] = source.strokes
+	var geometry: DrawingGeometryProfile = source.geometry
+	var expected_spec: Dictionary = spec.to_dict().duplicate(true)
+	var expected_corrections: Array[String] = spec.corrections.duplicate()
+	var expected_budget: Dictionary = spec.budget_breakdown.duplicate(true)
+	var expected_strokes: Array[PackedVector2Array] = StrokeFit.duplicate_strokes(strokes)
+	var expected_geometry: Dictionary = geometry.to_dict().duplicate(true)
+	_check(
+		_spike.equip_weapon(spec, strokes, geometry),
+		"runtime-valid live payload crosses the belt equip boundary",
+	)
+	await physics_frame
+	_check(
+		_spike.player.current_spec.to_dict() == expected_spec,
+		"live belt equip preserves the exact repaired WeaponSpec fields",
+	)
+	_check(
+		_spike.player.current_spec.corrections == expected_corrections,
+		"live belt equip preserves exact repair reasons",
+	)
+	_check(
+		_spike.player.current_spec.budget_breakdown == expected_budget,
+		"live belt equip preserves exact PowerBudget breakdown",
+	)
+	_check(
+		_strokes_equal(_spike.player.current_strokes, expected_strokes),
+		"live belt equip preserves every original stroke point",
+	)
+	_check(
+		_spike.player.current_geometry_profile.to_dict() == expected_geometry,
+		"live belt equip preserves the frozen geometry and derived timing",
+	)
+	_check(
+		_spike.player.current_spec != spec,
+		"live belt owns a WeaponSpec copy rather than the route object",
+	)
+	_check(
+		_spike.player.current_geometry_profile != geometry,
+		"live belt owns a DrawingGeometryProfile copy rather than the route object",
+	)
+
+	spec.damage = 1
+	spec.corrections.append("source mutated after route")
+	geometry.effective_reach = DrawingGeometryProfile.MIN_EFFECTIVE_REACH
+	strokes[0][0] = Vector2(999.0, 999.0)
+	_check(
+		_spike.player.current_spec.to_dict() == expected_spec
+		and _spike.player.current_spec.corrections == expected_corrections,
+		"source WeaponSpec mutation cannot rewrite the equipped live payload",
+	)
+	_check(
+		_spike.player.current_geometry_profile.to_dict() == expected_geometry,
+		"source geometry mutation cannot rewrite the equipped live profile",
+	)
+	_check(
+		_strokes_equal(_spike.player.current_strokes, expected_strokes),
+		"source stroke mutation cannot rewrite equipped player ink",
+	)
+
+
+func _test_invalid_live_payload_fails_closed() -> void:
+	var valid_source: Dictionary = _make_live_weapon("straight_projectile", "normal")
+	_check(
+		_spike.equip_weapon(
+			valid_source.spec,
+			valid_source.strokes,
+			valid_source.geometry,
+		),
+		"fail-closed probe starts from an explicitly live-equipped weapon",
+	)
+	await physics_frame
+	_check(
+		not _spike.equip_weapon(null, [], null),
+		"missing live WeaponSpec is rejected",
+	)
+	await physics_frame
+	_check(
+		_spike.player.current_spec == null
+		and _spike.player.current_strokes.is_empty()
+		and not _spike.player.combat_enabled,
+		"missing live payload clears the prior weapon and cannot retain a fixture",
+	)
+	_check(
+		not _spike.request_attack(),
+		"missing live payload cannot attack through a fallback",
+	)
+
+	var invalid_source: Dictionary = _make_live_weapon("boomerang", "electric")
+	var over_budget: WeaponSpec = invalid_source.spec
+	over_budget.power_score = PowerBudget.MAX_POWER + 1
+	_check(
+		not _spike.equip_weapon(
+			over_budget,
+			invalid_source.strokes,
+			invalid_source.geometry,
+		),
+		"over-budget live WeaponSpec is rejected",
+	)
+	await physics_frame
+	_check(
+		_spike.player.current_spec == null
+		and _spike.player.current_strokes.is_empty()
+		and not _spike.player.combat_enabled,
+		"over-budget payload fails closed without prior or fixture equipment",
+	)
+
+
+func _test_live_elements() -> void:
+	var status_markers: Dictionary = {
+		"normal": "KNOCKBACK",
+		"fire": "BURN",
+		"ice": "SLOWED",
+		"electric": "STAGGER",
+	}
+	for element: String in WeaponSpec.ELEMENTS:
+		_spike.select_encounter("moving")
+		await physics_frame
+		var enemy: BeltEnemy = _spike.enemies[0]
+		enemy.set_simulation_enabled(false)
+		var source: Dictionary = _make_live_weapon("melee_slash", element)
+		_check(
+			_spike.equip_weapon(source.spec, source.strokes, source.geometry),
+			"%s live element payload equips" % element,
+		)
+		await physics_frame
+		var center_y: float = _spike.player.arena_bounds.get_center().y
+		_spike.player.global_position = Vector2(350.0, center_y)
+		enemy.global_position = Vector2(430.0, center_y)
+		await physics_frame
+		var before: int = enemy.health
+		_check(
+			_spike.request_attack(),
+			"%s live element attack is accepted" % element,
+		)
+		await _wait_seconds(_spike.player.current_role_profile.cycle_seconds + 0.08)
+		var marker_found: bool = false
+		for event: Dictionary in _spike.qa_state().get("damage_events", []):
+			if str(event.get("note", "")).contains(str(status_markers[element])):
+				marker_found = true
+				break
+		_check(enemy.health < before, "%s live element deals executable damage" % element)
+		_check(
+			_spike.player.current_spec.element == element,
+			"%s live element remains exact after routing" % element,
+		)
+		_check(
+			marker_found,
+			"%s live element executes its deterministic status behavior" % element,
+		)
 
 
 func _test_assist_and_horizontal_lock() -> void:
@@ -350,7 +591,7 @@ func _test_footprint_collision_and_defeated_passage() -> void:
 
 func _test_melee() -> void:
 	_spike.select_encounter("moving")
-	_spike.select_weapon("melee_slash")
+	_check(_equip_live_weapon("melee_slash", "normal"), "live melee payload equips")
 	await physics_frame
 	var enemy: BeltEnemy = _spike.enemies[0]
 	enemy.set_simulation_enabled(false)
@@ -366,7 +607,7 @@ func _test_melee() -> void:
 
 func _test_straight_projectile() -> void:
 	_spike.select_encounter("moving")
-	_spike.select_weapon("straight_projectile")
+	_check(_equip_live_weapon("straight_projectile", "ice"), "live straight projectile payload equips")
 	await physics_frame
 	var enemy: BeltEnemy = _spike.enemies[0]
 	enemy.set_simulation_enabled(false)
@@ -382,7 +623,7 @@ func _test_straight_projectile() -> void:
 
 func _test_boomerang() -> void:
 	_spike.select_encounter("shield")
-	_spike.select_weapon("boomerang")
+	_check(_equip_live_weapon("boomerang", "electric"), "live boomerang payload equips")
 	await physics_frame
 	var enemy: BeltEnemy = _spike.enemies[0]
 	enemy.set_simulation_enabled(false)
@@ -402,7 +643,7 @@ func _test_boomerang() -> void:
 
 func _test_area_blast() -> void:
 	_spike.select_encounter("group")
-	_spike.select_weapon("area_blast")
+	_check(_equip_live_weapon("area_blast", "fire"), "live thrown-blast payload equips")
 	await physics_frame
 	var arena_center_y: float = _spike.player.arena_bounds.get_center().y
 	_spike.player.global_position = Vector2(300.0, arena_center_y)
@@ -437,7 +678,7 @@ func _test_area_blast() -> void:
 
 func _test_piercing() -> void:
 	_spike.select_encounter("group")
-	_spike.select_weapon("piercing")
+	_check(_equip_live_weapon("piercing", "normal"), "live piercing payload equips")
 	await physics_frame
 	var arena_center_y: float = _spike.player.arena_bounds.get_center().y
 	_spike.player.global_position = Vector2(250.0, arena_center_y)
@@ -498,8 +739,19 @@ func _test_physics_tick_profiles() -> void:
 	for ticks: int in [30, 60, 120]:
 		Engine.physics_ticks_per_second = ticks
 		_spike.select_encounter("moving")
-		_spike.select_weapon("piercing")
+		var source: Dictionary = _make_live_weapon("piercing", "electric")
+		_check(
+			_spike.equip_weapon(source.spec, source.strokes, source.geometry),
+			"%d fps live payload equips" % ticks,
+		)
 		await physics_frame
+		var expected_spec: Dictionary = _spike.player.current_spec.to_dict().duplicate(true)
+		var expected_strokes: Array[PackedVector2Array] = StrokeFit.duplicate_strokes(
+			_spike.player.current_strokes,
+		)
+		var expected_geometry: Dictionary = (
+			_spike.player.current_geometry_profile.to_dict().duplicate(true)
+		)
 		_spike.enemies[0].set_simulation_enabled(false)
 		var arena_center_y: float = _spike.player.arena_bounds.get_center().y
 		_spike.player.global_position = Vector2(260.0, arena_center_y)
@@ -514,6 +766,12 @@ func _test_physics_tick_profiles() -> void:
 			"%d fps produces exactly one attack commit" % ticks,
 		)
 		_check(not _spike.player.attack_active(), "%d fps cleans the attack state" % ticks)
+		_check(
+			_spike.player.current_spec.to_dict() == expected_spec
+			and _strokes_equal(_spike.player.current_strokes, expected_strokes)
+			and _spike.player.current_geometry_profile.to_dict() == expected_geometry,
+			"%d fps preserves exact live payload identity" % ticks,
+		)
 	Engine.physics_ticks_per_second = original_ticks
 
 
@@ -542,11 +800,20 @@ func _test_bounded_long_frame() -> void:
 		and int(long_result.get("active_transients", -1)) == 0,
 		"bounded long frame preserves transient cleanup",
 	)
+	_check(
+		fine_result.get("weapon_spec", {}) == long_result.get("weapon_spec", {})
+		and fine_result.get("geometry_profile", {}) == long_result.get("geometry_profile", {})
+		and fine_result.get("stroke_signature", {}) == long_result.get("stroke_signature", {}),
+		"bounded long frame preserves exact live payload identity",
+	)
 
 
 func _manual_projectile_profile(step_deltas: Array) -> Dictionary:
 	_spike.select_encounter("moving")
-	_spike.select_weapon("straight_projectile")
+	_check(
+		_equip_live_weapon("straight_projectile", "fire"),
+		"bounded-frame live projectile payload equips",
+	)
 	await physics_frame
 	var enemy: BeltEnemy = _spike.enemies[0]
 	enemy.set_simulation_enabled(false)
@@ -588,6 +855,9 @@ func _manual_projectile_profile(step_deltas: Array) -> Dictionary:
 		"damage": enemy.maximum_health - enemy.health,
 		"finished": finished,
 		"active_transients": get_nodes_in_group("belt_transient_attack").size(),
+		"weapon_spec": _spike.player.current_spec.to_dict().duplicate(true),
+		"geometry_profile": _spike.player.current_geometry_profile.to_dict().duplicate(true),
+		"stroke_signature": _stroke_signature(_spike.player.current_strokes),
 	}
 
 
@@ -628,6 +898,117 @@ func _test_compact_layouts() -> void:
 	_check(_spike.player.combat_enabled, "landscape restore resumes active combat")
 	_spike.qa_set_css_viewport_size(Vector2.ZERO)
 	await process_frame
+
+
+func _equip_live_weapon(pattern: String, element: String) -> bool:
+	var source: Dictionary = _make_live_weapon(pattern, element)
+	return _spike.equip_weapon(source.spec, source.strokes, source.geometry)
+
+
+func _make_live_weapon(pattern: String, element: String) -> Dictionary:
+	var canvas_size: Vector2 = Vector2(760.0, 220.0)
+	var strokes: Array[PackedVector2Array] = _live_strokes_for(pattern)
+	var drawing_summary: Dictionary = DrawingCanvas.summarize_strokes(strokes, canvas_size)
+	var descriptions: Dictionary = {
+		"melee_slash": "a %s balanced sword" % element,
+		"straight_projectile": "a %s fast bow with straight arrows" % element,
+		"boomerang": "a %s returning boomerang" % element,
+		"area_blast": "a %s thrown grenade with an explosion" % element,
+		"piercing": "a %s piercing spear" % element,
+	}
+	var compiler: MockAIService = MockAIService.new()
+	var spec: WeaponSpec = compiler.generate(
+		str(descriptions.get(pattern, "a %s balanced weapon" % element)),
+		drawing_summary,
+		pattern,
+	)
+	var geometry: DrawingGeometryProfile = DrawingGeometryProfile.from_snapshot(
+		strokes,
+		canvas_size,
+		"balanced",
+	)
+	if geometry.applies_to(spec):
+		geometry.apply_to_spec(spec)
+	return {
+		"spec": spec,
+		"strokes": StrokeFit.duplicate_strokes(strokes),
+		"geometry": geometry,
+	}
+
+
+func _live_strokes_for(pattern: String) -> Array[PackedVector2Array]:
+	match pattern:
+		"straight_projectile":
+			return [
+				PackedVector2Array([
+					Vector2(110.0, 48.0),
+					Vector2(76.0, 110.0),
+					Vector2(110.0, 172.0),
+				]),
+				PackedVector2Array([
+					Vector2(110.0, 48.0),
+					Vector2(164.0, 110.0),
+					Vector2(110.0, 172.0),
+				]),
+			]
+		"boomerang":
+			return [PackedVector2Array([
+				Vector2(84.0, 166.0),
+				Vector2(176.0, 58.0),
+				Vector2(292.0, 70.0),
+				Vector2(194.0, 124.0),
+				Vector2(84.0, 166.0),
+			])]
+		"area_blast":
+			return [PackedVector2Array([
+				Vector2(112.0, 72.0),
+				Vector2(168.0, 48.0),
+				Vector2(224.0, 72.0),
+				Vector2(240.0, 132.0),
+				Vector2(196.0, 174.0),
+				Vector2(132.0, 166.0),
+				Vector2(104.0, 112.0),
+				Vector2(112.0, 72.0),
+			])]
+		"piercing":
+			return [PackedVector2Array([
+				Vector2(70.0, 116.0),
+				Vector2(310.0, 106.0),
+				Vector2(520.0, 96.0),
+			])]
+		_:
+			return [PackedVector2Array([
+				Vector2(72.0, 116.0),
+				Vector2(268.0, 106.0),
+				Vector2(472.0, 92.0),
+			])]
+
+
+func _strokes_equal(
+	left: Array[PackedVector2Array],
+	right: Array[PackedVector2Array],
+) -> bool:
+	if left.size() != right.size():
+		return false
+	for index: int in left.size():
+		if left[index] != right[index]:
+			return false
+	return true
+
+
+func _stroke_signature(strokes: Array[PackedVector2Array]) -> Dictionary:
+	var point_count: int = 0
+	var parts: PackedStringArray = []
+	for stroke: PackedVector2Array in strokes:
+		parts.append("s%d" % stroke.size())
+		point_count += stroke.size()
+		for point: Vector2 in stroke:
+			parts.append("%.4f,%.4f" % [point.x, point.y])
+	return {
+		"stroke_count": strokes.size(),
+		"point_count": point_count,
+		"sha256": "|".join(parts).sha256_text(),
+	}
 
 
 func _dictionary_rect(value: Variant) -> Rect2:
