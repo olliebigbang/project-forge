@@ -409,6 +409,12 @@ rolling for a higher damage value.
   is explicitly outside M1B1; only bounded `drawing_summary` metadata is sent.
 - **M2 — vertical slice:** production combat character, three normal monsters, one
   boss, 3–4 stages, win/loss/retry, base audio, animation, feedback.
+  Before that vertical slice, an isolated **M2 Belt Combat Spike** compares the
+  accepted fixed-height side view against one single-screen battlefield with
+  horizontal and depth movement. It reuses the existing lethal loop and five
+  weapon roles, adds no production progression, and cannot replace the stable
+  Combat Lab without physical-iPhone evidence. See
+  `docs/M2_BELT_COMBAT_SPIKE_ACCEPTANCE.md`.
 - **M3 — voice and mobile test:** voice-to-text, Android internal test, iOS
   TestFlight, device matrix, performance, background recovery.
 - **M4 — proceed decision:** expand only if creation itself is fun, weapons differ

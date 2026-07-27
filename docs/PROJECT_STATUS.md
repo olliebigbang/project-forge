@@ -61,13 +61,19 @@ rollback readiness. No cleanup is authorized by this governance task.
 | Core Combat C0 lethal micro-playtest | **CONFIRMED diagnostic implementation complete; technical gates pass; gameplay balance gate fails in Chromium and WebKit** |
 | Weapon Exposure B1.5 | **CONFIRMED complete; physical iPhone v29 accepted, Sites v30 stable, tag `v0.4.0-weapon-exposure-b1.5`** |
 | M1B2 | **CONFIRMED not started** |
-| Next gameplay validation | **TBD; B2/M1B2 remain blocked and belt combat/cadence are only future probes** |
+| M2 belt-combat comparison spike | **CONFIRMED authorized / TO VALIDATE in isolated branch; does not replace the stable Combat Lab** |
+| Next gameplay validation after spike | **TBD; B2/M1B2 and cadence remain unstarted** |
 
 B2 and M1B2 descriptions remain roadmap candidates only. They are not
 authorization to begin development.
 
 ## Work currently allowed
 
+- **CONFIRMED:** the isolated M2 belt-combat comparison spike defined by
+  `docs/M2_BELT_COMBAT_SPIKE_ACCEPTANCE.md`. It may add one independent scene,
+  X/Y movement, mobile controls, three encounter fixtures, and two-dimensional
+  execution of the existing five attack roles without changing the stable
+  Provider, Schema, PowerBudget, or Weapon Physics authority.
 - **CONFIRMED:** documentation reconciliation and engineering governance.
 - **CONFIRMED:** provider-free local tests, builds, CI, and browser automation.
 - **CONFIRMED:** B1.5 documentation reconciliation, read-only release audits,
@@ -95,7 +101,10 @@ authorization to begin development.
 
 ## Work currently prohibited
 
-- Starting B2, M1B2, or gameplay work outside the authorized C0 contract.
+- Replacing the stable side-view Combat Lab before automated comparison and
+  physical-iPhone acceptance of the belt spike.
+- Starting B2, M1B2, cadence/automatic firearms, charged grenades, or gameplay
+  work outside the belt-spike acceptance contract.
 - Changing player UI, public `WeaponSpec` Schema, `PowerBudget` pricing,
   Provider, D1, or deployment business logic. Gameplay and weapon-physics changes
   are limited to the approved B1.5 acceptance contract.

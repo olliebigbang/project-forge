@@ -1,0 +1,80 @@
+{
+  "milestone": "M2 Belt Combat Spike",
+  "status": "TO VALIDATE",
+  "authority": "docs/M2_BELT_COMBAT_SPIKE_ACCEPTANCE.md",
+  "provider_policy": "NO PROVIDER CALLS",
+  "prototype_query": {
+    "qa": "m2belt"
+  },
+  "viewports": [
+    {"id": "iphone-12-13-landscape", "width": 844, "height": 390},
+    {"id": "iphone-14-landscape", "width": 852, "height": 393},
+    {"id": "iphone-pro-max-landscape", "width": 915, "height": 412}
+  ],
+  "fixtures": ["moving", "shield", "group"],
+  "weapon_cases": [
+    {
+      "id": "melee",
+      "weapon": "melee",
+      "attack_pattern": "melee_slash",
+      "primary_fixture": "group",
+      "required_path_phases": ["melee_active"],
+      "max_group_targets": 1
+    },
+    {
+      "id": "bow",
+      "weapon": "bow",
+      "attack_pattern": "straight_projectile",
+      "primary_fixture": "group",
+      "required_path_phases": ["straight_outbound"],
+      "max_group_targets": 1,
+      "shield_damage_multiplier": 0.2
+    },
+    {
+      "id": "piercing",
+      "weapon": "piercing",
+      "attack_pattern": "piercing",
+      "primary_fixture": "group",
+      "required_path_phases": ["piercing_outbound"],
+      "damage_multipliers": [1.0, 0.7, 0.45],
+      "max_group_targets": 3,
+      "shield_bypass": true,
+      "startup_movement_lock": true
+    },
+    {
+      "id": "boomerang",
+      "weapon": "boomerang",
+      "attack_pattern": "boomerang",
+      "primary_fixture": "group",
+      "required_path_phases": ["boomerang_outbound", "boomerang_return"],
+      "max_concurrent_projectiles": 1,
+      "locked_until_return": true
+    },
+    {
+      "id": "grenade",
+      "weapon": "grenade",
+      "attack_pattern": "area_blast",
+      "primary_fixture": "group",
+      "required_path_phases": ["grenade_travel", "grenade_landing", "grenade_explosion"],
+      "requires_ground_ellipse": true
+    }
+  ],
+  "simulation_profiles": [
+    {"id": "30hz", "physics_hz": 30, "long_frame_seconds": 0.0},
+    {"id": "60hz", "physics_hz": 60, "long_frame_seconds": 0.0},
+    {"id": "120hz", "physics_hz": 120, "long_frame_seconds": 0.0},
+    {"id": "60hz-long-frame", "physics_hz": 60, "long_frame_seconds": 0.12}
+  ],
+  "cleanup_zero_fields": [
+    "active_projectiles",
+    "active_blasts",
+    "queued_attacks",
+    "active_timers",
+    "active_touches"
+  ],
+  "physical_device_gate": {
+    "status": "TO VALIDATE",
+    "criterion": "M2B-19",
+    "claim": "Browser automation is not physical iPhone Safari evidence."
+  }
+}
