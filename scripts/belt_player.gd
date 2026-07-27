@@ -106,12 +106,32 @@ func equip_weapon(
 	geometry_profile: DrawingGeometryProfile = null,
 ) -> void:
 	clear_attack_state()
-	current_spec = spec
-	current_geometry_profile = geometry_profile
-	current_role_profile = WeaponRoleProfile.derive(spec, geometry_profile)
+	current_spec = WeaponRouteSnapshot.clone_weapon_spec(spec)
+	current_geometry_profile = WeaponRouteSnapshot.clone_geometry_profile(
+		geometry_profile,
+	)
+	current_role_profile = WeaponRoleProfile.derive(
+		current_spec,
+		current_geometry_profile,
+	)
 	current_strokes = StrokeFit.duplicate_strokes(strokes)
-	weapon_visual.configure(current_strokes, spec, geometry_profile)
+	weapon_visual.configure(
+		current_strokes,
+		current_spec,
+		current_geometry_profile,
+	)
 	restore_held_visual()
+
+
+func clear_weapon() -> void:
+	set_combat_enabled(false)
+	clear_attack_state()
+	current_spec = null
+	current_geometry_profile = null
+	current_role_profile = null
+	current_strokes.clear()
+	if is_instance_valid(weapon_visual):
+		weapon_visual.hide()
 
 
 func set_touch_move(value: Vector2) -> void:
@@ -221,6 +241,9 @@ func set_held_detached(detached: bool) -> void:
 func restore_held_visual() -> void:
 	_detached_visual = false
 	if not is_instance_valid(weapon_visual):
+		return
+	if current_spec == null:
+		weapon_visual.hide()
 		return
 	weapon_visual.visible = true
 	weapon_visual.position = WEAPON_REST_POSITION
