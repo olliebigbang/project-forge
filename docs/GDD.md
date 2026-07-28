@@ -99,6 +99,11 @@ stages.
 - **CONFIRMED (target experience)** Players can move horizontally and in depth,
   perform a normal attack, use a weapon ability, dodge, and inspect
   health/cooldowns.
+- **CONFIRMED authorization / TO VALIDATE (M2B)** The first playable-loop probe
+  is one belt room with a bruiser, a direction-locking charger, DODGE, a
+  one-charge non-damaging WARD technique, victory/defeat, Retry/Reforge, and one
+  bounded post-victory reward choice. It does not change weapon generation,
+  PowerBudget, Provider behavior, or start a level/upgrade production system.
 - **CONFIRMED** Mobile controls place movement on the left and attack, ability,
   and dodge on the right.
 - **CONFIRMED** Landscape safe areas must be supported; interaction must not rely
