@@ -384,6 +384,8 @@ func qa_state() -> Dictionary:
 			var blast_state: Dictionary = (node as BeltBlast).qa_state()
 			transient_states.append(blast_state)
 			blast_states.append(blast_state)
+		elif node is ForgeSlashEffect:
+			transient_states.append((node as ForgeSlashEffect).qa_state())
 	var spec: WeaponSpec = player.current_spec
 	var touch_vector: Vector2 = player.touch_move()
 	var stroke_signature: Dictionary = _stroke_signature(player.current_strokes)
@@ -753,7 +755,6 @@ func _launch_melee(spec: WeaponSpec, origin: Vector2, direction: Vector2) -> voi
 	slash.reach = spec.attack_range
 	slash.lifetime = clampf(player.current_role_profile.active_seconds, 0.16, 0.42)
 	slash.global_position = origin
-	slash.rotation = normalized_direction.angle()
 	slash.add_to_group("belt_transient_attack")
 	_arena_actors.add_child(slash)
 	if candidates.is_empty():

@@ -28,6 +28,22 @@ const beltState = (page) =>
   page.evaluate(() => window.__forgeBeltCombat?.state?.() || {});
 const beltControls = (page) =>
   page.evaluate(() => window.__forgeBeltCombat?.controls?.() || {});
+const vector = (value = {}) => ({
+  x: Number(value?.x || 0),
+  y: Number(value?.y || 0),
+});
+const vectorLength = (value) =>
+  Math.hypot(Number(value?.x || 0), Number(value?.y || 0));
+const normalizedVector = (value) => {
+  const candidate = vector(value);
+  const length = vectorLength(candidate);
+  return length > 0.0001
+    ? { x: candidate.x / length, y: candidate.y / length }
+    : { x: 0, y: 0 };
+};
+const dot = (left, right) =>
+  Number(left?.x || 0) * Number(right?.x || 0) +
+  Number(left?.y || 0) * Number(right?.y || 0);
 
 function seriousConsoleEntries(entries) {
   const known = (entry) =>
@@ -124,6 +140,33 @@ async function waitForLiveBelt(page) {
   return beltState(page);
 }
 
+async function waitForBeltCondition(
+  page,
+  label,
+  predicate,
+  expected = {},
+  timeout = 20_000,
+) {
+  const handle = await page.waitForFunction(
+    ({ source, expectedValue }) => {
+      const current = window.__forgeBeltCombat?.state?.();
+      if (!current) return false;
+      // The predicate is test-owned source, not application or provider data.
+      const matched = Function(
+        "current",
+        "expected",
+        `return (${source})(current, expected);`,
+      )(current, expectedValue);
+      return matched ? current : false;
+    },
+    { source: predicate.toString(), expectedValue: expected },
+    { timeout },
+  );
+  const matchedState = await handle.jsonValue();
+  await handle.dispose();
+  return matchedState;
+}
+
 async function tapRect(page, rect, label) {
   assert(rect?.width > 0 && rect?.height > 0, `${label} is not actionable`);
   await page.touchscreen.tap(
@@ -146,6 +189,63 @@ function assertRect(rect, viewport, label) {
   );
 }
 
+async function drawForgeStroke(page) {
+  const canvas = (await forgeControls(page)).canvas;
+  assert(canvas?.width > 0 && canvas?.height > 0, "drawing canvas is hidden");
+  const points = [
+    {
+      x: canvas.x + canvas.width * 0.18,
+      y: canvas.y + canvas.height * 0.62,
+    },
+    {
+      x: canvas.x + canvas.width * 0.38,
+      y: canvas.y + canvas.height * 0.34,
+    },
+    {
+      x: canvas.x + canvas.width * 0.58,
+      y: canvas.y + canvas.height * 0.66,
+    },
+    {
+      x: canvas.x + canvas.width * 0.80,
+      y: canvas.y + canvas.height * 0.38,
+    },
+  ];
+  if (browserName === "chromium") {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [
+        { ...points[0], radiusX: 4, radiusY: 4, force: 1, id: 1 },
+      ],
+    });
+    for (const point of points.slice(1)) {
+      await cdp.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [
+          { ...point, radiusX: 4, radiusY: 4, force: 1, id: 1 },
+        ],
+      });
+    }
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+    await cdp.detach();
+  } else {
+    await page.mouse.move(points[0].x, points[0].y);
+    await page.mouse.down();
+    for (const point of points.slice(1)) {
+      await page.mouse.move(point.x, point.y, { steps: 4 });
+    }
+    await page.mouse.up();
+  }
+  await page.waitForFunction(
+    () => Number(window.__forgeM1B1Test?.state?.().drawing_count) > 0,
+    null,
+    { timeout: 10_000 },
+  );
+}
+
 function assertFixtureControlsHidden(controls, label) {
   for (const [id, rect] of Object.entries(controls.weapons || {})) {
     assert(
@@ -159,6 +259,238 @@ function assertFixtureControlsHidden(controls, label) {
       `${label}: normal player exposed encounter fixture ${id}`,
     );
   }
+}
+
+async function stageDirectionalAttack(page, pattern, horizontalSign) {
+  await beltCommand(page, "pause_enemies", { enabled: false });
+  const initial = await beltState(page);
+  const arena = initial.arena_bounds;
+  const playerPosition = {
+    x: Number(arena.x) + Number(arena.width) * 0.5,
+    y: Number(arena.y) + Number(arena.height) * 0.58,
+  };
+  const targetDistance =
+    pattern === "melee_slash" ? 80 : pattern === "area_blast" ? 180 : 260;
+
+  await beltCommand(page, "set_player", playerPosition);
+  await beltCommand(page, "move", { x: horizontalSign, y: 0 });
+  await waitForBeltCondition(
+    page,
+    `${pattern} ${horizontalSign < 0 ? "left" : "right"} facing`,
+    (current, expected) =>
+      Math.sign(Number(current?.player?.facing || 0)) ===
+      Number(expected.horizontalSign),
+    { horizontalSign },
+  );
+  await beltCommand(page, "move", { x: 0, y: 0 });
+  await beltCommand(page, "set_player", playerPosition);
+
+  const staged = await beltState(page);
+  assert(staged.enemies?.length > 0, `${pattern}: no live target to stage`);
+  const target = staged.enemies[0];
+  const targetPosition = {
+    x: playerPosition.x + horizontalSign * targetDistance,
+    y: playerPosition.y,
+  };
+  await beltCommand(page, "set_enemy", {
+    id: target.id,
+    ...targetPosition,
+    simulation_enabled: false,
+  });
+  return waitForBeltCondition(
+    page,
+    `${pattern} ${horizontalSign < 0 ? "left" : "right"} target lock`,
+    (current, expected) => {
+      const enemy = current?.enemies?.find(
+        (entry) => entry.id === String(expected.targetId),
+      );
+      return (
+        Math.abs(
+          Number(current?.player?.position?.x) - expected.playerPosition.x,
+        ) <=
+          1.5 &&
+        Math.abs(
+          Number(current?.player?.position?.y) - expected.playerPosition.y,
+        ) <=
+          1.5 &&
+        Math.abs(Number(enemy?.position?.x) - expected.targetPosition.x) <=
+          1.5 &&
+        Math.abs(Number(enemy?.position?.y) - expected.targetPosition.y) <=
+          1.5 &&
+        Math.sign(Number(current?.player?.facing || 0)) ===
+          Number(expected.horizontalSign) &&
+        String(current?.player?.assist_target || "") ===
+          String(expected.targetId)
+      );
+    },
+    {
+      targetId: target.id,
+      playerPosition,
+      targetPosition,
+      horizontalSign,
+    },
+  );
+}
+
+async function runDirectionalAttack(
+  page,
+  liveCase,
+  horizontalSign,
+  screenshotPath = "",
+) {
+  const side = horizontalSign < 0 ? "left" : "right";
+  const staged = await stageDirectionalAttack(
+    page,
+    liveCase.pattern,
+    horizontalSign,
+  );
+  const beforeSequence = Number(staged.event_sequence);
+  const beforeCount = Number(staged.accepted_attack_count);
+  await beltCommand(page, "attack");
+
+  const committedState = await waitForBeltCondition(
+    page,
+    `${liveCase.id} ${side} attack commit`,
+    (current, expected) =>
+      Number(current?.accepted_attack_count) === expected.beforeCount + 1 &&
+      (current?.combat_events || []).some(
+        (event) =>
+          event.kind === "attack_committed" &&
+          Number(event.sequence) > expected.beforeSequence,
+      ),
+    { beforeCount, beforeSequence },
+  );
+  const committed = committedState.combat_events.findLast(
+    (event) =>
+      event.kind === "attack_committed" &&
+      Number(event.sequence) > beforeSequence,
+  );
+  const committedDirection = normalizedVector(committed?.direction);
+  assert(
+    Math.sign(committedDirection.x) === horizontalSign,
+    `${liveCase.id} ${side}: committed direction was ${JSON.stringify(committedDirection)}`,
+  );
+
+  const heldForward = normalizedVector(
+    committedState.player?.weapon_visual_forward,
+  );
+  assert(
+    dot(heldForward, committedDirection) > 0.72,
+    `${liveCase.id} ${side}: held ink did not follow frozen direction ` +
+      `${JSON.stringify({ heldForward, committedDirection })}`,
+  );
+  assert(
+    Math.sign(Number(committedState.player?.weapon_visual_position?.x || 0)) ===
+      horizontalSign,
+    `${liveCase.id} ${side}: held grip stayed on the wrong side`,
+  );
+
+  let visibleState;
+  let outboundPosition;
+  let impactPosition = null;
+  if (liveCase.pattern === "melee_slash") {
+    visibleState = (committedState.transients || []).some(
+      (entry) => entry.kind === "slash",
+    )
+      ? committedState
+      : await waitForBeltCondition(
+          page,
+          `${liveCase.id} ${side} slash visual`,
+          (current) =>
+            (current?.transients || []).some(
+              (entry) => entry.kind === "slash",
+            ),
+        );
+    const slash = visibleState.transients.find(
+      (entry) => entry.kind === "slash",
+    );
+    const slashDirection = normalizedVector(slash?.direction);
+    assert(
+      dot(slashDirection, committedDirection) > 0.999,
+      `${liveCase.id} ${side}: slash arc direction drifted`,
+    );
+  } else {
+    visibleState = (committedState.projectiles || []).some(
+      (projectile) => projectile.returning === false,
+    )
+      ? committedState
+      : await waitForBeltCondition(
+          page,
+          `${liveCase.id} ${side} outbound projectile`,
+          (current) =>
+            (current?.projectiles || []).some(
+              (projectile) => projectile.returning === false,
+            ),
+        );
+    const projectile = visibleState.projectiles.find(
+      (entry) => entry.returning === false,
+    );
+    const projectileDirection = normalizedVector(projectile?.direction);
+    assert(
+      Math.sign(projectileDirection.x) === horizontalSign &&
+        dot(projectileDirection, committedDirection) > 0.90,
+      `${liveCase.id} ${side}: outbound visual direction drifted ` +
+        `${JSON.stringify({ projectileDirection, committedDirection })}`,
+    );
+    outboundPosition = vector(projectile?.position);
+    assert(
+      Math.sign(
+        outboundPosition.x - Number(visibleState.player?.position?.x || 0),
+      ) === horizontalSign,
+      `${liveCase.id} ${side}: projectile rendered on the wrong outbound side`,
+    );
+  }
+
+  if (liveCase.pattern === "area_blast") {
+    const impact = await waitForBeltCondition(
+      page,
+      `${liveCase.id} ${side} impact`,
+      (current, expected) =>
+        (current?.combat_events || []).some(
+          (event) =>
+            event.kind === "area_impact" &&
+            Number(event.sequence) > expected.beforeSequence,
+        ) && (current?.blasts || []).length > 0,
+      { beforeSequence },
+    );
+    const impactEvent = impact.combat_events.findLast(
+      (event) =>
+        event.kind === "area_impact" &&
+        Number(event.sequence) > beforeSequence,
+    );
+    impactPosition = { x: Number(impactEvent.x), y: Number(impactEvent.y) };
+    assert(
+      Math.sign(
+        impactPosition.x - Number(staged.player?.position?.x || 0),
+      ) === horizontalSign,
+      `${liveCase.id} ${side}: symmetric blast landed on the wrong side`,
+    );
+    visibleState = impact;
+  }
+
+  if (screenshotPath) {
+    await page.screenshot({ path: screenshotPath });
+  }
+  const settled = await waitForBeltCondition(
+    page,
+    `${liveCase.id} ${side} cleanup`,
+    (current) =>
+      Number(current?.active_transient_count) === 0 &&
+      current?.cleanup?.player_attack_active === false &&
+      current?.cleanup?.held_visible === true,
+    {},
+    30_000,
+  );
+  return {
+    side,
+    committed_direction: committedDirection,
+    held_forward: heldForward,
+    held_local_position: committedState.player?.weapon_visual_position,
+    outbound_position: outboundPosition,
+    impact_position: impactPosition,
+    cleanup: settled.cleanup,
+    screenshot: screenshotPath || null,
+  };
 }
 
 const viewports = [
@@ -181,6 +513,7 @@ const report = {
   provider_policy: "NO PROVIDER CALLS",
   captured_at: new Date().toISOString(),
   live_cases: [],
+  unicode_transport: {},
   invalid_route: {},
   one_shot_reload: {},
   side_view_regression: {},
@@ -339,33 +672,10 @@ for (let index = 0; index < liveCases.length; index += 1) {
         assertRect(controls[action], viewport, `${liveCase.id} ${action}`);
       }
 
-      await beltCommand(page, "pause_enemies", { enabled: false });
-      const attackCount = belt.accepted_attack_count;
-      await beltCommand(page, "attack");
-      await page.waitForFunction(
-        ({ previousCount }) => {
-          const current = window.__forgeBeltCombat?.state?.();
-          return (
-            Number(current?.accepted_attack_count) === previousCount + 1 &&
-            (current?.combat_events || []).some(
-              (event) => event.kind === "attack_committed",
-            )
-          );
-        },
-        { previousCount: attackCount },
-        { timeout: 20_000 },
-      );
-      await page.waitForFunction(
-        () => {
-          const current = window.__forgeBeltCombat?.state?.();
-          return (
-            current?.active_transient_count === 0 &&
-            current?.cleanup?.player_attack_active === false &&
-            current?.cleanup?.held_visible === true
-          );
-        },
-        null,
-        { timeout: 20_000 },
+      const rightDirection = await runDirectionalAttack(
+        page,
+        liveCase,
+        1,
       );
 
       const beforeRetry = await beltState(page);
@@ -388,6 +698,17 @@ for (let index = 0; index < liveCases.length; index += 1) {
           deepEqual(retry.geometry_profile, belt.geometry_profile) &&
           deepEqual(retry.stroke_signature, belt.stroke_signature),
         `${liveCase.id}: Retry changed live payload identity`,
+      );
+
+      const leftScreenshot = join(
+        destination,
+        `${browserName}-${safeName(liveCase.id)}-left-facing.png`,
+      );
+      const leftDirection = await runDirectionalAttack(
+        page,
+        liveCase,
+        -1,
+        leftScreenshot,
       );
 
       await beltCommand(page, "reforge");
@@ -423,6 +744,10 @@ for (let index = 0; index < liveCases.length; index += 1) {
         route_payload_consumed: belt.route_payload_consumed,
         fixture_controls_hidden: true,
         attack_committed: true,
+        directionality: {
+          right: rightDirection,
+          left: leftDirection,
+        },
         retry_identity_preserved: true,
         reforge_description: restored.description,
         reforge_drawing_count: restored.drawing_count,
@@ -431,6 +756,153 @@ for (let index = 0; index < liveCases.length; index += 1) {
   );
   report.live_cases.push(evidence);
 }
+
+report.unicode_transport = await runIsolated(
+  "unicode-request-in-flight",
+  viewports[0],
+  async (page) => {
+    await openForge(page);
+    await page.unroute("**/api/compile-weapon");
+    let releaseRequest;
+    const requestGate = new Promise((resolveGate) => {
+      releaseRequest = resolveGate;
+    });
+    await page.route("**/api/compile-weapon", async (route) => {
+      await requestGate;
+      const payload = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: { "Cache-Control": "no-store" },
+        body: JSON.stringify({
+          success: false,
+          provider_invoked: false,
+          request_id: payload.request_id,
+          weapon_spec: null,
+          interpretation_summary:
+            "QA transport fixture completed without a provider call.",
+          confidence: 0,
+          corrections: [],
+          fallback_reason: "backend_unavailable",
+          provider_metadata: {
+            provider: "none",
+            model: "none",
+            attempts: 0,
+          },
+          latency_ms: 0,
+          estimated_cost: "UNKNOWN",
+        }),
+      });
+    });
+
+    const description = "冰冻手榴弹";
+    const input = page.locator("#forge-description-input");
+    await input.fill(description);
+    await page.waitForFunction(
+      (expected) =>
+        window.__forgeM1B1Test?.state?.().description === expected,
+      description,
+      { timeout: 10_000 },
+    );
+    await drawForgeStroke(page);
+
+    const outgoingRequest = page.waitForRequest(
+      (request) =>
+        request.url().includes("/api/compile-weapon") &&
+        request.method() === "POST",
+      { timeout: 15_000 },
+    );
+    await tapRect(
+      page,
+      (await forgeControls(page)).forge,
+      "Unicode FORGE",
+    );
+    const request = await outgoingRequest;
+    const postedBody = request.postDataJSON();
+    const loading = await page.waitForFunction(
+      (expected) => {
+        const current = window.__forgeM1B1Test?.state?.();
+        return (
+          current?.screen === "forge" &&
+          current?.phase === "loading" &&
+          current?.in_flight === true &&
+          current?.description === expected &&
+          current?.request_snapshot?.description === expected
+        )
+          ? current
+          : false;
+      },
+      description,
+      { timeout: 15_000 },
+    );
+    const loadingState = await loading.jsonValue();
+    const inputPresentation = await input.evaluate((element) => ({
+      value: element.value,
+      visible: Boolean(element.offsetParent),
+      display: getComputedStyle(element).display,
+      visibility: getComputedStyle(element).visibility,
+      fontSize: getComputedStyle(element).fontSize,
+    }));
+
+    assert(
+      inputPresentation.value === description,
+      "Unicode: native HTML input value changed during the request",
+    );
+    assert(
+      loadingState.description === description,
+      "Unicode: Godot draft changed during the request",
+    );
+    assert(
+      loadingState.request_snapshot?.description === description,
+      "Unicode: frozen request snapshot changed",
+    );
+    assert(
+      postedBody.description === description,
+      "Unicode: same-origin request body changed",
+    );
+    assert(
+      postedBody.request_id === loadingState.request_snapshot?.request_id,
+      "Unicode: request ID differs from the visible frozen snapshot",
+    );
+    assert(
+      inputPresentation.visible === false,
+      "Unicode: native overlay remained above the disabled Godot input",
+    );
+    const status = String(loadingState.message || "");
+    assert(
+      status.includes("DESCRIPTION SAVED") &&
+        !status.includes(description) &&
+        !status.includes("�") &&
+        !status.includes("鈥"),
+      `Unicode: loading status echoed unsafe glyphs ${JSON.stringify(status)}`,
+    );
+    const screenshot = join(
+      destination,
+      `${browserName}-unicode-request-in-flight.png`,
+    );
+    await page.screenshot({ path: screenshot });
+
+    releaseRequest();
+    await page.waitForFunction(
+      () => window.__forgeM1B1Test?.state?.().in_flight === false,
+      null,
+      { timeout: 15_000 },
+    );
+    return {
+      description,
+      html_input_value: inputPresentation.value,
+      html_overlay_hidden_in_flight: !inputPresentation.visible,
+      godot_draft: loadingState.description,
+      request_snapshot_description:
+        loadingState.request_snapshot?.description,
+      posted_description: postedBody.description,
+      request_id: postedBody.request_id,
+      status,
+      screenshot,
+      provider_calls: 0,
+    };
+  },
+);
 
 report.one_shot_reload = await runIsolated(
   "one-shot-refresh",

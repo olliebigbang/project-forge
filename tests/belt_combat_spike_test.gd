@@ -30,6 +30,7 @@ func _run() -> void:
 	await _test_live_elements()
 	await _test_xy_movement_and_bounds()
 	await _test_assist_and_horizontal_lock()
+	await _test_all_pattern_attack_directions()
 	await _test_footprint_collision_and_defeated_passage()
 	await _test_five_attack_adaptations()
 	await _test_terminal_cleanup_and_retry()
@@ -416,6 +417,78 @@ func _test_assist_and_horizontal_lock() -> void:
 	await _test_straight_projectile_locked_target()
 
 
+func _test_all_pattern_attack_directions() -> void:
+	for pattern: String in BeltCombatSpike.ATTACK_PATTERNS:
+		for horizontal_sign: float in [-1.0, 1.0]:
+			_spike.select_encounter("moving")
+			_spike.select_weapon(pattern)
+			await physics_frame
+			var enemy: BeltEnemy = _spike.enemies[0]
+			enemy.set_simulation_enabled(false)
+			var center: Vector2 = _spike.player.arena_bounds.get_center()
+			var target_distance: float = 76.0 if pattern == "melee_slash" else 180.0
+			_spike.player.global_position = center
+			_spike.player.facing = horizontal_sign
+			enemy.global_position = center + Vector2(horizontal_sign * target_distance, 0.0)
+			await physics_frame
+			var side_label: String = "left" if horizontal_sign < 0.0 else "right"
+			_check(
+				_spike.request_attack(),
+				"%s/%s direction probe is accepted" % [pattern, side_label],
+			)
+			var frozen_data: Dictionary = _spike.player.qa_state().get("attack_direction", {})
+			var frozen_direction: Vector2 = Vector2(
+				float(frozen_data.get("x", 0.0)),
+				float(frozen_data.get("y", 0.0)),
+			).normalized()
+			_check(
+				signf(frozen_direction.x) == horizontal_sign,
+				"%s/%s freezes the intended direction" % [pattern, side_label],
+			)
+			await _wait_physics_frames(2)
+			var forward_data: Dictionary = (
+				_spike.player.qa_state().get("weapon_visual_forward", {})
+			)
+			var held_forward: Vector2 = Vector2(
+				float(forward_data.get("x", 0.0)),
+				float(forward_data.get("y", 0.0)),
+			).normalized()
+			_check(
+				held_forward.dot(frozen_direction) > 0.80,
+				"%s/%s held visual follows the frozen direction" % [pattern, side_label],
+			)
+			var position_data: Dictionary = (
+				_spike.player.qa_state().get("weapon_visual_position", {})
+			)
+			_check(
+				signf(float(position_data.get("x", 0.0))) == horizontal_sign,
+				"%s/%s held grip stays on the frozen side" % [pattern, side_label],
+			)
+			if pattern == "melee_slash":
+				await _wait_until_transient_kind("slash", 48)
+				var slash_direction: Vector2 = _transient_direction("slash")
+				_check(
+					slash_direction.dot(frozen_direction) >= 0.999,
+					"%s/%s slash follows the frozen direction" % [pattern, side_label],
+				)
+			else:
+				await _wait_until_projectile(64)
+				var projectile_direction: Vector2 = _transient_direction("")
+				_check(
+					signf(projectile_direction.x) == horizontal_sign,
+					"%s/%s outbound projectile follows the frozen side"
+					% [pattern, side_label],
+				)
+				if pattern == "area_blast":
+					await _wait_until_event("area_impact", 96)
+					var impact_x: float = _latest_event_x("area_impact")
+					_check(
+						signf(impact_x - center.x) == horizontal_sign,
+						"%s/%s impact effect stays on the frozen side"
+						% [pattern, side_label],
+					)
+
+
 func _test_bounded_diagonal_aim() -> void:
 	for pattern: String in ["straight_projectile", "piercing"]:
 		_spike.select_encounter("moving")
@@ -662,7 +735,10 @@ func _test_area_blast() -> void:
 		if enemy.health < enemy.maximum_health:
 			damaged_count += 1
 	_check(_enemy_health_total() < before_total, "grenade arc resolves into a separate blast")
-	_check(damaged_count == 2, "ground ellipse hits only bodies inside its visible radii")
+	_check(
+		damaged_count == 2,
+		"ground ellipse hits only bodies inside its visible radii (actual %d)" % damaged_count,
+	)
 	var blast_event_found: bool = false
 	for event: Dictionary in _spike.qa_state().get("combat_events", []):
 		if str(event.get("kind", "")) != "blast_hits":
@@ -1038,6 +1114,51 @@ func _wait_until_projectile(max_frames: int) -> void:
 		if not Array(_spike.qa_state().get("projectiles", [])).is_empty():
 			return
 		await physics_frame
+
+
+func _wait_until_transient_kind(kind: String, max_frames: int) -> void:
+	for _index: int in max_frames:
+		for transient: Dictionary in _spike.qa_state().get("transients", []):
+			if str(transient.get("kind", "")) == kind:
+				return
+		await physics_frame
+
+
+func _wait_until_event(kind: String, max_frames: int) -> void:
+	for _index: int in max_frames:
+		for event: Dictionary in _spike.qa_state().get("combat_events", []):
+			if str(event.get("kind", "")) == kind:
+				return
+		await physics_frame
+
+
+func _transient_direction(kind: String) -> Vector2:
+	var states: Array = (
+		_spike.qa_state().get("transients", [])
+		if not kind.is_empty()
+		else _spike.qa_state().get("projectiles", [])
+	)
+	for state_value: Variant in states:
+		if not state_value is Dictionary:
+			continue
+		var state: Dictionary = state_value
+		if not kind.is_empty() and str(state.get("kind", "")) != kind:
+			continue
+		var direction_data: Dictionary = state.get("direction", {})
+		return Vector2(
+			float(direction_data.get("x", 0.0)),
+			float(direction_data.get("y", 0.0)),
+		).normalized()
+	return Vector2.ZERO
+
+
+func _latest_event_x(kind: String) -> float:
+	var events: Array = _spike.qa_state().get("combat_events", [])
+	for index: int in range(events.size() - 1, -1, -1):
+		var event_value: Variant = events[index]
+		if event_value is Dictionary and str(event_value.get("kind", "")) == kind:
+			return float(event_value.get("x", 0.0))
+	return 0.0
 
 
 func _wait_seconds(seconds: float) -> void:

@@ -50,13 +50,17 @@ func fitted_bounds() -> Rect2:
 
 
 func projectile_spawn_global(projectile_kind: String) -> Vector2:
+	return to_global(projectile_spawn_local(projectile_kind))
+
+
+func projectile_spawn_local(projectile_kind: String) -> Vector2:
 	var bounds := fitted_bounds()
 	if bounds == Rect2():
-		return to_global(Vector2(58.0, 0.0))
+		return Vector2(58.0, 0.0)
 	var local_origin := bounds.get_center()
 	if projectile_kind in ["arrow", "bullet", "energy", "spear"]:
 		local_origin.x += bounds.size.x * 0.34 + 8.0
-	return to_global(local_origin)
+	return local_origin
 
 
 func _draw() -> void:

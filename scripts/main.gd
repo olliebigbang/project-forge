@@ -581,6 +581,7 @@ func _build_forge_overlay() -> void:
 		# does not fall through to Godot's Latin-only fallback font while the
 		# overlay is temporarily hidden during a request.
 		description_input.add_theme_color_override("font_color", Color.TRANSPARENT)
+		description_input.add_theme_color_override("font_uneditable_color", Color.TRANSPARENT)
 		description_input.add_theme_color_override("font_placeholder_color", Color.TRANSPARENT)
 	description_row.add_child(description_input)
 	clear_description_button = _button("×", CYAN, 24)

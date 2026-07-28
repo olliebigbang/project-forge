@@ -16,8 +16,26 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	var alpha := 1.0 - clampf(_elapsed / maxf(lifetime, 0.001), 0.0, 1.0)
-	var facing := 1.0 if direction.x >= 0.0 else -1.0
-	var start := -1.15 if facing > 0 else PI + 1.15
-	var finish := 0.75 if facing > 0 else PI - 0.75
+	var safe_direction: Vector2 = (
+		direction.normalized()
+		if direction.length_squared() > 0.001
+		else Vector2.RIGHT
+	)
+	var heading: float = safe_direction.angle()
+	var start: float = heading - 1.15
+	var finish: float = heading + 0.75
 	draw_arc(Vector2.ZERO, reach, start, finish, 28, Color(color, 0.22 * alpha), 19.0, true)
 	draw_arc(Vector2.ZERO, reach, start, finish, 28, Color(color, alpha), 6.0, true)
+
+
+func qa_state() -> Dictionary:
+	var safe_direction: Vector2 = (
+		direction.normalized()
+		if direction.length_squared() > 0.001
+		else Vector2.RIGHT
+	)
+	return {
+		"kind": "slash",
+		"direction": {"x": safe_direction.x, "y": safe_direction.y},
+		"heading": safe_direction.angle(),
+	}
