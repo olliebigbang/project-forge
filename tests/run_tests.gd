@@ -25,6 +25,7 @@ func _init() -> void:
 	_test_attack_pattern_touch_selector()
 	_test_mobile_layout_policy()
 	await _test_forge_reset_state()
+	await _test_unicode_request_status()
 	await _test_weapon_interpreter_response_context()
 	_test_orientation_prompt_rule()
 	await _test_player_combat_gate()
@@ -1244,6 +1245,37 @@ func _test_forge_reset_state() -> void:
 	explicit_error.provider_metadata = {"provider": "none", "model": "none", "attempts": 0}
 	_expect(not forge._is_confirmable_result(explicit_error), "EMPTY DESCRIPTION/provider none/confidence zero is never confirmable")
 	forge.queue_free()
+
+
+func _test_unicode_request_status() -> void:
+	var scene: PackedScene = load("res://scenes/main.tscn")
+	var forge := scene.instantiate() as ProjectForgeMain
+	root.add_child(forge)
+	await process_frame
+	var unicode_description: String = "冰冻手榴弹"
+	forge.last_request_snapshot = {
+		"request_id": "unicode-status-probe",
+		"description": unicode_description,
+		"drawing_summary": {"stroke_count": 3, "point_count": 47},
+		"stroke_count": 3,
+	}
+	var status_copy: String = forge._request_snapshot_line("AI REQUEST")
+	_expect(
+		status_copy == "AI REQUEST unicode-status-probe  •  DESCRIPTION SAVED  •  3 stroke(s) / 47 point(s)",
+		"request status is deterministic copy independent of Description glyph support",
+	)
+	_expect(
+		not status_copy.contains(unicode_description)
+		and not status_copy.contains("�")
+		and not status_copy.contains("鈥"),
+		"request status never echoes raw Unicode or mojibake",
+	)
+	_expect(
+		str(forge.last_request_snapshot.get("description", "")) == unicode_description,
+		"Unicode Description remains intact in the request snapshot",
+	)
+	forge.queue_free()
+	await process_frame
 
 
 func _test_weapon_interpreter_response_context() -> void:

@@ -31,6 +31,10 @@ const MUTED: Color = Color("#9bb0cf")
 const CYAN: Color = Color("#65d9ff")
 const ORANGE: Color = Color("#ffb65c")
 
+## True only for the standalone F6/explicit QA route. The live player route
+## receives one external WeaponSpec and cannot select deterministic fixtures.
+var developer_test_mode: bool = true
+var forge_description_draft: String = ""
 var current_encounter: String = "moving"
 var current_pattern: String = "melee_slash"
 var round_state: String = "active"
@@ -66,6 +70,8 @@ var _web_callback: Variant
 var _qa_css_size_override: Vector2 = Vector2.ZERO
 var _last_layout_css_size: Vector2 = Vector2.ZERO
 var _layout_refresh_elapsed: float = 0.0
+var _equipment_source: String = "none"
+var _route_payload_consumed: bool = false
 
 
 func _ready() -> void:
@@ -81,19 +87,45 @@ func _ready() -> void:
 	player.died.connect(_on_player_died)
 	player.attack_request_resolved.connect(_on_attack_request_resolved)
 	_arena_actors.add_child(player)
-	_build_local_weapon_fixtures()
+	if developer_test_mode:
+		_build_local_weapon_fixtures()
 	_build_hud()
 	_install_web_qa_bridge()
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
-	select_weapon(current_pattern)
+	if developer_test_mode:
+		select_weapon(current_pattern)
 	select_encounter(current_encounter)
+	if not developer_test_mode:
+		round_state = "awaiting_weapon"
+		player.set_combat_enabled(false)
+		for enemy: BeltEnemy in enemies:
+			enemy.set_simulation_enabled(false)
+		_status_label.text = "Preparing your forged weapon."
 	_layout_for_viewport()
 	_update_orientation_gate()
 	set_process(true)
 	queue_redraw()
 
 
+func _exit_tree() -> void:
+	set_process(false)
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval(
+			"""
+			window.__forgeGodotBeltCombatCallback = null;
+			if (window.__forgeBeltCombat) {
+				window.__forgeBeltCombat._state = {};
+				window.__forgeBeltCombat._controls = {};
+			}
+			""",
+			true,
+		)
+	_web_callback = null
+
+
 func _process(delta: float) -> void:
+	if not is_inside_tree():
+		return
 	if OS.has_feature("web"):
 		_update_web_qa_state()
 		_layout_refresh_elapsed += delta
@@ -112,14 +144,37 @@ func equip_weapon(
 	strokes: Array[PackedVector2Array],
 	geometry_profile: DrawingGeometryProfile = null,
 ) -> bool:
-	if spec == null or not spec.is_valid() or spec.power_score > PowerBudget.MAX_POWER:
+	if (
+		not _is_runtime_valid_external_weapon(spec)
+		or geometry_profile == null
+		or not _external_strokes_are_drawable(strokes)
+	):
+		_clear_equipped_weapon()
 		return false
-	_fixture_specs["external"] = spec
-	_fixture_strokes["external"] = StrokeFit.duplicate_strokes(strokes)
-	_fixture_geometry["external"] = geometry_profile
-	current_pattern = spec.attack_pattern
-	player.equip_weapon(spec, strokes, geometry_profile)
+	var belt_spec: WeaponSpec = WeaponRouteSnapshot.clone_weapon_spec(spec)
+	var belt_strokes: Array[PackedVector2Array] = StrokeFit.duplicate_strokes(strokes)
+	var belt_geometry: DrawingGeometryProfile = (
+		WeaponRouteSnapshot.clone_geometry_profile(geometry_profile)
+	)
+	_fixture_specs["external"] = belt_spec
+	_fixture_strokes["external"] = StrokeFit.duplicate_strokes(belt_strokes)
+	_fixture_geometry["external"] = WeaponRouteSnapshot.clone_geometry_profile(
+		belt_geometry,
+	)
+	_equipment_source = "live"
+	current_pattern = belt_spec.attack_pattern
+	player.equip_weapon(belt_spec, belt_strokes, belt_geometry)
+	round_state = "active"
+	player.set_combat_enabled(true)
+	for enemy: BeltEnemy in enemies:
+		if not enemy.is_defeated():
+			enemy.set_simulation_enabled(true)
+	_status_label.text = (
+		"Move in X/Y. Attacks lightly assist toward the nearest live target."
+	)
 	_update_role_hud()
+	_update_selected_buttons()
+	_update_orientation_gate()
 	weapon_changed.emit(spec.attack_pattern, player.current_role_profile.role_id)
 	_record_event("weapon_equipped", {
 		"pattern": spec.attack_pattern,
@@ -127,6 +182,81 @@ func equip_weapon(
 		"source": "external",
 	})
 	return true
+
+
+func set_forge_description_draft(value: String) -> void:
+	forge_description_draft = value.left(512)
+
+
+func mark_route_payload_consumed() -> void:
+	_route_payload_consumed = true
+
+
+func _clear_equipped_weapon() -> void:
+	_fixture_specs.erase("external")
+	_fixture_strokes.erase("external")
+	_fixture_geometry.erase("external")
+	_equipment_source = "none"
+	_route_payload_consumed = false
+	if is_instance_valid(player):
+		player.clear_weapon()
+	for enemy: BeltEnemy in enemies:
+		if is_instance_valid(enemy):
+			enemy.set_simulation_enabled(false)
+	round_state = "route_error"
+	if is_instance_valid(_status_label):
+		_status_label.text = "Weapon validation failed. Return to Forge."
+
+
+func _is_runtime_valid_external_weapon(spec: WeaponSpec) -> bool:
+	if spec == null or not spec.is_valid():
+		return false
+	var numeric_values: Array[float] = [
+		spec.attack_speed,
+		spec.attack_range,
+		spec.projectile_speed,
+		spec.area_radius,
+		spec.return_speed,
+	]
+	for value: float in numeric_values:
+		if is_nan(value) or is_inf(value):
+			return false
+	var calculated: Dictionary = PowerBudget.calculate(spec.to_dict())
+	var total: float = float(calculated.get("total", PowerBudget.MAX_POWER + 1.0))
+	return (
+		not is_nan(total)
+		and not is_inf(total)
+		and total <= float(PowerBudget.MAX_POWER)
+		and spec.power_score == int(ceil(total))
+	)
+
+
+func _external_strokes_are_drawable(
+	strokes: Array[PackedVector2Array],
+) -> bool:
+	if strokes.is_empty():
+		return false
+	var point_count: int = 0
+	var path_length: float = 0.0
+	for stroke: PackedVector2Array in strokes:
+		for point_index: int in stroke.size():
+			var point: Vector2 = stroke[point_index]
+			if (
+				is_nan(point.x)
+				or is_inf(point.x)
+				or is_nan(point.y)
+				or is_inf(point.y)
+			):
+				return false
+			point_count += 1
+			if point_index > 0:
+				path_length += stroke[point_index - 1].distance_to(point)
+	if is_nan(path_length) or is_inf(path_length):
+		return false
+	return (
+		point_count >= 2
+		and path_length >= DrawingCanvas.MIN_DRAWABLE_PATH_LENGTH
+	)
 
 
 ## Selects one of the three explicitly scoped test encounters.
@@ -168,6 +298,8 @@ func select_encounter(encounter_id: String) -> bool:
 
 ## Selects a deterministic provider-free fixture for standalone/F6 play.
 func select_weapon(attack_pattern: String) -> bool:
+	if not developer_test_mode:
+		return false
 	if attack_pattern not in ATTACK_PATTERNS:
 		return false
 	var spec: WeaponSpec = _fixture_specs.get(attack_pattern) as WeaponSpec
@@ -179,6 +311,7 @@ func select_weapon(attack_pattern: String) -> bool:
 	if spec == null:
 		return false
 	current_pattern = attack_pattern
+	_equipment_source = "fixture"
 	player.equip_weapon(spec, strokes, geometry)
 	_update_role_hud()
 	_update_selected_buttons()
@@ -224,6 +357,12 @@ func exit_to_forge() -> void:
 
 
 func qa_state() -> Dictionary:
+	if not is_inside_tree():
+		return {
+			"screen": "belt_combat",
+			"round_state": "detached",
+			"combat_route": "detached",
+		}
 	var enemy_states: Array[Dictionary] = []
 	for enemy: BeltEnemy in enemies:
 		if is_instance_valid(enemy):
@@ -231,7 +370,12 @@ func qa_state() -> Dictionary:
 	var transient_states: Array[Dictionary] = []
 	var projectile_states: Array[Dictionary] = []
 	var blast_states: Array[Dictionary] = []
-	for node: Node in get_tree().get_nodes_in_group("belt_transient_attack"):
+	var arena_children: Array[Node] = []
+	if is_instance_valid(_arena_actors):
+		arena_children.assign(_arena_actors.get_children())
+	for node: Node in arena_children:
+		if not node.is_in_group("belt_transient_attack"):
+			continue
 		if node is BeltProjectile:
 			var projectile_state: Dictionary = (node as BeltProjectile).qa_state()
 			transient_states.append(projectile_state)
@@ -240,16 +384,40 @@ func qa_state() -> Dictionary:
 			var blast_state: Dictionary = (node as BeltBlast).qa_state()
 			transient_states.append(blast_state)
 			blast_states.append(blast_state)
+		elif node is ForgeSlashEffect:
+			transient_states.append((node as ForgeSlashEffect).qa_state())
 	var spec: WeaponSpec = player.current_spec
 	var touch_vector: Vector2 = player.touch_move()
+	var stroke_signature: Dictionary = _stroke_signature(player.current_strokes)
 	return {
 		"screen": "belt_combat",
+		"combat_route": (
+			"belt_live"
+			if _equipment_source == "live"
+			else ("belt_fixture" if _equipment_source == "fixture" else "belt_unarmed")
+		),
+		"developer_test_mode": developer_test_mode,
+		"equipment_source": _equipment_source,
+		"route_payload_consumed": _route_payload_consumed,
+		"forge_description_length": forge_description_draft.length(),
 		"round_state": round_state,
 		"encounter": current_encounter,
 		"fixture": current_encounter,
 		"weapon_pattern": current_pattern,
 		"weapon": spec.to_dict() if spec != null else {},
 		"weapon_spec": spec.to_dict() if spec != null else {},
+		"weapon_corrections": spec.corrections.duplicate() if spec != null else [],
+		"weapon_budget": (
+			spec.budget_breakdown.duplicate(true)
+			if spec != null
+			else {}
+		),
+		"geometry_profile": (
+			player.current_geometry_profile.to_dict()
+			if player.current_geometry_profile != null
+			else {}
+		),
+		"stroke_signature": stroke_signature,
 		"weapon_role": player.current_role_profile.to_dict() if player.current_role_profile != null else {},
 		"player": player.qa_state(),
 		"enemies": enemy_states,
@@ -290,6 +458,21 @@ func qa_state() -> Dictionary:
 		"layout": _layout_qa_state(),
 		"y_sort_enabled": _arena_actors.y_sort_enabled,
 		"fps_contract": "physics_delta_crossing; one commit flag; continuous segment hits",
+	}
+
+
+func _stroke_signature(strokes: Array[PackedVector2Array]) -> Dictionary:
+	var point_count: int = 0
+	var signature_parts: PackedStringArray = []
+	for stroke: PackedVector2Array in strokes:
+		signature_parts.append("s%d" % stroke.size())
+		point_count += stroke.size()
+		for point: Vector2 in stroke:
+			signature_parts.append("%.4f,%.4f" % [point.x, point.y])
+	return {
+		"stroke_count": strokes.size(),
+		"point_count": point_count,
+		"sha256": "|".join(signature_parts).sha256_text(),
 	}
 
 
@@ -572,7 +755,6 @@ func _launch_melee(spec: WeaponSpec, origin: Vector2, direction: Vector2) -> voi
 	slash.reach = spec.attack_range
 	slash.lifetime = clampf(player.current_role_profile.active_seconds, 0.16, 0.42)
 	slash.global_position = origin
-	slash.rotation = normalized_direction.angle()
 	slash.add_to_group("belt_transient_attack")
 	_arena_actors.add_child(slash)
 	if candidates.is_empty():
@@ -808,12 +990,16 @@ func _set_terminal_state(outcome: String) -> void:
 
 
 func _clear_transient_attacks() -> void:
-	for node: Node in get_tree().get_nodes_in_group("belt_transient_attack"):
-		if node.has_method("cancel_attack"):
-			node.call("cancel_attack")
-		else:
-			node.queue_free()
-	player.clear_attack_state()
+	if is_instance_valid(_arena_actors):
+		for node: Node in _arena_actors.get_children():
+			if not node.is_in_group("belt_transient_attack"):
+				continue
+			if node.has_method("cancel_attack"):
+				node.call("cancel_attack")
+			else:
+				node.queue_free()
+	if is_instance_valid(player):
+		player.clear_attack_state()
 
 
 func _active_enemy_count() -> int:
@@ -919,6 +1105,16 @@ func _build_hud() -> void:
 	_orientation_prompt.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_hud_root.add_child(_orientation_prompt)
 	_orientation_prompt.hide()
+	if not developer_test_mode:
+		_title_label.text = "BELT COMBAT"
+		for encounter_button_value: Variant in _encounter_buttons.values():
+			var encounter_button: Button = encounter_button_value as Button
+			if encounter_button != null:
+				encounter_button.hide()
+		for weapon_button_value: Variant in _weapon_buttons.values():
+			var weapon_button: Button = weapon_button_value as Button
+			if weapon_button != null:
+				weapon_button.hide()
 
 
 func _clear_touch_input() -> void:
@@ -968,15 +1164,17 @@ func _layout_regular_landscape(viewport_size: Vector2) -> void:
 	_role_label.position = Vector2(20.0, 78.0)
 	_role_label.size = Vector2(450.0, 48.0)
 	var encounter_x: float = viewport_size.x - 318.0
-	for index: int in ENCOUNTERS.size():
-		var encounter_button: Button = _encounter_buttons[ENCOUNTERS[index]] as Button
-		encounter_button.position = Vector2(encounter_x + index * 101.0, 18.0)
-		encounter_button.size = Vector2(94.0, 48.0)
+	if developer_test_mode:
+		for index: int in ENCOUNTERS.size():
+			var encounter_button: Button = _encounter_buttons[ENCOUNTERS[index]] as Button
+			encounter_button.position = Vector2(encounter_x + index * 101.0, 18.0)
+			encounter_button.size = Vector2(94.0, 48.0)
 	var weapon_start_x: float = maxf((viewport_size.x - 540.0) * 0.5, 360.0)
-	for index: int in ATTACK_PATTERNS.size():
-		var weapon_button: Button = _weapon_buttons[ATTACK_PATTERNS[index]] as Button
-		weapon_button.position = Vector2(weapon_start_x + index * 106.0, 76.0)
-		weapon_button.size = Vector2(100.0, 44.0)
+	if developer_test_mode:
+		for index: int in ATTACK_PATTERNS.size():
+			var weapon_button: Button = _weapon_buttons[ATTACK_PATTERNS[index]] as Button
+			weapon_button.position = Vector2(weapon_start_x + index * 106.0, 76.0)
+			weapon_button.size = Vector2(100.0, 44.0)
 	_status_label.position = Vector2(250.0, viewport_size.y - 132.0)
 	_status_label.size = Vector2(maxf(viewport_size.x - 500.0, 260.0), 32.0)
 	var bottom_y: float = viewport_size.y - 92.0
@@ -1010,34 +1208,36 @@ func _layout_compact_landscape(viewport_size: Vector2, css_size: Vector2) -> voi
 	_role_label.add_theme_font_size_override("font_size", 11)
 	var encounter_width: float = minf(88.0, (css_size.x - 420.0) / 3.0 - 4.0)
 	var encounter_start_x: float = css_size.x - MARGIN - encounter_width * 3.0 - 8.0
-	for index: int in ENCOUNTERS.size():
-		var encounter_button: Button = _encounter_buttons[ENCOUNTERS[index]] as Button
-		_apply_css_rect(
-			encounter_button,
-			Rect2(
-				encounter_start_x + float(index) * (encounter_width + 4.0),
-				4.0,
-				encounter_width,
-				TOP_BUTTON_HEIGHT,
-			),
-			logical_per_css,
-		)
-		encounter_button.add_theme_font_size_override("font_size", 11)
+	if developer_test_mode:
+		for index: int in ENCOUNTERS.size():
+			var encounter_button: Button = _encounter_buttons[ENCOUNTERS[index]] as Button
+			_apply_css_rect(
+				encounter_button,
+				Rect2(
+					encounter_start_x + float(index) * (encounter_width + 4.0),
+					4.0,
+					encounter_width,
+					TOP_BUTTON_HEIGHT,
+				),
+				logical_per_css,
+			)
+			encounter_button.add_theme_font_size_override("font_size", 11)
 	var weapon_width: float = minf(82.0, (css_size.x - 410.0) / 5.0 - 3.2)
 	var weapon_start_x: float = css_size.x - MARGIN - weapon_width * 5.0 - 16.0
-	for index: int in ATTACK_PATTERNS.size():
-		var weapon_button: Button = _weapon_buttons[ATTACK_PATTERNS[index]] as Button
-		_apply_css_rect(
-			weapon_button,
-			Rect2(
-				weapon_start_x + float(index) * (weapon_width + 4.0),
-				54.0,
-				weapon_width,
-				TOP_BUTTON_HEIGHT,
-			),
-			logical_per_css,
-		)
-		weapon_button.add_theme_font_size_override("font_size", 10)
+	if developer_test_mode:
+		for index: int in ATTACK_PATTERNS.size():
+			var weapon_button: Button = _weapon_buttons[ATTACK_PATTERNS[index]] as Button
+			_apply_css_rect(
+				weapon_button,
+				Rect2(
+					weapon_start_x + float(index) * (weapon_width + 4.0),
+					54.0,
+					weapon_width,
+					TOP_BUTTON_HEIGHT,
+				),
+				logical_per_css,
+			)
+			weapon_button.add_theme_font_size_override("font_size", 10)
 	var controls_y: float = css_size.y - 104.0
 	_apply_css_rect(_joystick, Rect2(MARGIN, controls_y, 96.0, 96.0), logical_per_css)
 	_apply_css_rect(
@@ -1088,11 +1288,15 @@ func _update_orientation_gate() -> void:
 		player.set_combat_enabled(false)
 		for enemy: BeltEnemy in enemies:
 			enemy.set_simulation_enabled(false)
-	elif round_state == "active":
+	elif round_state == "active" and player.current_spec != null:
 		player.set_combat_enabled(true)
 		for enemy: BeltEnemy in enemies:
 			if not enemy.is_defeated():
 				enemy.set_simulation_enabled(true)
+	else:
+		player.set_combat_enabled(false)
+		for enemy: BeltEnemy in enemies:
+			enemy.set_simulation_enabled(false)
 
 
 func _is_compact_landscape(viewport_size: Vector2) -> bool:
@@ -1173,7 +1377,7 @@ func _install_web_qa_bridge() -> void:
 
 
 func _on_web_qa_command(arguments: Array) -> void:
-	if arguments.is_empty():
+	if not is_inside_tree() or arguments.is_empty():
 		return
 	var command: String = str(arguments[0])
 	var payload: Dictionary = {}
@@ -1185,7 +1389,11 @@ func _on_web_qa_command(arguments: Array) -> void:
 
 
 func _update_web_qa_state() -> void:
-	if not OS.has_feature("web") or not is_instance_valid(_hud_root):
+	if (
+		not OS.has_feature("web")
+		or not is_inside_tree()
+		or not is_instance_valid(_hud_root)
+	):
 		return
 	var controls: Dictionary = {
 		"attack": _control_css_rect(_attack_button),

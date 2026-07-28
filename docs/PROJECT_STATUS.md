@@ -72,13 +72,17 @@ rollback readiness. No cleanup is authorized by this governance task.
 | Weapon Exposure B1.5 | **CONFIRMED complete; physical iPhone v29 accepted, Sites v30 stable, tag `v0.4.0-weapon-exposure-b1.5`** |
 | M1B2 | **CONFIRMED not started** |
 | M2 belt-combat comparison spike | **CONFIRMED complete and merged by PR #15 / `ee2583c`; physical-iPhone runtime `39b077e` accepted; belt combat approved as the future primary direction; stable Combat Lab remains the current default regression baseline** |
-| Next gameplay validation after spike | **TO VALIDATE:** separately scoped live-WeaponSpec belt integration; B2/M1B2 and cadence remain unstarted |
+| M2A live-WeaponSpec belt integration | **CONFIRMED local automated/browser gate passed / TO VALIDATE:** independent public preview and physical-iPhone Safari acceptance remain; executable gate `docs/M2A_LIVE_WEAPON_BELT_ACCEPTANCE.md`; B2/M1B2 and cadence remain unstarted |
 
 B2 and M1B2 descriptions remain roadmap candidates only. They are not
 authorization to begin development.
 
 ## Work currently allowed
 
+- **CONFIRMED:** isolated, provider-free M2A implementation and verification that
+  hands the exact confirmed Forge `WeaponSpec`, original strokes, frozen geometry
+  profile, and Description draft into belt combat. The side-view Combat Lab must
+  remain an explicit Developer/QA regression and rollback route.
 - **CONFIRMED:** documentation closeout and read-only verification of the merged
   M2 belt-combat comparison spike. PR #15 merged as `ee2583c`,
   `v0.5.0-m2-belt-spike` records the accepted Git milestone, and production
@@ -110,8 +114,9 @@ authorization to begin development.
 
 ## Work currently prohibited
 
-- Making belt combat the public default or deleting the stable side-view Combat
-  Lab before a separately scoped live-WeaponSpec integration and routing gate.
+- Merging M2A, deploying it to production, or deleting the stable side-view
+  Combat Lab before the complete M2A automated, browser, isolated-preview, and
+  physical-iPhone routing gate passes.
 - Starting B2, M1B2, cadence/automatic firearms, charged grenades, or gameplay
   work outside the belt-spike acceptance contract.
 - Changing player UI, public `WeaponSpec` Schema, `PowerBudget` pricing,

@@ -118,6 +118,13 @@ jobs:
             if (report.applicationConsoleErrors !== 0) throw new Error("Application console errors found");
           '
 
+          PLAYWRIGHT_MODULE_PATH="$GITHUB_WORKSPACE/node_modules/playwright-core" \
+          M1B1_QA_BROWSER_EXECUTABLE="$browser" \
+            node tests/browser/run_m2a_live_weapon_belt_regression.mjs \
+              chromium \
+              http://127.0.0.1:8060/ \
+              output/ci-browser/m2a-live-route
+
       - name: Upload Chromium smoke failure evidence
         if: failure()
         uses: actions/upload-artifact@v6

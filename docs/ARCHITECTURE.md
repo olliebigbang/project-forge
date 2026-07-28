@@ -120,6 +120,40 @@ flowchart LR
 - **CONFIRMED** M1B1 sends bounded drawing metadata only; image/vision semantics
   are reserved for M1B2.
 
+## M2A Forge-to-belt route
+
+```mermaid
+flowchart LR
+    C["Explicitly confirmed result"] --> V["Runtime + PowerBudget validation"]
+    V --> S["WeaponRouteSnapshot\nexact isolated copies"]
+    S --> R["One-shot in-process route\nspec + strokes + geometry + description"]
+    R --> B["Belt live mode\nvalidate + consume + equip"]
+    B --> A["Five existing attack modules"]
+    B --> F["Reforge state\nstrokes + description only"]
+    F --> G["Forge restored"]
+    Q["Explicit Developer/QA route"] --> L["Side-view Combat Lab"]
+    Q --> X["Belt deterministic fixtures"]
+```
+
+- **CONFIRMED authorization / TO VALIDATE:** only an explicitly confirmable,
+  repaired, runtime-valid, budget-valid result may create the live route.
+- `WeaponRouteSnapshot` preserves exact `WeaponSpec` values, corrections, budget
+  audit, the complete `GeometryEvidence -> PhysicalProfile -> CombatDerived`
+  chain, and original strokes without sharing mutable `RefCounted` instances
+  between Forge and belt combat.
+- The live payload exists only inside the Godot process for one scene reload. It
+  is validated before belt instantiation, cleared before equipment, and cannot be
+  replayed by a later reload. Missing, stale, malformed, non-finite, over-budget,
+  or non-drawable payloads fail closed and return to Forge.
+- Belt live mode starts unarmed, does not build or equip deterministic fixtures,
+  and hides fixture/encounter controls. Explicit Developer/Test routes retain the
+  fixtures and the accepted side-view regression path.
+- Reforge keeps a separate bounded return state containing only a deep copy of
+  original strokes and Description. It never serializes a previous weapon into a
+  new Forge request or equips a fallback.
+- This route does not cross the Worker boundary and does not change Provider,
+  D1, public Schema, `PowerBudget`, interpretation, or weapon-module authority.
+
 ## Contract and double validation
 
 `schema/weapon_spec.schema.json` is the portable Draft 2020-12 contract.

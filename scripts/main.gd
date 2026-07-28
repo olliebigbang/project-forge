@@ -125,19 +125,63 @@ var _round_player_damage_events: Array[Dictionary] = []
 var _round_enemy_damage_events: Array[Dictionary] = []
 static var _suppress_belt_route_once: bool = false
 static var _belt_route_requested: bool = false
+static var _belt_route_payload: Dictionary = {}
 static var _belt_return_forge_state: Dictionary = {}
+static var _belt_route_failure_message: String = ""
 
 
 func _ready() -> void:
+	var live_belt_route_requested: bool = _belt_route_requested
 	if _detect_belt_spike_mode():
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if live_belt_route_requested and not _is_valid_live_belt_payload(_belt_route_payload):
+			_belt_route_payload = {}
+			_belt_route_failure_message = (
+				"Combat could not start safely. Your drawing and Description were restored."
+			)
+			call_deferred("_return_from_failed_belt_route")
+			return
 		var belt_scene: PackedScene = load("res://scenes/belt_combat_spike.tscn") as PackedScene
 		if belt_scene == null:
 			push_error("M2 belt combat spike scene could not be loaded.")
+			_belt_route_payload = {}
+			_belt_route_failure_message = (
+				"Combat could not be opened. Your drawing and Description were restored."
+			)
+			call_deferred("_return_from_failed_belt_route")
 			return
 		var belt_spike: BeltCombatSpike = belt_scene.instantiate() as BeltCombatSpike
+		if belt_spike == null:
+			push_error("M2 belt combat spike scene root has an invalid type.")
+			_belt_route_payload = {}
+			_belt_route_failure_message = (
+				"Combat could not be opened. Your drawing and Description were restored."
+			)
+			call_deferred("_return_from_failed_belt_route")
+			return
+		belt_spike.developer_test_mode = not live_belt_route_requested
 		belt_spike.forge_return_requested.connect(_return_from_belt_spike)
 		add_child(belt_spike)
+		if live_belt_route_requested:
+			var live_spec: WeaponSpec = _belt_route_payload.get("weapon_spec") as WeaponSpec
+			var live_strokes: Array[PackedVector2Array] = _strokes_from_route_payload(
+				_belt_route_payload.get("strokes", []),
+			)
+			var live_geometry: DrawingGeometryProfile = (
+				_belt_route_payload.get("geometry_profile") as DrawingGeometryProfile
+			)
+			belt_spike.set_forge_description_draft(
+				str(_belt_route_payload.get("description", "")),
+			)
+			_belt_route_payload = {}
+			if not belt_spike.equip_weapon(live_spec, live_strokes, live_geometry):
+				belt_spike.queue_free()
+				_belt_route_failure_message = (
+					"Combat rejected an invalid weapon. Your drawing and Description were restored."
+				)
+				call_deferred("_return_from_failed_belt_route")
+			else:
+				belt_spike.mark_route_payload_consumed()
 		return
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	developer_mode = _detect_developer_mode()
@@ -165,6 +209,8 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if not is_inside_tree():
+		return
 	_update_round_movement_metric()
 	if not web_mobile_bridge.is_available():
 		return
@@ -535,6 +581,7 @@ func _build_forge_overlay() -> void:
 		# does not fall through to Godot's Latin-only fallback font while the
 		# overlay is temporarily hidden during a request.
 		description_input.add_theme_color_override("font_color", Color.TRANSPARENT)
+		description_input.add_theme_color_override("font_uneditable_color", Color.TRANSPARENT)
 		description_input.add_theme_color_override("font_placeholder_color", Color.TRANSPARENT)
 	description_row.add_child(description_input)
 	clear_description_button = _button("×", CYAN, 24)
@@ -853,7 +900,12 @@ func _on_web_viewport_changed() -> void:
 
 
 func _refresh_web_viewport() -> void:
-	await get_tree().process_frame
+	if not is_inside_tree():
+		return
+	var scene_tree: SceneTree = get_tree()
+	await scene_tree.process_frame
+	if not is_inside_tree():
+		return
 	_apply_forge_layout()
 	_sync_web_description_overlay()
 
@@ -1293,6 +1345,9 @@ func _commit_weapon() -> void:
 		current_spec = null
 		_show_interpretation_error()
 		return
+	if not developer_mode:
+		_enter_belt_combat_with_confirmed_weapon()
+		return
 	player.equip(current_spec, current_strokes, current_geometry_profile)
 	player.set_combat_enabled(true)
 	description_input.release_focus()
@@ -1327,8 +1382,15 @@ func _commit_weapon() -> void:
 
 func _arm_attack_button() -> void:
 	# Prevent the pointer release that closes the overlay from falling through to ATTACK.
-	await get_tree().process_frame
-	await get_tree().process_frame
+	if not is_inside_tree():
+		return
+	var scene_tree: SceneTree = get_tree()
+	await scene_tree.process_frame
+	if not is_inside_tree():
+		return
+	await scene_tree.process_frame
+	if not is_inside_tree():
+		return
 	if current_spec and not forge_overlay.visible and _round_state == "active" and not (orientation_prompt and orientation_prompt.visible):
 		attack_button.disabled = false
 		_combat_ui_ready = true
@@ -1979,11 +2041,59 @@ func _detect_belt_spike_mode() -> bool:
 
 func _return_from_belt_spike() -> void:
 	_suppress_belt_route_once = true
+	_belt_route_payload = {}
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval(
 			"(() => { const u = new URL(window.location.href); u.searchParams.delete('mode'); if (u.searchParams.get('qa') === 'm2belt') u.searchParams.delete('qa'); history.replaceState(null, '', u.pathname + u.search + u.hash); })()",
 			true,
 		)
+	set_process(false)
+	get_tree().reload_current_scene()
+
+
+func _return_from_failed_belt_route() -> void:
+	_suppress_belt_route_once = true
+	_belt_route_requested = false
+	_belt_route_payload = {}
+	set_process(false)
+	get_tree().reload_current_scene()
+
+
+func _enter_belt_combat_with_confirmed_weapon() -> void:
+	if (
+		current_spec == null
+		or current_geometry_profile == null
+		or not _is_runtime_valid_weapon(current_spec)
+	):
+		_show_forge_toast(
+			"This weapon cannot enter combat. Edit the input or try again.",
+			Color("#ff8f8f"),
+			2.2,
+		)
+		return
+	var committed_description: String = str(
+		last_request_snapshot.get("description", _description_draft),
+	).left(512)
+	var preserved_strokes: Array[PackedVector2Array] = StrokeFit.duplicate_strokes(
+		current_strokes,
+	)
+	_belt_return_forge_state = {
+		"description": committed_description,
+		"strokes": StrokeFit.duplicate_strokes(preserved_strokes),
+	}
+	_belt_route_payload = {
+		"weapon_spec": WeaponRouteSnapshot.clone_weapon_spec(current_spec),
+		"strokes": StrokeFit.duplicate_strokes(preserved_strokes),
+		"geometry_profile": WeaponRouteSnapshot.clone_geometry_profile(
+			current_geometry_profile,
+		),
+		"description": committed_description,
+	}
+	_belt_route_requested = true
+	description_input.release_focus()
+	if web_mobile_bridge.is_available():
+		web_mobile_bridge.blur()
+	set_process(false)
 	get_tree().reload_current_scene()
 
 
@@ -2000,12 +2110,14 @@ func _enter_belt_spike_from_current_state() -> void:
 		"description": preserved_description,
 		"strokes": StrokeFit.duplicate_strokes(preserved_strokes),
 	}
-	_belt_route_requested = true
+	_belt_route_requested = false
+	_belt_route_payload = {}
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval(
 			"(() => { const u = new URL(window.location.href); u.searchParams.set('qa', 'm2belt'); history.replaceState(null, '', u.pathname + u.search + u.hash); })()",
 			true,
 		)
+	set_process(false)
 	get_tree().reload_current_scene()
 
 
@@ -2024,8 +2136,118 @@ func _restore_belt_return_forge_state() -> void:
 	drawing_canvas.drawing_changed.emit()
 	_set_description(str(_belt_return_forge_state.get("description", "")))
 	_belt_return_forge_state = {}
+	if not _belt_route_failure_message.is_empty():
+		forge_status.text = _belt_route_failure_message
+		forge_status.add_theme_color_override("font_color", Color("#ffca78"))
+		_show_forge_toast(_belt_route_failure_message, Color("#ffca78"), 2.8)
+		_belt_route_failure_message = ""
 	_sync_web_description_overlay()
 	_update_qa_bridge()
+
+
+static func _is_valid_live_belt_payload(payload: Dictionary) -> bool:
+	var spec: WeaponSpec = payload.get("weapon_spec") as WeaponSpec
+	var geometry: DrawingGeometryProfile = (
+		payload.get("geometry_profile") as DrawingGeometryProfile
+	)
+	if spec == null or geometry == null or not _is_runtime_valid_weapon(spec):
+		return false
+	var strokes_value: Variant = payload.get("strokes")
+	if not strokes_value is Array:
+		return false
+	var strokes: Array[PackedVector2Array] = _strokes_from_route_payload(
+		strokes_value,
+	)
+	return (
+		strokes.size() == strokes_value.size()
+		and _route_strokes_are_drawable(strokes)
+		and _route_geometry_matches_strokes(geometry, strokes)
+		and payload.get("description") is String
+	)
+
+
+static func _is_runtime_valid_weapon(spec: WeaponSpec) -> bool:
+	if spec == null or not spec.is_valid():
+		return false
+	var numeric_values: Array[float] = [
+		spec.attack_speed,
+		spec.attack_range,
+		spec.projectile_speed,
+		spec.area_radius,
+		spec.return_speed,
+	]
+	for value: float in numeric_values:
+		if is_nan(value) or is_inf(value):
+			return false
+	var calculated: Dictionary = PowerBudget.calculate(spec.to_dict())
+	var total: float = float(calculated.get("total", PowerBudget.MAX_POWER + 1.0))
+	return (
+		not is_nan(total)
+		and not is_inf(total)
+		and total <= float(PowerBudget.MAX_POWER)
+		and spec.power_score == int(ceil(total))
+	)
+
+
+static func _strokes_from_route_payload(value: Variant) -> Array[PackedVector2Array]:
+	var strokes: Array[PackedVector2Array] = []
+	if not value is Array:
+		return strokes
+	for stroke_value: Variant in value:
+		if stroke_value is PackedVector2Array:
+			var stroke: PackedVector2Array = stroke_value
+			strokes.append(stroke.duplicate())
+	return strokes
+
+
+static func _route_strokes_are_drawable(
+	strokes: Array[PackedVector2Array],
+) -> bool:
+	if strokes.is_empty():
+		return false
+	var point_count: int = 0
+	var path_length: float = 0.0
+	for stroke: PackedVector2Array in strokes:
+		for point_index: int in stroke.size():
+			var point: Vector2 = stroke[point_index]
+			if (
+				is_nan(point.x)
+				or is_inf(point.x)
+				or is_nan(point.y)
+				or is_inf(point.y)
+			):
+				return false
+			point_count += 1
+			if point_index > 0:
+				path_length += stroke[point_index - 1].distance_to(point)
+	if is_nan(path_length) or is_inf(path_length):
+		return false
+	return (
+		point_count >= 2
+		and path_length >= DrawingCanvas.MIN_DRAWABLE_PATH_LENGTH
+	)
+
+
+static func _route_geometry_matches_strokes(
+	geometry: DrawingGeometryProfile,
+	strokes: Array[PackedVector2Array],
+) -> bool:
+	if geometry == null or geometry.geometry_evidence == null:
+		return false
+	var evidence_strokes: Array[PackedVector2Array] = (
+		geometry.geometry_evidence.source_strokes
+	)
+	if evidence_strokes.size() != strokes.size():
+		return false
+	for stroke_index: int in strokes.size():
+		var route_stroke: PackedVector2Array = strokes[stroke_index]
+		var evidence_stroke: PackedVector2Array = evidence_strokes[stroke_index]
+		if route_stroke.size() != evidence_stroke.size():
+			return false
+		for point_index: int in route_stroke.size():
+			if route_stroke[point_index] != evidence_stroke[point_index]:
+				return false
+	return true
 
 
 func _detect_locale(text: String) -> String:
@@ -2097,7 +2319,113 @@ func _on_qa_command(command: String, payload: Dictionary) -> void:
 		"belt_spike_enter":
 			_enter_belt_spike_from_current_state()
 			return
+		"m2a_live_route_fixture":
+			_start_m2a_live_route_fixture(payload)
+			return
+		"m2a_invalid_live_route":
+			_start_m2a_invalid_live_route_fixture()
+			return
 	_update_qa_bridge()
+
+
+func _start_m2a_live_route_fixture(payload: Dictionary) -> void:
+	var pattern: String = str(payload.get("pattern", "melee_slash"))
+	if pattern not in WeaponSpec.ATTACK_PATTERNS:
+		pattern = "melee_slash"
+	var element: String = str(payload.get("element", "normal"))
+	if element not in WeaponSpec.ELEMENTS:
+		element = "normal"
+	developer_mode = false
+	_apply_presentation_mode()
+	var canvas_size: Vector2 = drawing_canvas.size
+	if canvas_size.x < 100.0 or canvas_size.y < 40.0:
+		canvas_size = Vector2(800.0, 220.0)
+	var start: Vector2 = Vector2(canvas_size.x * 0.08, canvas_size.y * 0.56)
+	var finish: Vector2 = Vector2(canvas_size.x * 0.64, canvas_size.y * 0.42)
+	var fixture_strokes: Array[PackedVector2Array] = [
+		PackedVector2Array([
+			start,
+			start.lerp(finish, 0.45) + Vector2(0.0, -canvas_size.y * 0.08),
+			finish,
+		]),
+	]
+	var pattern_descriptions: Dictionary = {
+		"melee_slash": "balanced sword",
+		"straight_projectile": "fast bow with straight arrows",
+		"boomerang": "returning boomerang",
+		"area_blast": "thrown grenade with an explosion",
+		"piercing": "piercing spear",
+	}
+	var fixture_description: String = (
+		"QA %s %s"
+		% [element, str(pattern_descriptions.get(pattern, "balanced weapon"))]
+	).left(512)
+	drawing_canvas.strokes = StrokeFit.duplicate_strokes(fixture_strokes)
+	drawing_canvas.queue_redraw()
+	drawing_canvas.drawing_changed.emit()
+	_set_description(fixture_description)
+	var drawing_summary: Dictionary = DrawingCanvas.summarize_strokes(
+		fixture_strokes,
+		canvas_size,
+	)
+	var fixture_spec: WeaponSpec = service.generate(
+		fixture_description,
+		drawing_summary,
+		pattern,
+	)
+	var fixture_geometry: DrawingGeometryProfile = DrawingGeometryProfile.from_snapshot(
+		fixture_strokes,
+		canvas_size,
+		"balanced",
+	)
+	fixture_geometry.apply_to_spec(fixture_spec)
+	request_strokes = StrokeFit.duplicate_strokes(fixture_strokes)
+	request_geometry_profile = fixture_geometry
+	last_request_snapshot = {
+		"request_id": "qa-m2a-live-route",
+		"description": fixture_description,
+		"drawing_summary": drawing_summary.duplicate(true),
+		"stroke_count": fixture_strokes.size(),
+		"geometry_profile": fixture_geometry.to_dict(),
+	}
+	pending_spec = fixture_spec
+	pending_result = {
+		"success": true,
+		"provider_invoked": true,
+		"fallback_reason": "",
+		"weapon_spec": fixture_spec.to_dict(),
+		"runtime_valid": true,
+		"confidence": 1.0,
+		"request_id": "qa-m2a-live-route",
+		"corrections": fixture_spec.corrections.duplicate(),
+		"provider_metadata": {
+			"provider": WeaponInterpreter.REQUIRED_PROVIDER,
+			"model": WeaponInterpreter.REQUIRED_MODEL,
+			"attempts": 1,
+			"qa_provider_free": true,
+		},
+		"interpretation_summary": "QA live belt route ready.",
+		"latency_ms": 0,
+		"estimated_cost": "UNKNOWN",
+	}
+	_show_interpretation_review()
+	if bool(payload.get("confirm", true)):
+		_confirm_interpretation()
+
+
+func _start_m2a_invalid_live_route_fixture() -> void:
+	var preserved_strokes: Array[PackedVector2Array] = drawing_canvas.get_strokes_snapshot()
+	_belt_return_forge_state = {
+		"description": _description_draft.left(512),
+		"strokes": StrokeFit.duplicate_strokes(preserved_strokes),
+	}
+	_belt_route_payload = {
+		"description": _description_draft.left(512),
+		"strokes": StrokeFit.duplicate_strokes(preserved_strokes),
+	}
+	_belt_route_requested = true
+	set_process(false)
+	get_tree().reload_current_scene()
 
 
 func _start_c0_fixture(reach_fixture: String) -> void:
@@ -2188,7 +2516,11 @@ func _apply_qa_target_scenario(payload: Dictionary) -> void:
 
 
 func _update_qa_bridge() -> void:
-	if not web_mobile_bridge.is_available() or forge_overlay == null:
+	if (
+		not is_inside_tree()
+		or not web_mobile_bridge.is_available()
+		or forge_overlay == null
+	):
 		return
 	var screen := "forge"
 	var phase := "idle"
@@ -2238,6 +2570,8 @@ func _update_qa_bridge() -> void:
 	var state := {
 		"screen": screen,
 		"phase": phase,
+		"combat_route": "side_view_regression",
+		"side_view_route_explicit": developer_mode,
 		"request_count": interpreter.request_count,
 		"attempts": interpreter.attempts,
 		"request_attempts": interpreter.attempts,
@@ -2407,6 +2741,12 @@ func _record_attack_event(kind: String, detail: Dictionary = {}) -> void:
 
 func _visual_transform_evidence() -> Dictionary:
 	var projectiles: Array[Dictionary] = []
+	if not is_inside_tree():
+		return {
+			"review": {},
+			"held": {},
+			"projectiles": projectiles,
+		}
 	for transient: Node in get_tree().get_nodes_in_group("forge_transient_attack"):
 		if transient is ForgeProjectile:
 			var projectile_visual: Variant = transient.get("_visual")
@@ -2433,8 +2773,15 @@ func _canvas_transform_scale(item: CanvasItem) -> Dictionary:
 
 
 func _mark_review_ui_ready() -> void:
-	await get_tree().process_frame
-	await get_tree().process_frame
+	if not is_inside_tree():
+		return
+	var scene_tree: SceneTree = get_tree()
+	await scene_tree.process_frame
+	if not is_inside_tree():
+		return
+	await scene_tree.process_frame
+	if not is_inside_tree():
+		return
 	if not review_mode:
 		return
 	_review_ui_ready = true
@@ -2442,8 +2789,15 @@ func _mark_review_ui_ready() -> void:
 
 
 func _mark_loading_ui_ready() -> void:
-	await get_tree().process_frame
-	await get_tree().process_frame
+	if not is_inside_tree():
+		return
+	var scene_tree: SceneTree = get_tree()
+	await scene_tree.process_frame
+	if not is_inside_tree():
+		return
+	await scene_tree.process_frame
+	if not is_inside_tree():
+		return
 	if not interpreter.in_flight:
 		return
 	_loading_ui_ready = true
@@ -2451,8 +2805,15 @@ func _mark_loading_ui_ready() -> void:
 
 
 func _mark_developer_ui_ready() -> void:
-	await get_tree().process_frame
-	await get_tree().process_frame
+	if not is_inside_tree():
+		return
+	var scene_tree: SceneTree = get_tree()
+	await scene_tree.process_frame
+	if not is_inside_tree():
+		return
+	await scene_tree.process_frame
+	if not is_inside_tree():
+		return
 	if not developer_mode:
 		return
 	_developer_ui_ready = true

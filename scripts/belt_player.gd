@@ -106,12 +106,32 @@ func equip_weapon(
 	geometry_profile: DrawingGeometryProfile = null,
 ) -> void:
 	clear_attack_state()
-	current_spec = spec
-	current_geometry_profile = geometry_profile
-	current_role_profile = WeaponRoleProfile.derive(spec, geometry_profile)
+	current_spec = WeaponRouteSnapshot.clone_weapon_spec(spec)
+	current_geometry_profile = WeaponRouteSnapshot.clone_geometry_profile(
+		geometry_profile,
+	)
+	current_role_profile = WeaponRoleProfile.derive(
+		current_spec,
+		current_geometry_profile,
+	)
 	current_strokes = StrokeFit.duplicate_strokes(strokes)
-	weapon_visual.configure(current_strokes, spec, geometry_profile)
+	weapon_visual.configure(
+		current_strokes,
+		current_spec,
+		current_geometry_profile,
+	)
 	restore_held_visual()
+
+
+func clear_weapon() -> void:
+	set_combat_enabled(false)
+	clear_attack_state()
+	current_spec = null
+	current_geometry_profile = null
+	current_role_profile = null
+	current_strokes.clear()
+	if is_instance_valid(weapon_visual):
+		weapon_visual.hide()
 
 
 func set_touch_move(value: Vector2) -> void:
@@ -222,10 +242,11 @@ func restore_held_visual() -> void:
 	_detached_visual = false
 	if not is_instance_valid(weapon_visual):
 		return
+	if current_spec == null:
+		weapon_visual.hide()
+		return
 	weapon_visual.visible = true
-	weapon_visual.position = WEAPON_REST_POSITION
-	weapon_visual.rotation = 0.0
-	weapon_visual.scale = Vector2(facing, 1.0)
+	_apply_weapon_transform(Vector2(facing, 0.0), 0.0)
 
 
 func attack_origin(projectile_kind: String = "none") -> Vector2:
@@ -233,7 +254,13 @@ func attack_origin(projectile_kind: String = "none") -> Vector2:
 		return global_position + Vector2(facing * 28.0, -20.0)
 	if projectile_kind == "none":
 		return weapon_visual.to_global(Vector2.ZERO)
-	return weapon_visual.projectile_spawn_global(projectile_kind)
+	# Projectile authority remains independent from the held visual pose. This
+	# preserves the previously validated muzzle/arc collision path while the
+	# displayed ink rotates toward the frozen 2D attack direction.
+	var local_origin: Vector2 = weapon_visual.projectile_spawn_local(projectile_kind)
+	var legacy_scale: Vector2 = Vector2(local_origin.x * facing, local_origin.y)
+	var legacy_rotation: float = _current_swing_offset() * facing
+	return global_position + WEAPON_REST_POSITION + legacy_scale.rotated(legacy_rotation)
 
 
 func aim_direction() -> Vector2:
@@ -277,6 +304,13 @@ func is_dead() -> bool:
 
 
 func qa_state() -> Dictionary:
+	var weapon_forward: Vector2 = Vector2.ZERO
+	var weapon_position: Vector2 = Vector2.ZERO
+	var weapon_rotation: float = 0.0
+	if is_instance_valid(weapon_visual):
+		weapon_forward = Vector2.RIGHT.rotated(weapon_visual.rotation)
+		weapon_position = weapon_visual.position
+		weapon_rotation = weapon_visual.rotation
 	return {
 		"health": health,
 		"max_health": MAX_HEALTH,
@@ -307,6 +341,9 @@ func qa_state() -> Dictionary:
 		"assist_target": _assist_target.enemy_id if is_instance_valid(_assist_target) else "",
 		"held_visible": weapon_visual.visible if is_instance_valid(weapon_visual) else false,
 		"detached_visual": _detached_visual,
+		"weapon_visual_forward": {"x": weapon_forward.x, "y": weapon_forward.y},
+		"weapon_visual_position": {"x": weapon_position.x, "y": weapon_position.y},
+		"weapon_visual_rotation": weapon_rotation,
 		"weapon_role": current_role_profile.to_dict() if current_role_profile != null else {},
 	}
 
@@ -418,27 +455,45 @@ func _keyboard_move_vector() -> Vector2:
 func _update_weapon_pose() -> void:
 	if not is_instance_valid(weapon_visual) or _detached_visual:
 		return
-	weapon_visual.position = WEAPON_REST_POSITION
-	weapon_visual.scale = Vector2(facing, 1.0)
 	if not _attack_active or current_role_profile == null:
-		weapon_visual.rotation = 0.0
+		_apply_weapon_transform(Vector2(facing, 0.0), 0.0)
 		return
+	_apply_weapon_transform(_attack_direction, _current_swing_offset())
+
+
+func _current_swing_offset() -> float:
+	if not _attack_active or current_role_profile == null:
+		return 0.0
 	var startup: float = maxf(current_role_profile.startup_seconds, 0.001)
 	var active_end: float = startup + current_role_profile.active_seconds
 	if _attack_elapsed < startup:
-		weapon_visual.rotation = lerpf(0.0, -0.38 * facing, _attack_elapsed / startup)
-	elif _attack_elapsed < active_end:
+		return lerpf(0.0, -0.38, _attack_elapsed / startup)
+	if _attack_elapsed < active_end:
 		var active_progress: float = (
 			(_attack_elapsed - startup)
 			/ maxf(current_role_profile.active_seconds, 0.001)
 		)
-		weapon_visual.rotation = lerpf(-0.38 * facing, 0.44 * facing, active_progress)
-	else:
-		var recovery_progress: float = (
-			(_attack_elapsed - active_end)
-			/ maxf(current_role_profile.recovery_seconds, 0.001)
-		)
-		weapon_visual.rotation = lerpf(0.44 * facing, 0.0, recovery_progress)
+		return lerpf(-0.38, 0.44, active_progress)
+	var recovery_progress: float = (
+		(_attack_elapsed - active_end)
+		/ maxf(current_role_profile.recovery_seconds, 0.001)
+	)
+	return lerpf(0.44, 0.0, recovery_progress)
+
+
+func _apply_weapon_transform(direction: Vector2, swing_offset: float) -> void:
+	var safe_direction: Vector2 = direction.normalized()
+	if safe_direction.length_squared() <= 0.001:
+		safe_direction = Vector2(facing, 0.0)
+	# Player ink is fitted grip-to-tip along local +X. Rotate that one canonical
+	# geometry toward the frozen attack vector instead of combining a negative
+	# X scale with another directional rotation (which mirrors left attacks twice).
+	weapon_visual.position = Vector2(
+		WEAPON_REST_POSITION.x * (1.0 if safe_direction.x >= 0.0 else -1.0),
+		WEAPON_REST_POSITION.y,
+	)
+	weapon_visual.rotation = safe_direction.angle() + swing_offset
+	weapon_visual.scale = Vector2.ONE
 
 
 func _is_held_melee() -> bool:
