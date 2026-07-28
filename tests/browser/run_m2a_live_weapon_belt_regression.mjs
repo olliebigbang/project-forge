@@ -530,7 +530,7 @@ const liveCases = [
 ];
 
 const report = {
-  suite: "M2A live WeaponSpec belt route provider-free regression",
+  suite: "M2A route + M2B playable loop provider-free regression",
   browser: browserName,
   target: targetUrl,
   provider_policy: "NO PROVIDER CALLS",
@@ -661,6 +661,7 @@ for (let index = 0; index < liveCases.length; index += 1) {
         `${liveCase.id} CONFIRM`,
       );
       const belt = await waitForLiveBelt(page);
+      await beltCommand(page, "pause_enemies", { enabled: false });
       assert(
         belt.developer_test_mode === false,
         `${liveCase.id}: live route entered Developer/Test presentation`,
@@ -691,8 +692,143 @@ for (let index = 0; index < liveCases.length; index += 1) {
       );
       const controls = await beltControls(page);
       assertFixtureControlsHidden(controls, liveCase.id);
-      for (const action of ["joystick", "attack", "retry", "reforge"]) {
+      for (const action of [
+        "joystick",
+        "attack",
+        "dodge",
+        "ward",
+        "retry",
+        "reforge",
+      ]) {
         assertRect(controls[action], viewport, `${liveCase.id} ${action}`);
+      }
+      assert(
+        belt.encounter === "playable" &&
+          belt.enemies?.length === 2 &&
+          belt.enemies.some((enemy) => enemy.kind === "bruiser") &&
+          belt.enemies.some((enemy) => enemy.kind === "charger"),
+        `${liveCase.id}: normal route did not enter the two-archetype playable room`,
+      );
+
+      if (index === 0) {
+        await page.screenshot({
+          path: join(
+            destination,
+            `${browserName}-m2b-playable-room-844x390.png`,
+          ),
+        });
+        const startingHealth = Number(belt.player?.health);
+        await beltCommand(page, "move", { x: 1, y: 0 });
+        await beltCommand(page, "dodge");
+        await beltCommand(page, "force_enemy_strike", { id: "bruiser" });
+        await waitForBeltCondition(
+          page,
+          "M2B dodge negates strike",
+          (current, expected) =>
+            Number(current?.player?.health) === expected.startingHealth &&
+            (current?.combat_events || []).some(
+              (event) =>
+                event.kind === "dodge_request" &&
+                event.outcome === "accepted",
+            ) &&
+            (current?.combat_events || []).some(
+              (event) =>
+                event.kind === "enemy_strike_resolved" &&
+                event.outcome === "dodged",
+            ),
+          { startingHealth },
+        );
+        await waitForBeltCondition(
+          page,
+          "M2B dodge cleanup",
+          (current) =>
+            current?.player?.dodge?.active === false &&
+            Number(current?.player?.collision_mask) === 8,
+        );
+        await beltCommand(page, "retry");
+        await waitForBeltCondition(
+          page,
+          "M2B retry before ward",
+          (current) =>
+            current?.round_state === "active" &&
+            Number(current?.player?.ward?.charges) === 1,
+        );
+        await beltCommand(page, "pause_enemies", { enabled: false });
+        await beltCommand(page, "ward");
+        await beltCommand(page, "force_enemy_strike", { id: "bruiser" });
+        await waitForBeltCondition(
+          page,
+          "M2B ward negates and staggers",
+          (current) => {
+            const bruiser = current?.enemies?.find(
+              (enemy) => enemy.id === "bruiser",
+            );
+            return (
+              Number(current?.player?.ward?.charges) === 0 &&
+              current?.player?.ward?.active === false &&
+              (current?.combat_events || []).some(
+                (event) =>
+                  event.kind === "ward_request" &&
+                  event.outcome === "accepted",
+              ) &&
+              bruiser?.phase === "recover" &&
+              Number(bruiser?.stagger_remaining) > 0 &&
+              (current?.combat_events || []).some(
+                (event) =>
+                  event.kind === "enemy_strike_resolved" &&
+                  event.outcome === "warded",
+              )
+            );
+          },
+        );
+        await page.screenshot({
+          path: join(destination, `${browserName}-m2b-ward-success.png`),
+        });
+        await beltCommand(page, "retry");
+        await beltCommand(page, "pause_enemies", { enabled: false });
+        await beltCommand(page, "defeat_all");
+        await waitForBeltCondition(
+          page,
+          "M2B victory reward gate",
+          (current) => current?.round_state === "victory",
+        );
+        await page.screenshot({
+          path: join(destination, `${browserName}-m2b-victory-reward.png`),
+        });
+        const rewardControls = await beltControls(page);
+        assertRect(
+          rewardControls.reward_ward_plus,
+          viewport,
+          "M2B WARD+ reward",
+        );
+        assertRect(
+          rewardControls.reward_dodge_plus,
+          viewport,
+          "M2B DODGE+ reward",
+        );
+        await beltCommand(page, "reward", { id: "ward_plus" });
+        await waitForBeltCondition(
+          page,
+          "M2B one-attempt reward",
+          (current) =>
+            current?.round_state === "active" &&
+            current?.active_attempt_reward === "ward_plus" &&
+            Number(current?.player?.ward?.charges) === 2,
+        );
+        const postReward = await beltState(page);
+        assert(
+          deepEqual(postReward.weapon_spec, expected.spec),
+          "M2B reward changed routed WeaponSpec",
+        );
+        await beltCommand(page, "retry");
+        await waitForBeltCondition(
+          page,
+          "M2B reward expires",
+          (current) =>
+            current?.round_state === "active" &&
+            current?.active_attempt_reward === "" &&
+            Number(current?.player?.ward?.charges) === 1,
+        );
       }
 
       const rightDirection = await runDirectionalAttack(

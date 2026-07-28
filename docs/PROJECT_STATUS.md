@@ -83,12 +83,15 @@ rollback readiness. No cleanup is authorized by this governance task.
 | M1B2 | **CONFIRMED not started** |
 | M2 belt-combat comparison spike | **CONFIRMED complete and merged by PR #15 / `ee2583c`; physical-iPhone runtime `39b077e` accepted; belt combat approved as the future primary direction; stable Combat Lab remains the current default regression baseline** |
 | M2A live-WeaponSpec belt integration | **CONFIRMED repository integration and product-owner acceptance:** PR #18 merged as `7fa6f7e`; final corrected Sites deployment remains **TO VALIDATE**; B2/M1B2 and cadence remain unstarted |
+| M2B minimum playable belt-combat loop | **AUTOMATED PASS / PHYSICAL IPHONE TO VALIDATE:** Issue #20; Godot, Worker/security, Web export, Chromium and WebKit pass with zero Provider calls; isolated preview still required |
 
 B2 and M1B2 descriptions remain roadmap candidates only. They are not
 authorization to begin development.
 
 ## Work currently allowed
 
+- **CONFIRMED:** isolated M2B implementation and provider-free verification
+  within Issue #20 and `docs/M2B_PLAYABLE_COMBAT_LOOP_ACCEPTANCE.md`.
 - **CONFIRMED:** M2A documentation closeout, retained-evidence audit, and an
   eventual explicit deployment of the already-built corrected Sites archive.
   Deployment must be recorded separately from repository integration.
@@ -126,7 +129,7 @@ authorization to begin development.
 - Deleting the stable side-view Combat Lab or claiming the corrected M2A archive
   is deployed/live-verified before a real Sites upload and smoke test.
 - Starting B2, M1B2, cadence/automatic firearms, charged grenades, or gameplay
-  work until a separate next-milestone contract is approved.
+  work outside the approved M2B contract.
 - Changing player UI, public `WeaponSpec` Schema, `PowerBudget` pricing,
   Provider, D1, or deployment business logic. Gameplay and weapon-physics changes
   are limited to the approved B1.5 acceptance contract.

@@ -25,6 +25,7 @@ func _run() -> void:
 
 	await _test_weapon_fixtures()
 	await _test_player_and_developer_presentation()
+	await _test_m2b_playable_loop()
 	await _test_live_payload_identity_and_copy_boundary()
 	await _test_invalid_live_payload_fails_closed()
 	await _test_live_elements()
@@ -132,6 +133,191 @@ func _test_player_and_developer_presentation() -> void:
 	)
 	live_spike.queue_free()
 	await process_frame
+
+
+func _test_m2b_playable_loop() -> void:
+	var packed_scene: PackedScene = load("res://scenes/belt_combat_spike.tscn") as PackedScene
+	var playable: BeltCombatSpike = packed_scene.instantiate() as BeltCombatSpike
+	playable.developer_test_mode = false
+	root.add_child(playable)
+	await process_frame
+	await physics_frame
+	var source: Dictionary = _make_live_weapon("melee_slash", "normal")
+	var expected_spec: Dictionary = (source.spec as WeaponSpec).to_dict().duplicate(true)
+	_check(
+		playable.equip_weapon(source.spec, source.strokes, source.geometry),
+		"M2B playable room accepts the exact routed weapon",
+	)
+	_check(
+		playable.current_encounter == BeltCombatSpike.PLAYABLE_ENCOUNTER
+		and playable.enemies.size() == 2,
+		"M2B normal-player route starts one two-enemy room",
+	)
+	var kinds: Array[String] = []
+	for enemy: BeltEnemy in playable.enemies:
+		kinds.append(enemy.enemy_kind)
+		enemy.set_simulation_enabled(false)
+	_check(
+		kinds.has("bruiser") and kinds.has("charger"),
+		"M2B room composes distinct bruiser and charger archetypes",
+	)
+	_check(
+		playable.player.current_spec.to_dict() == expected_spec,
+		"M2B room mechanics do not rewrite WeaponSpec",
+	)
+
+	var starting_health: int = playable.player.health
+	playable.set_touch_move(Vector2.RIGHT)
+	_check(playable.request_dodge(), "DODGE accepts a directional touch request")
+	var dodge_state: Dictionary = playable.player.qa_state().get("dodge", {})
+	_check(
+		bool(dodge_state.get("active", false))
+		and playable.player.collision_mask == 0,
+		"DODGE opens one bounded enemy-passage window",
+	)
+	_check(
+		playable.player.receive_enemy_strike(30) == "dodged"
+		and playable.player.health == starting_health,
+		"DODGE invulnerability negates an incoming strike without damage",
+	)
+	await _wait_physics_frames(18)
+	dodge_state = playable.player.qa_state().get("dodge", {})
+	_check(
+		not bool(dodge_state.get("active", true))
+		and float(dodge_state.get("invulnerable_remaining", -1.0)) == 0.0
+		and playable.player.collision_mask == 8,
+		"DODGE restores normal collision and vulnerability after its active window",
+	)
+	_check(
+		playable.player.receive_enemy_strike(5) == "damaged"
+		and playable.player.health == starting_health - 5,
+		"DODGE cannot retain hidden invulnerability after movement ends",
+	)
+	starting_health = playable.player.health
+	_check(
+		not playable.request_dodge(),
+		"DODGE cannot be retriggered during its authoritative cooldown",
+	)
+
+	var bruiser: BeltEnemy
+	var charger: BeltEnemy
+	for enemy: BeltEnemy in playable.enemies:
+		if enemy.enemy_kind == "bruiser":
+			bruiser = enemy
+		elif enemy.enemy_kind == "charger":
+			charger = enemy
+	_check(bruiser != null and charger != null, "M2B enemy handles remain addressable")
+	if bruiser != null:
+		bruiser.global_position = playable.player.global_position + Vector2(45.0, 0.0)
+		bruiser.set_simulation_enabled(true)
+		_check(playable.request_ward(), "WARD consumes the room's one baseline charge")
+		bruiser._set_phase(BeltEnemy.Phase.STRIKE, 0.2)
+		await physics_frame
+		var ward_state: Dictionary = playable.player.qa_state().get("ward", {})
+		_check(
+			playable.player.health == starting_health
+			and int(ward_state.get("charges", -1)) == 0,
+			"WARD negates exactly one strike and leaves no baseline charge",
+		)
+		_check(
+			bruiser.phase_name() == "recover"
+			and float(bruiser.qa_state().get("stagger_remaining", 0.0)) > 0.0,
+			"successful WARD forces the attacker into visible recovery",
+		)
+		bruiser.set_simulation_enabled(false)
+
+	if charger != null:
+		charger.global_position = playable.player.global_position + Vector2(180.0, 45.0)
+		charger._set_phase(BeltEnemy.Phase.STRIKE, 0.4)
+		var locked_before: Dictionary = charger.qa_state().get("strike_direction", {})
+		playable.player.global_position += Vector2(0.0, -90.0)
+		await physics_frame
+		var locked_after: Dictionary = charger.qa_state().get("strike_direction", {})
+		_check(
+			locked_after == locked_before,
+			"charger freezes its two-dimensional dash direction after telegraph",
+		)
+
+	for enemy: BeltEnemy in playable.enemies:
+		if not enemy.is_defeated():
+			enemy.take_damage(enemy.health)
+	await process_frame
+	_check(
+		playable.round_state == "victory",
+		"defeating both M2B enemies produces one victory terminal",
+	)
+	_check(
+		playable.select_reward("ward_plus"),
+		"victory accepts exactly one bounded next-attempt reward",
+	)
+	await physics_frame
+	var rewarded_ward: Dictionary = playable.player.qa_state().get("ward", {})
+	_check(
+		playable.round_state == "active"
+		and playable.qa_state().get("active_attempt_reward", "") == "ward_plus"
+		and int(rewarded_ward.get("charges", 0)) == 2,
+		"WARD+ grants two charges to the next attempt only",
+	)
+	_check(
+		not playable.select_reward("dodge_plus"),
+		"a second reward cannot be selected outside the victory gate",
+	)
+	playable.retry_round()
+	await physics_frame
+	var baseline_ward: Dictionary = playable.player.qa_state().get("ward", {})
+	_check(
+		playable.qa_state().get("active_attempt_reward", "unexpected") == ""
+		and int(baseline_ward.get("charges", 0)) == 1,
+		"the reward expires after exactly one subsequent attempt",
+	)
+	playable.player.take_damage(BeltPlayer.MAX_HEALTH)
+	await process_frame
+	_check(
+		playable.round_state == "defeat"
+		and not bool(playable.player.qa_state().get("dodge", {}).get("active", false))
+		and not bool(playable.player.qa_state().get("ward", {}).get("active", false)),
+		"defeat clears all defensive transient state",
+	)
+	_check(
+		playable.player.current_spec.to_dict() == expected_spec,
+		"complete M2B loop preserves exact routed WeaponSpec identity",
+	)
+	playable.queue_free()
+	await process_frame
+	await _test_m2b_dodge_tick_profiles()
+
+
+func _test_m2b_dodge_tick_profiles() -> void:
+	var distances: Array[float] = []
+	var original_physics_ticks: int = Engine.physics_ticks_per_second
+	for fps: int in [30, 60, 120]:
+		Engine.physics_ticks_per_second = fps
+		var profile_player: BeltPlayer = BeltPlayer.new()
+		root.add_child(profile_player)
+		await process_frame
+		await physics_frame
+		profile_player.arena_bounds = Rect2(0.0, 0.0, 2200.0, 1200.0)
+		profile_player.reset_for_round(Vector2(600.0, 600.0))
+		profile_player.set_combat_enabled(true)
+		profile_player.set_touch_move(Vector2.RIGHT)
+		var start_x: float = profile_player.global_position.x
+		_check(profile_player.request_dodge(), "DODGE accepts at %d FPS profile" % fps)
+		for _step: int in ceili(0.36 * float(fps)):
+			await physics_frame
+		distances.append(profile_player.global_position.x - start_x)
+		_check(
+			not bool(profile_player.qa_state().get("dodge", {}).get("active", true)),
+			"DODGE ends at %d FPS profile" % fps,
+		)
+		profile_player.queue_free()
+		await process_frame
+	Engine.physics_ticks_per_second = original_physics_ticks
+	var minimum_distance: float = distances.min()
+	var maximum_distance: float = distances.max()
+	_check(
+		maximum_distance - minimum_distance <= 12.0,
+		"DODGE displacement remains bounded across 30/60/120 FPS",
+	)
 
 
 func _test_xy_movement_and_bounds() -> void:
@@ -948,13 +1134,32 @@ func _test_compact_layouts() -> void:
 		await process_frame
 		var state: Dictionary = _spike.qa_state()
 		var layout: Dictionary = state.get("layout", {})
-		for control_name: String in ["joystick", "attack", "retry", "reforge"]:
+		var action_rects: Array[Rect2] = []
+		for control_name: String in [
+			"joystick",
+			"attack",
+			"dodge",
+			"ward",
+			"retry",
+			"reforge",
+		]:
 			var rect: Rect2 = _dictionary_rect(layout.get(control_name, {}))
 			_check(rect.size.x >= 44.0 and rect.size.y >= 44.0, "%s keeps %s touch target" % [compact_size, control_name])
 			_check(
 				rect.end.x <= float(compact_size.x) + 0.1 and rect.end.y <= float(compact_size.y) + 0.1,
 				"%s keeps %s on screen" % [compact_size, control_name],
 			)
+			action_rects.append(rect)
+		for first_index: int in action_rects.size():
+			for second_index: int in range(first_index + 1, action_rects.size()):
+				_check(
+					not action_rects[first_index].intersects(action_rects[second_index]),
+					"%s keeps touch controls %d/%d separate" % [
+						compact_size,
+						first_index,
+						second_index,
+					],
+				)
 		var arena: Rect2 = _dictionary_rect(state.get("arena_css_bounds", {}))
 		var joystick_rect: Rect2 = _dictionary_rect(layout.get("joystick", {}))
 		_check(arena.end.y <= joystick_rect.position.y + 0.1, "%s keeps the arena above touch controls" % compact_size)
