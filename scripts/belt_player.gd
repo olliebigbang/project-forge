@@ -18,6 +18,12 @@ signal damaged(amount: int, current: int)
 signal died
 ## Emitted when an attack request is accepted, buffered, or rejected.
 signal attack_request_resolved(outcome: String)
+## Emitted when DODGE is accepted or deterministically rejected.
+signal dodge_request_resolved(outcome: String)
+## Emitted when WARD is accepted or deterministically rejected.
+signal ward_request_resolved(outcome: String)
+## Emitted when an incoming strike is resolved by damage, dodge, or ward.
+signal incoming_strike_resolved(outcome: String, amount: int)
 
 const MAX_HEALTH: int = 100
 const MOVE_SPEED: float = 255.0
@@ -30,6 +36,11 @@ const TARGET_ASSIST_Y_WEIGHT: float = 1.35
 const TARGET_ASSIST_MAX_VERTICAL_RATIO: float = 0.65
 const FOOTPRINT_RADIUS: float = 13.0
 const FOOTPRINT_OFFSET: Vector2 = Vector2(0.0, 15.0)
+const DEFAULT_DODGE_SECONDS: float = 0.22
+const DEFAULT_DODGE_INVULNERABLE_SECONDS: float = 0.20
+const DEFAULT_DODGE_COOLDOWN_SECONDS: float = 0.90
+const DEFAULT_DODGE_SPEED: float = 620.0
+const DEFAULT_WARD_SECONDS: float = 0.46
 
 var arena_bounds: Rect2 = Rect2(70.0, 238.0, 1140.0, 380.0)
 var health: int = MAX_HEALTH
@@ -54,6 +65,16 @@ var _attack_direction: Vector2 = Vector2.RIGHT
 var _attack_target_point: Vector2 = Vector2.ZERO
 var _detached_visual: bool = false
 var _is_dead: bool = false
+var _last_move_direction: Vector2 = Vector2.RIGHT
+var _dodge_active: bool = false
+var _dodge_remaining: float = 0.0
+var _dodge_invulnerable_remaining: float = 0.0
+var _dodge_cooldown_remaining: float = 0.0
+var _dodge_direction: Vector2 = Vector2.RIGHT
+var _dodge_cooldown_seconds: float = DEFAULT_DODGE_COOLDOWN_SECONDS
+var _ward_remaining: float = 0.0
+var _ward_charges: int = 1
+var _configured_ward_charges: int = 1
 
 
 func _ready() -> void:
@@ -77,6 +98,7 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_update_attack_state(delta)
+	_update_defensive_state(delta)
 	if not combat_enabled or _is_dead:
 		velocity = Vector2.ZERO
 		_update_weapon_pose()
@@ -84,12 +106,20 @@ func _physics_process(delta: float) -> void:
 	_refresh_assist_target()
 	var keyboard_move: Vector2 = _keyboard_move_vector()
 	var requested_move: Vector2 = (keyboard_move + _touch_move).limit_length(1.0)
+	if _dodge_active:
+		velocity = _dodge_direction * DEFAULT_DODGE_SPEED
+		move_and_slide()
+		clamp_to_arena()
+		_update_weapon_pose()
+		queue_redraw()
+		return
 	if _movement_locked_during_startup():
 		# B1.5 Piercing commits horizontal position during startup only. Belt-depth
 		# movement remains available, while _attack_direction stays frozen.
 		requested_move.x = 0.0
 	velocity = requested_move * MOVE_SPEED
 	if requested_move.length_squared() > 0.0025 and not _attack_active:
+		_last_move_direction = requested_move.normalized()
 		if absf(requested_move.x) > 0.08:
 			facing = signf(requested_move.x)
 	move_and_slide()
@@ -168,11 +198,15 @@ func set_combat_enabled(enabled: bool) -> void:
 		_touch_move = Vector2.ZERO
 		velocity = Vector2.ZERO
 		_attack_buffered = false
+		clear_defensive_transients()
 
 
 func request_attack() -> bool:
 	if not combat_enabled or _is_dead:
 		attack_request_resolved.emit("blocked_terminal")
+		return false
+	if _dodge_active or _ward_remaining > 0.0:
+		attack_request_resolved.emit("blocked_defending")
 		return false
 	if current_spec == null:
 		attack_request_resolved.emit("blocked_missing_weapon")
@@ -190,6 +224,89 @@ func request_attack() -> bool:
 	_start_attack()
 	attack_request_resolved.emit("accepted")
 	return true
+
+
+func request_dodge() -> bool:
+	if not combat_enabled or _is_dead:
+		dodge_request_resolved.emit("blocked_terminal")
+		return false
+	if _dodge_active or _ward_remaining > 0.0 or _attack_active:
+		dodge_request_resolved.emit("blocked_busy")
+		return false
+	if _dodge_cooldown_remaining > 0.0:
+		dodge_request_resolved.emit("blocked_cooldown")
+		return false
+	var requested_direction: Vector2 = (_keyboard_move_vector() + _touch_move).limit_length(1.0)
+	if requested_direction.length_squared() <= 0.0025:
+		requested_direction = _last_move_direction
+	if requested_direction.length_squared() <= 0.0025:
+		requested_direction = Vector2(facing, 0.0)
+	_dodge_direction = requested_direction.normalized()
+	if absf(_dodge_direction.x) > 0.08:
+		facing = signf(_dodge_direction.x)
+	_dodge_active = true
+	_dodge_remaining = DEFAULT_DODGE_SECONDS
+	_dodge_invulnerable_remaining = DEFAULT_DODGE_INVULNERABLE_SECONDS
+	_dodge_cooldown_remaining = _dodge_cooldown_seconds
+	collision_mask = 0
+	dodge_request_resolved.emit("accepted")
+	queue_redraw()
+	return true
+
+
+func request_ward() -> bool:
+	if not combat_enabled or _is_dead:
+		ward_request_resolved.emit("blocked_terminal")
+		return false
+	if _ward_charges <= 0:
+		ward_request_resolved.emit("blocked_no_charges")
+		return false
+	if _ward_remaining > 0.0 or _dodge_active or _attack_active:
+		ward_request_resolved.emit("blocked_busy")
+		return false
+	_ward_charges -= 1
+	_ward_remaining = DEFAULT_WARD_SECONDS
+	ward_request_resolved.emit("accepted")
+	queue_redraw()
+	return true
+
+
+## Resolves one enemy strike without changing WeaponSpec or creating weapon hits.
+func receive_enemy_strike(amount: int) -> String:
+	if _is_dead or not combat_enabled or amount <= 0:
+		incoming_strike_resolved.emit("blocked_terminal", 0)
+		return "blocked_terminal"
+	if _ward_remaining > 0.0:
+		_ward_remaining = 0.0
+		incoming_strike_resolved.emit("warded", 0)
+		queue_redraw()
+		return "warded"
+	if _dodge_invulnerable_remaining > 0.0:
+		incoming_strike_resolved.emit("dodged", 0)
+		return "dodged"
+	var actual: int = take_damage(amount)
+	incoming_strike_resolved.emit("damaged", actual)
+	return "damaged"
+
+
+func configure_room_abilities(
+	ward_charges_value: int = 1,
+	dodge_cooldown_scale: float = 1.0,
+) -> void:
+	_configured_ward_charges = clampi(ward_charges_value, 1, 2)
+	_dodge_cooldown_seconds = (
+		DEFAULT_DODGE_COOLDOWN_SECONDS
+		* clampf(dodge_cooldown_scale, 0.70, 1.0)
+	)
+
+
+func clear_defensive_transients() -> void:
+	_dodge_active = false
+	_dodge_remaining = 0.0
+	_dodge_invulnerable_remaining = 0.0
+	_ward_remaining = 0.0
+	collision_mask = 8
+	queue_redraw()
 
 
 func take_damage(amount: int) -> int:
@@ -215,6 +332,10 @@ func reset_for_round(spawn_position: Vector2) -> void:
 	clamp_to_arena()
 	facing = 1.0
 	clear_attack_state()
+	clear_defensive_transients()
+	_dodge_cooldown_remaining = 0.0
+	_ward_charges = _configured_ward_charges
+	_last_move_direction = Vector2.RIGHT
 	restore_held_visual()
 	health_changed.emit(health, MAX_HEALTH)
 	queue_redraw()
@@ -324,6 +445,8 @@ func qa_state() -> Dictionary:
 			"bottom": arena_bounds.end.y - ARENA_FOOT_MARGIN,
 		},
 		"velocity": {"x": velocity.x, "y": velocity.y},
+		"collision_layer": collision_layer,
+		"collision_mask": collision_mask,
 		"touch_move": {"x": _touch_move.x, "y": _touch_move.y},
 		"facing": facing,
 		"attack_active": _attack_active,
@@ -341,6 +464,20 @@ func qa_state() -> Dictionary:
 		"assist_target": _assist_target.enemy_id if is_instance_valid(_assist_target) else "",
 		"held_visible": weapon_visual.visible if is_instance_valid(weapon_visual) else false,
 		"detached_visual": _detached_visual,
+		"dodge": {
+			"active": _dodge_active,
+			"remaining": _dodge_remaining,
+			"invulnerable_remaining": _dodge_invulnerable_remaining,
+			"cooldown_remaining": _dodge_cooldown_remaining,
+			"cooldown_seconds": _dodge_cooldown_seconds,
+			"direction": {"x": _dodge_direction.x, "y": _dodge_direction.y},
+		},
+		"ward": {
+			"active": _ward_remaining > 0.0,
+			"remaining": _ward_remaining,
+			"charges": _ward_charges,
+			"configured_charges": _configured_ward_charges,
+		},
 		"weapon_visual_forward": {"x": weapon_forward.x, "y": weapon_forward.y},
 		"weapon_visual_position": {"x": weapon_position.x, "y": weapon_position.y},
 		"weapon_visual_rotation": weapon_rotation,
@@ -363,6 +500,24 @@ func _start_attack() -> void:
 	_attack_target_point = global_position + _attack_direction * maxf(target_distance, 1.0)
 	if absf(_attack_direction.x) > 0.08:
 		facing = signf(_attack_direction.x)
+
+
+func _update_defensive_state(delta: float) -> void:
+	_dodge_cooldown_remaining = maxf(_dodge_cooldown_remaining - delta, 0.0)
+	_dodge_invulnerable_remaining = maxf(
+		_dodge_invulnerable_remaining - delta,
+		0.0,
+	)
+	_ward_remaining = maxf(_ward_remaining - delta, 0.0)
+	if not _dodge_active:
+		return
+	_dodge_remaining = maxf(_dodge_remaining - delta, 0.0)
+	if _dodge_remaining <= 0.0:
+		_dodge_active = false
+		_dodge_invulnerable_remaining = 0.0
+		collision_mask = 8
+		velocity = Vector2.ZERO
+		queue_redraw()
 
 
 func _update_attack_state(delta: float) -> void:
@@ -527,3 +682,25 @@ func _draw() -> void:
 		Color("#65d9ff"),
 		true,
 	)
+	if _dodge_active:
+		draw_circle(Vector2.ZERO, 34.0, Color("#65d9ff", 0.22))
+		draw_line(
+			-_dodge_direction * 16.0,
+			-_dodge_direction * 58.0,
+			Color("#65d9ff", 0.62),
+			8.0,
+			true,
+		)
+	if _ward_remaining > 0.0:
+		var ward_direction: Vector2 = Vector2(facing, 0.0)
+		var ward_angle: float = ward_direction.angle()
+		draw_arc(
+			ward_direction * 20.0 + Vector2(0.0, -13.0),
+			38.0,
+			ward_angle - 1.1,
+			ward_angle + 1.1,
+			20,
+			Color("#a9f0ff"),
+			8.0,
+			true,
+		)
