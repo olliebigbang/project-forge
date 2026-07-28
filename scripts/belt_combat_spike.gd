@@ -555,8 +555,11 @@ func qa_command(command: String, payload: Dictionary = {}) -> void:
 			for enemy: BeltEnemy in enemies:
 				if enemy.enemy_id == strike_enemy_id or strike_enemy_id.is_empty():
 					enemy.global_position = player.global_position + Vector2(48.0, 0.0)
-					enemy.set_simulation_enabled(true)
 					enemy._set_phase(BeltEnemy.Phase.STRIKE, 0.24)
+					# This QA hook resolves in the same frame so browser-runner
+					# latency cannot outlive the short DODGE/WARD windows.
+					# Normal combat still resolves strikes in BeltEnemy physics.
+					enemy._apply_strike()
 					break
 		"defeat_all":
 			for enemy: BeltEnemy in enemies:
