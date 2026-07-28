@@ -1,6 +1,7 @@
 # M2A Live Weapon Belt Integration Acceptance
 
-Status: **TO VALIDATE**
+Status: **CONFIRMED for repository integration / TO VALIDATE for the final
+fixed Sites deployment**
 
 Authorized by the product owner after the M2 belt-combat comparison spike passed
 automated, browser, and physical-iPhone Safari acceptance and belt combat was
@@ -110,9 +111,18 @@ requires:
 5. an isolated public preview with distinct release identity; and
 6. explicit physical-iPhone Safari acceptance by the product owner.
 
-Until those items pass, keep the branch, worktree, prior stable deployment,
-accepted M2 tag, screenshots, logs, and rollback evidence. Do not merge, deploy
-to production, clean retained evidence, or begin M1B2.
+The product owner accepted the M2A integration on 2026-07-28 after physical
+iPhone testing of the isolated preview and automated Chromium/WebKit evidence
+for the final facing/CJK corrections. PR #18 was then merged as `7fa6f7e`.
+
+The final corrected Sites archive was built but was not uploaded because the
+authenticated Sites editor was unavailable while the product owner was away
+from a computer. This is not represented as a live-verified deployment.
+Production therefore remains on the prior stable B1.5 Sites Version 30.
+
+Keep the branch, worktree, prior stable deployment, accepted M2 tag, screenshots,
+logs, corrected archive, and rollback evidence. Do not clean retained evidence
+or begin M1B2 without a separate milestone decision.
 
 ## Current evidence
 
@@ -128,6 +138,24 @@ to production, clean retained evidence, or begin M1B2.
   invalid-route fail-closed recovery, one-shot refresh consumption, and the
   explicit side-view regression route. Both runs reported zero provider calls
   and zero application console errors.
-- **TO VALIDATE:** independent public preview deployment and physical-iPhone
-  Safari acceptance remain required. Therefore M2A is not complete and cannot
-  merge or deploy to production yet.
+- **CONFIRMED (physical iPhone):** the product owner exercised the isolated M2A
+  preview on iPhone Safari, accepted the belt integration, and identified two
+  final minor defects: left-facing attack visuals and CJK request-progress
+  glyphs.
+- **CONFIRMED (final corrections):** PR #18 HEAD `617b465` uses one canonical
+  attack direction for held ink, slash effects, projectiles, and impact visuals.
+  The Web Description overlay preserves exact Unicode through the frozen request
+  snapshot while Godot shows a bounded English progress label instead of
+  rendering unsupported CJK fallback glyphs.
+- **CONFIRMED (final automated gate):** the corrected candidate passed the full
+  Godot/Worker/WASM/Interpreter/D1/Anthropic/budget/security suite, Web and Sites
+  builds, Chromium and WebKit runs for all five attacks in both directions, and
+  exact `冰冻手榴弹` snapshot/request-body checks. Both required GitHub `validate`
+  checks passed.
+- **CONFIRMED (repository integration):** the product owner accepted the final
+  corrections without requiring a second device deployment, and PR #18 merged
+  as `7fa6f7ee2684b44af2c51796d763c80910fff5fd` on 2026-07-28.
+- **TO VALIDATE (deployment only):** the corrected archive
+  `sites-m2a-preview-f5e0896.tar.gz` has not been uploaded to Sites. The existing
+  public production deployment remains B1.5 Sites Version 30 and must not be
+  described as running M2A.

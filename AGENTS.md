@@ -40,13 +40,33 @@ assets, balance data, or development direction from Cat Battle or another projec
 - **CONFIRMED** Sites Version 29 is the accepted-device runtime rollback.
   `v0.3.0-weapon-physics-b1` and Sites Version 25 retain the prior B1 stable
   baseline.
+- **CONFIRMED** M2A live-WeaponSpec belt integration passed the repository gate
+  and merged through PR #18 as `7fa6f7e` on 2026-07-28. Belt combat is the normal
+  post-confirmation destination; the side-view Combat Lab remains an explicit
+  Developer/QA regression route.
+- **TO VALIDATE** The corrected M2A Sites archive has not been uploaded.
+  Production remains B1.5 Sites Version 30; do not describe `main` and the public
+  runtime as identical until a later deployment and smoke test.
 - The M1A forge uses five persistent attack-pattern test buttons. Never restore
   an `OptionButton`, `PopupMenu`, or full-screen modal selector for this flow.
 
 Do not add paid AI, secrets, production levels or art, voice, accounts, cloud
 saves, sharing, monetization, multiplayer, or store submission in M1A.
 
-## Current scope: stable Weapon Physics B1 baseline
+## Current scope: stable M2A repository baseline
+
+- PR #18 merged the one-shot, fail-closed Forge-to-belt route as `7fa6f7e`.
+  Preserve exact `WeaponSpec`, frozen geometry, original strokes, Description
+  restoration, fixture isolation, and the explicit side-view QA route.
+- Preserve bidirectional visual parity: held ink, slash effects, projectiles,
+  and impacts derive from one frozen attack direction without double mirroring.
+- Preserve exact Unicode in the native HTML Description overlay and frozen
+  request body. Do not expose unsupported CJK fallback glyphs through a Godot
+  progress label.
+- Do not start B2, M1B2, cadence, grenade charge, levels, or production art
+  without a separately approved executable gate.
+
+## Preserved Weapon Physics B1 baseline
 
 - M1B1.1 player-interface simplification and M1B1.2 absolute held-melee reach are
   stable on `main`; Weapon Physics B1 is PR #7 from
@@ -149,9 +169,9 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
 
 - Follow `docs/DEVELOPMENT_WORKFLOW.md`; every major task starts from a scoped
   issue and an isolated worktree based on current `origin/main`.
-- Stable runtime source: `main` at `d88ee97` when this guide was last
-  reconciled; governance-only commits may advance the branch without a Sites
-  deployment.
+- Stable repository source: `main` at `7fa6f7e` when this guide was last
+  reconciled. The deployed runtime is separately B1.5 Sites Version 30 at
+  `d88ee97`; governance and repository integration do not imply deployment.
 - Current stable tag: `v0.4.0-weapon-exposure-b1.5`.
 - Direct accepted-runtime rollback: Sites Version 29 from `1365f0d`.
   Prior stable tag `v0.3.0-weapon-physics-b1` and historical tags

@@ -90,12 +90,12 @@ stages.
   with horizontal and depth movement. The accepted fixed-height side-view Combat
   Lab remains executable as a regression and rollback baseline while integration
   proceeds.
-- **CONFIRMED authorization / TO VALIDATE (M2A)** A normal player who confirms a
-  repaired Forge result should enter belt combat with that exact `WeaponSpec`,
+- **CONFIRMED (M2A repository integration)** A normal player who confirms a
+  repaired Forge result enters belt combat with that exact `WeaponSpec`,
   original drawing, and frozen physical profile. Developer/QA may still open the
-  side-view Combat Lab explicitly. This routing change is not accepted or
-  production-ready until `docs/M2A_LIVE_WEAPON_BELT_ACCEPTANCE.md` passes,
-  including physical-iPhone Safari evidence.
+  side-view Combat Lab explicitly. The product owner accepted this integration
+  and PR #18 merged as `7fa6f7e`; the final corrected Sites bundle remains
+  **TO VALIDATE** as a deployment and production is still on the B1.5 runtime.
 - **CONFIRMED (target experience)** Players can move horizontally and in depth,
   perform a normal attack, use a weapon ability, dodge, and inspect
   health/cooldowns.

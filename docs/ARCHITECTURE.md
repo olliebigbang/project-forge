@@ -135,7 +135,7 @@ flowchart LR
     Q --> X["Belt deterministic fixtures"]
 ```
 
-- **CONFIRMED authorization / TO VALIDATE:** only an explicitly confirmable,
+- **CONFIRMED (M2A):** only an explicitly confirmable,
   repaired, runtime-valid, budget-valid result may create the live route.
 - `WeaponRouteSnapshot` preserves exact `WeaponSpec` values, corrections, budget
   audit, the complete `GeometryEvidence -> PhysicalProfile -> CombatDerived`
@@ -153,6 +153,9 @@ flowchart LR
   new Forge request or equips a fallback.
 - This route does not cross the Worker boundary and does not change Provider,
   D1, public Schema, `PowerBudget`, interpretation, or weapon-module authority.
+- **CONFIRMED repository state / TO VALIDATE deployment:** PR #18 merged this
+  route as `7fa6f7e`. The final corrected Sites archive has not been deployed;
+  the public production runtime remains B1.5 Sites Version 30.
 
 ## Contract and double validation
 

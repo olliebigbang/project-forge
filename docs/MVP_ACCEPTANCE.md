@@ -3,13 +3,15 @@
 This file preserves the completed M0, M1A, M1B1, M1B1.1, M1B1.2, and Weapon
 Physics B1 gates. The detailed B1 contract and evidence are in
 `docs/WEAPON_PHYSICS_B1_ACCEPTANCE.md`.
-**CONFIRMED authorization / TO VALIDATE:** M2A is the separately scoped
-live-WeaponSpec belt integration gate. It may route an explicitly confirmed,
-runtime-valid Forge result into the accepted belt battlefield while retaining
-the side-view Combat Lab as an explicit Developer/QA regression route. Its
-acceptance matrix is `docs/M2A_LIVE_WEAPON_BELT_ACCEPTANCE.md`; it does not
-authorize M1B2, B2, Schema, PowerBudget, Provider/D1, production-level, or
-production-deployment work.
+**CONFIRMED repository integration / TO VALIDATE deployment:** M2A routes an
+explicitly confirmed, runtime-valid Forge result into the accepted belt
+battlefield while retaining the side-view Combat Lab as an explicit Developer/QA
+regression route. The product owner accepted PR #18 and it merged as `7fa6f7e`
+on 2026-07-28. The corrected Sites archive has not been uploaded, so production
+remains B1.5 Sites Version 30. The executable evidence is
+`docs/M2A_LIVE_WEAPON_BELT_ACCEPTANCE.md`; this acceptance does not authorize
+M1B2, B2, Schema, PowerBudget, Provider/D1, production-level, or production
+deployment work.
 **CONFIRMED:** M1B1.1 and M1B1.2 are completed, PR #7 and PR #8 are merged,
 `v0.4.0-weapon-exposure-b1.5` is the stable tag, and production Sites Version
 30 records runtime source `main` `d88ee97`. Sites Version 29 / `1365f0d` is the
