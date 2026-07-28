@@ -1,6 +1,6 @@
 # Project Forge current status
 
-Last updated: **2026-07-27 (Australia/Sydney)**
+Last updated: **2026-07-28 (Australia/Sydney)**
 
 This is the fast-moving runtime and delivery-status entry point. It does not
 replace `GDD.md`, `ARCHITECTURE.md`, `DECISIONS.md`, or milestone acceptance
@@ -16,6 +16,7 @@ reports.
 | Runtime closeout documentation merge | **CONFIRMED:** PR #8, merge `2c7b8f5021506bece6b60cb2c649ae7f3fbb961e` |
 | Weapon Physics/Exposure B1.5 merge | **CONFIRMED:** PR #12, merge `d88ee9710e1d253e421e6b64f05167579d649fc2` |
 | M2 belt-combat accepted-prototype merge | **CONFIRMED:** PR #15, merge `ee2583c3664d4013d165d7276f8222238cd49152` |
+| M2A live-WeaponSpec belt integration merge | **CONFIRMED:** PR #18, merge `7fa6f7ee2684b44af2c51796d763c80910fff5fd` |
 | Current Git milestone tag | **CONFIRMED:** `v0.5.0-m2-belt-spike` |
 | Current deployed stable tag | **CONFIRMED:** `v0.4.0-weapon-exposure-b1.5` |
 | Production Site | **CONFIRMED:** Version 30 at <https://project-forge-weapon-lab.hongningliu0130.chatgpt.site> |
@@ -38,19 +39,28 @@ the production Site, which remains Version 30 on the B1.5 runtime. The belt scen
 remains behind its explicit prototype route, and the side-view Combat Lab remains
 the public default and rollback baseline.
 
+PR #18 later advanced `main` to `7fa6f7e` and makes belt combat the normal
+post-confirmation destination while retaining the side-view Combat Lab as an
+explicit Developer/QA route. The product owner accepted repository integration
+after physical-iPhone testing of the isolated preview and final automated
+left-facing/CJK regression evidence. The corrected Sites archive was not
+uploaded; production therefore still remains Version 30 on B1.5.
+
 ## Rollback chain
 
 1. **CONFIRMED direct accepted-runtime rollback:** Sites Version 29 from
    `1365f0d420a77cb03efc3d83850ebecbae7c90dd`.
 2. **CONFIRMED accepted M2 Git milestone:**
    `v0.5.0-m2-belt-spike` at PR #15 merge `ee2583c`.
-3. **CONFIRMED direct deployed Git release point:**
+3. **CONFIRMED accepted M2A repository integration:** PR #18 merge
+   `7fa6f7ee2684b44af2c51796d763c80910fff5fd`.
+4. **CONFIRMED direct deployed Git release point:**
    `v0.4.0-weapon-exposure-b1.5` at `d88ee9710e1d253e421e6b64f05167579d649fc2`.
-4. **CONFIRMED prior B1 stable point:** Sites Version 25 plus
+5. **CONFIRMED prior B1 stable point:** Sites Version 25 plus
    `v0.3.0-weapon-physics-b1`.
-5. **CONFIRMED historical M1B1 stable point:** `v0.2.0-m1b1` at
+6. **CONFIRMED historical M1B1 stable point:** `v0.2.0-m1b1` at
    `e363e7321705f5b13983c4ee8731bc5eb9a9c555`.
-6. **CONFIRMED historical M1A stable point:** `v0.1.0-m1a` at
+7. **CONFIRMED historical M1A stable point:** `v0.1.0-m1a` at
    `b09bd8fb6fa7d4466251f73e6d647823682d513e`.
 
 Retained release archives, test evidence, branches, and worktrees are part of
@@ -72,17 +82,16 @@ rollback readiness. No cleanup is authorized by this governance task.
 | Weapon Exposure B1.5 | **CONFIRMED complete; physical iPhone v29 accepted, Sites v30 stable, tag `v0.4.0-weapon-exposure-b1.5`** |
 | M1B2 | **CONFIRMED not started** |
 | M2 belt-combat comparison spike | **CONFIRMED complete and merged by PR #15 / `ee2583c`; physical-iPhone runtime `39b077e` accepted; belt combat approved as the future primary direction; stable Combat Lab remains the current default regression baseline** |
-| M2A live-WeaponSpec belt integration | **CONFIRMED local automated/browser gate passed / TO VALIDATE:** independent public preview and physical-iPhone Safari acceptance remain; executable gate `docs/M2A_LIVE_WEAPON_BELT_ACCEPTANCE.md`; B2/M1B2 and cadence remain unstarted |
+| M2A live-WeaponSpec belt integration | **CONFIRMED repository integration and product-owner acceptance:** PR #18 merged as `7fa6f7e`; final corrected Sites deployment remains **TO VALIDATE**; B2/M1B2 and cadence remain unstarted |
 
 B2 and M1B2 descriptions remain roadmap candidates only. They are not
 authorization to begin development.
 
 ## Work currently allowed
 
-- **CONFIRMED:** isolated, provider-free M2A implementation and verification that
-  hands the exact confirmed Forge `WeaponSpec`, original strokes, frozen geometry
-  profile, and Description draft into belt combat. The side-view Combat Lab must
-  remain an explicit Developer/QA regression and rollback route.
+- **CONFIRMED:** M2A documentation closeout, retained-evidence audit, and an
+  eventual explicit deployment of the already-built corrected Sites archive.
+  Deployment must be recorded separately from repository integration.
 - **CONFIRMED:** documentation closeout and read-only verification of the merged
   M2 belt-combat comparison spike. PR #15 merged as `ee2583c`,
   `v0.5.0-m2-belt-spike` records the accepted Git milestone, and production
@@ -114,11 +123,10 @@ authorization to begin development.
 
 ## Work currently prohibited
 
-- Merging M2A, deploying it to production, or deleting the stable side-view
-  Combat Lab before the complete M2A automated, browser, isolated-preview, and
-  physical-iPhone routing gate passes.
+- Deleting the stable side-view Combat Lab or claiming the corrected M2A archive
+  is deployed/live-verified before a real Sites upload and smoke test.
 - Starting B2, M1B2, cadence/automatic firearms, charged grenades, or gameplay
-  work outside the belt-spike acceptance contract.
+  work until a separate next-milestone contract is approved.
 - Changing player UI, public `WeaponSpec` Schema, `PowerBudget` pricing,
   Provider, D1, or deployment business logic. Gameplay and weapon-physics changes
   are limited to the approved B1.5 acceptance contract.
