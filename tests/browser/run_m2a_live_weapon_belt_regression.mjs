@@ -417,22 +417,45 @@ async function runDirectionalAttack(
       : await waitForBeltCondition(
           page,
           `${liveCase.id} ${side} outbound projectile`,
-          (current) =>
+          (current, expected) =>
             (current?.projectiles || []).some(
               (projectile) => projectile.returning === false,
+            ) ||
+            (current?.combat_events || []).some(
+              (event) =>
+                event.kind === "projectile_finished" &&
+                Number(event.sequence) > expected.beforeSequence,
             ),
+          { beforeSequence },
         );
-    const projectile = visibleState.projectiles.find(
+    const liveProjectile = visibleState.projectiles.find(
       (entry) => entry.returning === false,
     );
-    const projectileDirection = normalizedVector(projectile?.direction);
+    const finishedProjectile = visibleState.combat_events.findLast(
+      (event) =>
+        event.kind === "projectile_finished" &&
+        Number(event.sequence) > beforeSequence,
+    )?.final_state;
+    const projectile = liveProjectile || finishedProjectile;
+    const outboundSamples = (projectile?.path_samples || []).filter(
+      (sample) => sample.returning === false,
+    );
+    const projectileDirection =
+      outboundSamples.length >= 2
+        ? normalizedVector({
+            x: Number(outboundSamples[1].x) - Number(outboundSamples[0].x),
+            y: Number(outboundSamples[1].y) - Number(outboundSamples[0].y),
+          })
+        : normalizedVector(projectile?.direction);
     assert(
       Math.sign(projectileDirection.x) === horizontalSign &&
         dot(projectileDirection, committedDirection) > 0.90,
       `${liveCase.id} ${side}: outbound visual direction drifted ` +
         `${JSON.stringify({ projectileDirection, committedDirection })}`,
     );
-    outboundPosition = vector(projectile?.position);
+    outboundPosition = vector(
+      outboundSamples.length >= 2 ? outboundSamples[1] : projectile?.position,
+    );
     assert(
       Math.sign(
         outboundPosition.x - Number(visibleState.player?.position?.x || 0),
