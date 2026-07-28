@@ -718,9 +718,11 @@ for (let index = 0; index < liveCases.length; index += 1) {
           ),
         });
         const startingHealth = Number(belt.player?.health);
-        await beltCommand(page, "move", { x: 1, y: 0 });
-        await beltCommand(page, "dodge");
-        await beltCommand(page, "force_enemy_strike", { id: "bruiser" });
+        await beltCommand(page, "dodge_then_force_enemy_strike", {
+          id: "bruiser",
+          x: 1,
+          y: 0,
+        });
         await waitForBeltCondition(
           page,
           "M2B dodge negates strike",
@@ -754,8 +756,9 @@ for (let index = 0; index < liveCases.length; index += 1) {
             Number(current?.player?.ward?.charges) === 1,
         );
         await beltCommand(page, "pause_enemies", { enabled: false });
-        await beltCommand(page, "ward");
-        await beltCommand(page, "force_enemy_strike", { id: "bruiser" });
+        await beltCommand(page, "ward_then_force_enemy_strike", {
+          id: "bruiser",
+        });
         await waitForBeltCondition(
           page,
           "M2B ward negates and staggers",

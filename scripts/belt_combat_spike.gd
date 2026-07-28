@@ -550,17 +550,18 @@ func qa_command(command: String, payload: Dictionary = {}) -> void:
 			request_ward()
 		"reward":
 			select_reward(str(payload.get("id", "")))
+		"dodge_then_force_enemy_strike":
+			set_touch_move(Vector2(
+				clampf(float(payload.get("x", 1.0)), -1.0, 1.0),
+				clampf(float(payload.get("y", 0.0)), -1.0, 1.0),
+			))
+			request_dodge()
+			_qa_force_enemy_strike(str(payload.get("id", "")))
+		"ward_then_force_enemy_strike":
+			request_ward()
+			_qa_force_enemy_strike(str(payload.get("id", "")))
 		"force_enemy_strike":
-			var strike_enemy_id: String = str(payload.get("id", ""))
-			for enemy: BeltEnemy in enemies:
-				if enemy.enemy_id == strike_enemy_id or strike_enemy_id.is_empty():
-					enemy.global_position = player.global_position + Vector2(48.0, 0.0)
-					enemy._set_phase(BeltEnemy.Phase.STRIKE, 0.24)
-					# This QA hook resolves in the same frame so browser-runner
-					# latency cannot outlive the short DODGE/WARD windows.
-					# Normal combat still resolves strikes in BeltEnemy physics.
-					enemy._apply_strike()
-					break
+			_qa_force_enemy_strike(str(payload.get("id", "")))
 		"defeat_all":
 			for enemy: BeltEnemy in enemies:
 				if not enemy.is_defeated():
@@ -615,6 +616,18 @@ func qa_command(command: String, payload: Dictionary = {}) -> void:
 				30,
 				120,
 			)
+
+
+func _qa_force_enemy_strike(strike_enemy_id: String) -> void:
+	for enemy: BeltEnemy in enemies:
+		if enemy.enemy_id == strike_enemy_id or strike_enemy_id.is_empty():
+			enemy.global_position = player.global_position + Vector2(48.0, 0.0)
+			enemy._set_phase(BeltEnemy.Phase.STRIKE, 0.24)
+			# Resolve in the same QA callback so browser/JSBridge latency cannot
+			# outlive the short DODGE/WARD windows. Normal combat still resolves
+			# strikes in BeltEnemy physics.
+			enemy._apply_strike()
+			break
 
 
 ## Provider-free layout test hook. Web runtime reads visualViewport directly.
