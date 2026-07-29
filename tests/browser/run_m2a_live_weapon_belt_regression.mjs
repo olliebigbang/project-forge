@@ -394,6 +394,10 @@ async function runDirectionalAttack(
     horizontalSign,
   );
   if (liveCase.pattern === "straight_projectile") {
+    const stagedPlayerPosition = {
+      x: Number(staged.player?.position?.x),
+      y: Number(staged.player?.position?.y),
+    };
     await beltCommand(page, "move", { x: -horizontalSign, y: 0 });
     await waitForBeltCondition(
       page,
@@ -404,7 +408,45 @@ async function runDirectionalAttack(
       { horizontalSign },
     );
     await beltCommand(page, "move", { x: 0, y: 0 });
-    staged = await beltState(page);
+    // A loaded CI runner can take long enough to observe the stale facing that
+    // the held movement walks outside target-assist range. Restore the staged
+    // position after releasing movement, then wait for the exact scenario the
+    // regression owns: stale opposite facing, zero input, and all live targets
+    // still behind but inside the normal assist envelope.
+    await beltCommand(page, "set_player", stagedPlayerPosition);
+    staged = await waitForBeltCondition(
+      page,
+      `${liveCase.id} ${side} stable opposite-facing target setup`,
+      (current, expected) => {
+        const playerPosition = current?.player?.position || {};
+        const liveTargets = (current?.enemies || []).filter(
+          (enemy) => Number(enemy?.health || 0) > 0,
+        );
+        return (
+          Math.abs(Number(playerPosition.x) - expected.playerPosition.x) <=
+            1.5 &&
+          Math.abs(Number(playerPosition.y) - expected.playerPosition.y) <=
+            1.5 &&
+          Number(current?.player?.touch_move?.x || 0) === 0 &&
+          Number(current?.player?.touch_move?.y || 0) === 0 &&
+          Math.sign(Number(current?.player?.facing || 0)) ===
+            -Number(expected.horizontalSign) &&
+          String(current?.player?.assist_target || "") === "" &&
+          liveTargets.length > 0 &&
+          liveTargets.every((enemy) => {
+            const offsetX =
+              Number(enemy?.position?.x) - Number(playerPosition.x);
+            const offsetY =
+              Number(enemy?.position?.y) - Number(playerPosition.y);
+            return (
+              Math.sign(offsetX) === Number(expected.horizontalSign) &&
+              Math.hypot(offsetX, offsetY) <= 520
+            );
+          })
+        );
+      },
+      { horizontalSign, playerPosition: stagedPlayerPosition },
+    );
   }
   const beforeSequence = Number(staged.event_sequence);
   const beforeCount = Number(staged.accepted_attack_count);
