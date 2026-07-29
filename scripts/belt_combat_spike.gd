@@ -1024,8 +1024,20 @@ func _on_attack_request_resolved(outcome: String) -> void:
 
 
 func _on_dodge_request_resolved(outcome: String) -> void:
-	if outcome == "accepted":
-		_status_label.text = "DODGE: brief invulnerability and enemy passage."
+	match outcome:
+		"accepted":
+			_status_label.text = "DODGE: brief invulnerability and enemy passage."
+		"blocked_cooldown":
+			var dodge_state: Dictionary = player.qa_state().get("dodge", {})
+			_status_label.text = "DODGE BLOCKED: cooldown %.1fs." % float(
+				dodge_state.get("cooldown_remaining", 0.0),
+			)
+		"blocked_busy":
+			_status_label.text = "DODGE BLOCKED: finish the current action."
+		"blocked_terminal":
+			_status_label.text = "DODGE BLOCKED: the room is not active."
+		_:
+			_status_label.text = "DODGE BLOCKED: %s." % outcome
 	_record_event("dodge_request", {"outcome": outcome})
 
 
@@ -1222,8 +1234,11 @@ func _build_hud() -> void:
 	_hud_root.add_child(_attack_button)
 	_dodge_button = _button("DODGE", CYAN, 14)
 	_dodge_button.name = "Dodge"
-	_dodge_button.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
-	_dodge_button.button_down.connect(request_dodge)
+	# DODGE resolves on a complete press/release gesture. Disabling a Button in
+	# the same frame as button_down can swallow the real touch release and leave
+	# mobile Godot's internal press pointer latched after the first use.
+	_dodge_button.action_mode = BaseButton.ACTION_MODE_BUTTON_RELEASE
+	_dodge_button.pressed.connect(request_dodge)
 	_hud_root.add_child(_dodge_button)
 	_ward_button = _button("WARD ×1", CYAN, 14)
 	_ward_button.name = "Ward"
@@ -1543,7 +1558,9 @@ func _refresh_ability_hud() -> void:
 	)
 	_ward_button.text = "WARD ×%d" % ward_charges
 	var terminal: bool = round_state != "active" or player.is_dead()
-	_dodge_button.disabled = terminal or dodge_cooldown > 0.0
+	# Keep cooldown/busy DODGE presses routable so every rejected gesture emits
+	# a deterministic blocked outcome. Only terminal state disables the control.
+	_dodge_button.disabled = terminal
 	_ward_button.disabled = terminal or ward_charges <= 0
 
 

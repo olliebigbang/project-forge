@@ -7,12 +7,27 @@ const MIN_EFFECTIVE_REACH := WeaponPhysicalProfile.MIN_EFFECTIVE_REACH
 const NOMINAL_EFFECTIVE_REACH := WeaponPhysicalProfile.NOMINAL_EFFECTIVE_REACH
 const MAX_EFFECTIVE_REACH := WeaponPhysicalProfile.MAX_EFFECTIVE_REACH
 const MAX_HELD_CROSS_AXIS := WeaponPhysicalProfile.MAX_HELD_CROSS_AXIS
+const VISUAL_SIZE_SMALL: String = "small"
+const VISUAL_SIZE_STANDARD: String = "standard"
+const VISUAL_SIZE_LARGE: String = "large"
+const SMALL_VISUAL_MAX_EXTENT: float = 0.28
+const LARGE_VISUAL_MIN_EXTENT: float = 0.62
+const SMALL_VISUAL_TARGET_SIZE: Vector2 = Vector2(92.0, 72.0)
+const STANDARD_VISUAL_TARGET_SIZE: Vector2 = Vector2(124.0, 94.0)
+const LARGE_VISUAL_TARGET_SIZE: Vector2 = Vector2(156.0, 110.0)
 
 var source_bounds := Rect2()
 var canvas_size := Vector2.ONE
 var normalized_length := 0.0
 var normalized_height := 0.0
 var ink_aspect := 1.0
+## Explicit internal orientation of the authored ink. M1B1 cannot infer this
+## from numeric drawing_summary, so the deterministic default is local +X.
+## A future confirmation-page control may explicitly set -1; it is not AI data.
+var ink_forward_sign: int = 1
+## Largest raw-bounds axis as a fraction of its corresponding frozen canvas axis.
+var visual_extent_ratio: float = 0.0
+var visual_size_profile: String = VISUAL_SIZE_SMALL
 var reach_profile := "short"
 var effective_reach := MIN_EFFECTIVE_REACH
 var mass_profile := "light"
@@ -34,6 +49,11 @@ static func from_snapshot(
 	profile.normalized_length = profile.geometry_evidence.normalized_length
 	profile.normalized_height = profile.geometry_evidence.normalized_cross_axis
 	profile.ink_aspect = profile.geometry_evidence.ink_aspect
+	profile.visual_extent_ratio = maxf(
+		profile.normalized_length,
+		profile.normalized_height,
+	)
+	profile.visual_size_profile = profile._derive_visual_size_profile()
 	profile.effective_reach = profile.physical_profile.effective_reach
 	profile.reach_profile = profile.physical_profile.reach_profile
 	profile.mass_profile = profile.physical_profile.mass_profile
@@ -58,6 +78,16 @@ static func melee_reaches_point(
 
 func applies_to(spec: WeaponSpec) -> bool:
 	return spec != null and spec.delivery == "held" and spec.attack_pattern == "melee_slash"
+
+
+## Sets the only authored-forward correction allowed before M1B2. The sign is
+## explicit player/UI state, never inferred from the drawing or provider output.
+func set_ink_forward_sign(value: int) -> void:
+	ink_forward_sign = -1 if value < 0 else 1
+
+
+func flip_ink_forward() -> void:
+	ink_forward_sign *= -1
 
 
 func apply_to_spec(spec: WeaponSpec) -> void:
@@ -103,6 +133,24 @@ func held_target_rect(padding_fraction: float = StrokeFit.DEFAULT_PADDING) -> Re
 	return Rect2(Vector2(-outer_size.x * padding, -outer_size.y * 0.5), outer_size)
 
 
+## Selects a bounded held-ink box without changing gameplay reach. Melee keeps
+## its accepted grip-to-tip authority; every other held visual uses raw bounds
+## relative to the frozen canvas to choose one auditable size profile.
+func held_visual_target_rect(
+	spec: WeaponSpec,
+	padding_fraction: float = StrokeFit.DEFAULT_PADDING,
+) -> Rect2:
+	if applies_to(spec):
+		return held_target_rect(padding_fraction)
+	var target_size: Vector2 = STANDARD_VISUAL_TARGET_SIZE
+	match visual_size_profile:
+		VISUAL_SIZE_SMALL:
+			target_size = SMALL_VISUAL_TARGET_SIZE
+		VISUAL_SIZE_LARGE:
+			target_size = LARGE_VISUAL_TARGET_SIZE
+	return Rect2(Vector2(2.0, -target_size.y * 0.5), target_size)
+
+
 func to_dict() -> Dictionary:
 	return {
 		"source_bounds": _rect_dict(source_bounds),
@@ -110,6 +158,9 @@ func to_dict() -> Dictionary:
 		"normalized_length": normalized_length,
 		"normalized_height": normalized_height,
 		"ink_aspect": ink_aspect,
+		"ink_forward_sign": ink_forward_sign,
+		"visual_extent_ratio": visual_extent_ratio,
+		"visual_size_profile": visual_size_profile,
 		"reach_profile": reach_profile,
 		"effective_reach": effective_reach,
 		"mass_profile": mass_profile,
@@ -118,6 +169,14 @@ func to_dict() -> Dictionary:
 		"combat_derived": combat_derived.to_dict() if combat_derived != null else {},
 		"threshold_status": "TO VALIDATE",
 	}
+
+
+func _derive_visual_size_profile() -> String:
+	if visual_extent_ratio <= SMALL_VISUAL_MAX_EXTENT:
+		return VISUAL_SIZE_SMALL
+	if visual_extent_ratio >= LARGE_VISUAL_MIN_EXTENT:
+		return VISUAL_SIZE_LARGE
+	return VISUAL_SIZE_STANDARD
 
 
 func _rect_dict(rect: Rect2) -> Dictionary:

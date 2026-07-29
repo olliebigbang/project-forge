@@ -40,6 +40,7 @@ var review_visual_host: Control
 var review_weapon_visual: WeaponVisual
 var review_action_row: HBoxContainer
 var confirm_button: Button
+var flip_visual_button: Button
 var modify_button: Button
 var try_again_button: Button
 var feedback_button: Button
@@ -531,6 +532,11 @@ func _build_forge_overlay() -> void:
 	confirm_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	confirm_button.pressed.connect(_confirm_interpretation)
 	review_action_row.add_child(confirm_button)
+	flip_visual_button = _button("FLIP DRAWING", CYAN, 15)
+	flip_visual_button.name = "FlipWeaponDrawingButton"
+	flip_visual_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	flip_visual_button.pressed.connect(_flip_review_visual)
+	review_action_row.add_child(flip_visual_button)
 	modify_button = _button("MODIFY INTERPRETATION", CYAN, 16)
 	modify_button.name = "ModifyInterpretationButton"
 	modify_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -694,7 +700,7 @@ func _apply_compact_forge_layout(css_size: Vector2, browser_metrics: Dictionary)
 	review_summary.add_theme_font_size_override("font_size", int(metrics.body_font))
 	review_visual_host.custom_minimum_size.y = 104.0
 	review_details.add_theme_font_size_override("font_size", int(metrics.status_font) + 2)
-	for button in [confirm_button, modify_button, try_again_button, feedback_button]:
+	for button in [confirm_button, flip_visual_button, modify_button, try_again_button, feedback_button]:
 		button.custom_minimum_size.y = float(metrics.touch_height)
 		button.add_theme_font_size_override("font_size", int(metrics.status_font) + 1)
 	forge_action_row.custom_minimum_size.y = float(metrics.touch_height)
@@ -736,7 +742,7 @@ func _apply_regular_forge_layout() -> void:
 	review_summary.add_theme_font_size_override("font_size", 18)
 	review_visual_host.custom_minimum_size.y = 118.0
 	review_details.add_theme_font_size_override("font_size", 17)
-	for button in [confirm_button, modify_button, try_again_button, feedback_button]:
+	for button in [confirm_button, flip_visual_button, modify_button, try_again_button, feedback_button]:
 		button.custom_minimum_size.y = 64.0
 		button.add_theme_font_size_override("font_size", 15)
 	forge_action_row.custom_minimum_size.y = 64.0
@@ -1028,8 +1034,9 @@ func _show_interpretation_review() -> void:
 	review_panel.show()
 	review_visual_host.show()
 	confirm_button.show()
+	flip_visual_button.show()
 	modify_button.show()
-	modify_button.text = "MODIFY INTERPRETATION"
+	modify_button.text = "MODIFY"
 	try_again_button.show()
 	feedback_button.show()
 	feedback_button.disabled = false
@@ -1054,6 +1061,7 @@ func _show_interpretation_error() -> void:
 	review_panel.show()
 	review_visual_host.hide()
 	confirm_button.hide()
+	flip_visual_button.hide()
 	modify_button.show()
 	modify_button.text = "EDIT INPUT"
 	try_again_button.show()
@@ -1182,6 +1190,15 @@ func _update_review_copy() -> void:
 			pending_spec.status_effect.replace("_", " ").to_upper(),
 			role_weakness,
 		]
+	if request_geometry_profile != null:
+		review_details.text += (
+			"\nDRAWING DIRECTION  %s"
+			% (
+				"FLIPPED"
+				if request_geometry_profile.ink_forward_sign < 0
+				else "AS DRAWN"
+			)
+		)
 
 
 func _layout_review_weapon_visual() -> void:
@@ -1192,6 +1209,21 @@ func _layout_review_weapon_visual() -> void:
 		maxf((review_visual_host.size.x - fitted.size.x) * 0.5 - fitted.position.x, 0.0),
 		review_visual_host.size.y * 0.5 - fitted.get_center().y,
 	)
+
+
+func _flip_review_visual() -> void:
+	if request_geometry_profile == null or pending_spec == null:
+		return
+	request_geometry_profile.flip_ink_forward()
+	review_weapon_visual.configure(
+		request_strokes,
+		pending_spec,
+		request_geometry_profile,
+	)
+	_layout_review_weapon_visual()
+	_update_review_copy()
+	_apply_forge_layout()
+	_update_qa_bridge()
 
 
 func _show_forge_form(correction: bool) -> void:
@@ -2595,6 +2627,7 @@ func _update_qa_bridge() -> void:
 		"power_score": pending_spec.power_score if pending_spec else 0,
 		"fallback_reason": str(pending_result.get("fallback_reason", "")),
 		"message": review_summary.text if review_mode else forge_status.text,
+		"review_details": review_details.text if review_mode else "",
 		"late_response_ignored": interpreter.late_response_ignored,
 		"http_result_code": interpreter.last_http_result_code,
 		"http_response_code": interpreter.last_http_response_code,
@@ -2663,6 +2696,7 @@ func _update_qa_bridge() -> void:
 		"reset": _rect_dictionary(reset_button),
 		"cancel": _rect_dictionary(cancel_button),
 		"confirm": _rect_dictionary(confirm_button),
+		"flip_drawing": _rect_dictionary(flip_visual_button),
 		"modify": _rect_dictionary(modify_button),
 		"try_again": _rect_dictionary(try_again_button),
 		"feedback": _rect_dictionary(feedback_button),

@@ -72,6 +72,7 @@ var _dodge_invulnerable_remaining: float = 0.0
 var _dodge_cooldown_remaining: float = 0.0
 var _dodge_direction: Vector2 = Vector2.RIGHT
 var _dodge_cooldown_seconds: float = DEFAULT_DODGE_COOLDOWN_SECONDS
+var _last_dodge_request_outcome: String = "none"
 var _ward_remaining: float = 0.0
 var _ward_charges: int = 1
 var _configured_ward_charges: int = 1
@@ -228,14 +229,11 @@ func request_attack() -> bool:
 
 func request_dodge() -> bool:
 	if not combat_enabled or _is_dead:
-		dodge_request_resolved.emit("blocked_terminal")
-		return false
+		return _resolve_dodge_request("blocked_terminal")
 	if _dodge_active or _ward_remaining > 0.0 or _attack_active:
-		dodge_request_resolved.emit("blocked_busy")
-		return false
+		return _resolve_dodge_request("blocked_busy")
 	if _dodge_cooldown_remaining > 0.0:
-		dodge_request_resolved.emit("blocked_cooldown")
-		return false
+		return _resolve_dodge_request("blocked_cooldown")
 	var requested_direction: Vector2 = (_keyboard_move_vector() + _touch_move).limit_length(1.0)
 	if requested_direction.length_squared() <= 0.0025:
 		requested_direction = _last_move_direction
@@ -249,9 +247,8 @@ func request_dodge() -> bool:
 	_dodge_invulnerable_remaining = DEFAULT_DODGE_INVULNERABLE_SECONDS
 	_dodge_cooldown_remaining = _dodge_cooldown_seconds
 	collision_mask = 0
-	dodge_request_resolved.emit("accepted")
 	queue_redraw()
-	return true
+	return _resolve_dodge_request("accepted")
 
 
 func request_ward() -> bool:
@@ -334,6 +331,7 @@ func reset_for_round(spawn_position: Vector2) -> void:
 	clear_attack_state()
 	clear_defensive_transients()
 	_dodge_cooldown_remaining = 0.0
+	_last_dodge_request_outcome = "none"
 	_ward_charges = _configured_ward_charges
 	_last_move_direction = Vector2.RIGHT
 	restore_held_visual()
@@ -375,9 +373,9 @@ func attack_origin(projectile_kind: String = "none") -> Vector2:
 		return global_position + Vector2(facing * 28.0, -20.0)
 	if projectile_kind == "none":
 		return weapon_visual.to_global(Vector2.ZERO)
-	# Projectile authority remains independent from the held visual pose. This
-	# preserves the previously validated muzzle/arc collision path while the
-	# displayed ink rotates toward the frozen 2D attack direction.
+	# Projectile origin remains on the accepted bounded combat path. Direction
+	# authority is frozen independently from the held-ink display transform, so
+	# a larger display profile cannot move a muzzle past a nearby locked target.
 	var local_origin: Vector2 = weapon_visual.projectile_spawn_local(projectile_kind)
 	var legacy_scale: Vector2 = Vector2(local_origin.x * facing, local_origin.y)
 	var legacy_rotation: float = _current_swing_offset() * facing
@@ -428,10 +426,26 @@ func qa_state() -> Dictionary:
 	var weapon_forward: Vector2 = Vector2.ZERO
 	var weapon_position: Vector2 = Vector2.ZERO
 	var weapon_rotation: float = 0.0
+	var weapon_scale: Vector2 = Vector2.ONE
+	var held_visual_audit: Dictionary = {}
 	if is_instance_valid(weapon_visual):
 		weapon_forward = Vector2.RIGHT.rotated(weapon_visual.rotation)
 		weapon_position = weapon_visual.position
 		weapon_rotation = weapon_visual.rotation
+		weapon_scale = weapon_visual.scale
+		held_visual_audit = weapon_visual.qa_fit_state()
+		held_visual_audit["final_visual_forward"] = {
+			"x": weapon_forward.x,
+			"y": weapon_forward.y,
+		}
+		held_visual_audit["final_visual_scale"] = {
+			"x": weapon_scale.x,
+			"y": weapon_scale.y,
+		}
+		held_visual_audit["transform_rule"] = (
+			"explicit ink_forward_sign canonicalizes fitted copy once; "
+			+ "canonical +X rotates once to locked attack direction"
+		)
 	return {
 		"health": health,
 		"max_health": MAX_HEALTH,
@@ -471,6 +485,7 @@ func qa_state() -> Dictionary:
 			"cooldown_remaining": _dodge_cooldown_remaining,
 			"cooldown_seconds": _dodge_cooldown_seconds,
 			"direction": {"x": _dodge_direction.x, "y": _dodge_direction.y},
+			"last_request_outcome": _last_dodge_request_outcome,
 		},
 		"ward": {
 			"active": _ward_remaining > 0.0,
@@ -481,11 +496,21 @@ func qa_state() -> Dictionary:
 		"weapon_visual_forward": {"x": weapon_forward.x, "y": weapon_forward.y},
 		"weapon_visual_position": {"x": weapon_position.x, "y": weapon_position.y},
 		"weapon_visual_rotation": weapon_rotation,
+		"weapon_visual_scale": {"x": weapon_scale.x, "y": weapon_scale.y},
+		"held_visual_audit": held_visual_audit,
 		"weapon_role": current_role_profile.to_dict() if current_role_profile != null else {},
 	}
 
 
 func _start_attack() -> void:
+	# Refresh exactly at the request boundary so the frozen direction always
+	# belongs to a currently valid, live target rather than a stale frame. With
+	# no right-stick aim on mobile, preserve a valid forward target first; only
+	# when that half-plane is empty may the attack auto-face the nearest target
+	# behind the player's stale movement direction.
+	_refresh_assist_target()
+	if not is_instance_valid(_assist_target):
+		_refresh_assist_target(true)
 	_attack_generation += 1
 	_attack_active = true
 	_attack_committed = false
@@ -567,7 +592,7 @@ func _movement_locked_during_startup() -> bool:
 	)
 
 
-func _refresh_assist_target() -> void:
+func _refresh_assist_target(allow_reverse: bool = false) -> void:
 	var best: BeltEnemy
 	var best_score: float = INF
 	var forward: Vector2 = Vector2(facing, 0.0)
@@ -579,7 +604,7 @@ func _refresh_assist_target() -> void:
 		if distance > TARGET_ASSIST_DISTANCE or distance <= 0.001:
 			continue
 		var normalized: Vector2 = offset / distance
-		if normalized.dot(forward) < 0.05:
+		if not allow_reverse and normalized.dot(forward) < 0.05:
 			continue
 		var score: float = absf(offset.x) + absf(offset.y) * TARGET_ASSIST_Y_WEIGHT
 		if (
@@ -649,6 +674,12 @@ func _apply_weapon_transform(direction: Vector2, swing_offset: float) -> void:
 	)
 	weapon_visual.rotation = safe_direction.angle() + swing_offset
 	weapon_visual.scale = Vector2.ONE
+
+
+func _resolve_dodge_request(outcome: String) -> bool:
+	_last_dodge_request_outcome = outcome
+	dodge_request_resolved.emit(outcome)
+	return outcome == "accepted"
 
 
 func _is_held_melee() -> bool:
