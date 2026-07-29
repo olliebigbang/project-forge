@@ -679,6 +679,8 @@ func _test_all_pattern_attack_directions() -> void:
 
 func _test_non_melee_held_visual_fit() -> void:
 	var previous_size: Vector2 = Vector2.ZERO
+	var previous_occupancy: float = 0.0
+	var previous_multiplier: float = 0.0
 	for fixture: Dictionary in [
 		{"id": "small", "scale": 0.45, "profile": "small"},
 		{"id": "medium", "scale": 1.0, "profile": "standard"},
@@ -751,7 +753,79 @@ func _test_non_melee_held_visual_fit() -> void:
 			"%s ranged raw bounds select the bounded %s held profile"
 			% [fixture.id, fixture.profile],
 		)
+		var occupancy: float = float(
+			audit.get("visual_occupancy_ratio", 0.0)
+		)
+		var multiplier: float = float(
+			audit.get("visual_scale_multiplier", 0.0)
+		)
+		_check(
+			occupancy > previous_occupancy
+			and multiplier > previous_multiplier,
+			"%s ranged held ink preserves continuous 2D occupancy sizing"
+			% fixture.id,
+		)
 		previous_size = fitted_bounds.size
+		previous_occupancy = occupancy
+		previous_multiplier = multiplier
+
+	# Physical-iPhone v7 exposed the max-axis blind spot: a short and a long
+	# gun can occupy the same canvas height. Their overall fitted area must still
+	# differ, rather than normalizing both into the same standard target box.
+	var same_height_results: Array[Dictionary] = []
+	for fixture: Dictionary in [
+		{"id": "compact-span", "scale": Vector2(0.42, 1.0)},
+		{"id": "wide-span", "scale": Vector2(1.35, 1.0)},
+	]:
+		var axis_scale: Vector2 = fixture.get("scale", Vector2.ONE)
+		var source_strokes: Array[PackedVector2Array] = (
+			_gun_like_strokes_with_axis_scale(axis_scale)
+		)
+		var source: Dictionary = _make_live_weapon_with_strokes(
+			"straight_projectile",
+			"normal",
+			source_strokes,
+		)
+		_check(
+			_spike.equip_weapon(source.spec, source.strokes, source.geometry),
+			"%s same-height ranged fixture equips" % fixture.id,
+		)
+		await physics_frame
+		var audit: Dictionary = (
+			_spike.player.qa_state().get("held_visual_audit", {})
+		)
+		var fitted_bounds: Rect2 = _spike.player.weapon_visual.fitted_bounds()
+		same_height_results.append({
+			"id": fixture.id,
+			"normalized_height": source.geometry.normalized_height,
+			"occupancy": float(
+				audit.get("visual_occupancy_ratio", 0.0)
+			),
+			"multiplier": float(
+				audit.get("visual_scale_multiplier", 0.0)
+			),
+			"area": fitted_bounds.size.x * fitted_bounds.size.y,
+			"width": fitted_bounds.size.x,
+		})
+	var compact: Dictionary = same_height_results[0]
+	var wide: Dictionary = same_height_results[1]
+	_check(
+		is_equal_approx(
+			float(compact.normalized_height),
+			float(wide.normalized_height),
+		),
+		"same-height ranged fixtures reproduce the physical-iPhone max-axis case",
+	)
+	_check(
+		float(wide.occupancy) > float(compact.occupancy) + 0.10
+		and float(wide.multiplier) > float(compact.multiplier) + 0.20,
+		"wide-span ranged ink receives a distinct continuous overall scale",
+	)
+	_check(
+		float(wide.area) >= float(compact.area) * 1.45
+		and float(wide.width) >= float(compact.width) * 1.60,
+		"wide-span ranged ink is visibly larger overall, not only re-fit longer",
+	)
 
 
 func _test_gun_like_authored_forward_directions() -> void:
@@ -1404,6 +1478,16 @@ func _gun_like_strokes(
 	size_scale: float = 1.0,
 	ink_forward_sign: float = 1.0,
 ) -> Array[PackedVector2Array]:
+	return _gun_like_strokes_with_axis_scale(
+		Vector2.ONE * size_scale,
+		ink_forward_sign,
+	)
+
+
+func _gun_like_strokes_with_axis_scale(
+	axis_scale: Vector2,
+	ink_forward_sign: float = 1.0,
+) -> Array[PackedVector2Array]:
 	var origin: Vector2 = Vector2(84.0, 110.0)
 	var canonical: Array[PackedVector2Array] = [
 		PackedVector2Array([
@@ -1433,7 +1517,7 @@ func _gun_like_strokes(
 		if ink_forward_sign < 0.0:
 			indexes.reverse()
 		for index: int in indexes:
-			transformed.append(origin + canonical_stroke[index] * size_scale)
+			transformed.append(origin + canonical_stroke[index] * axis_scale)
 		output.append(transformed)
 	return output
 

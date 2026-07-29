@@ -47,6 +47,9 @@ static func clone_geometry_profile(
 	clone.ink_aspect = source.ink_aspect
 	clone.ink_forward_sign = source.ink_forward_sign
 	clone.visual_extent_ratio = source.visual_extent_ratio
+	clone.visual_occupancy_ratio = source.visual_occupancy_ratio
+	clone.visual_linear_extent = source.visual_linear_extent
+	clone.visual_scale_multiplier = source.visual_scale_multiplier
 	clone.visual_size_profile = source.visual_size_profile
 	clone.reach_profile = source.reach_profile
 	clone.effective_reach = source.effective_reach

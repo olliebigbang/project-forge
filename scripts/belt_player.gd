@@ -34,6 +34,9 @@ const WEAPON_REST_POSITION: Vector2 = Vector2(20.0, -14.0)
 const TARGET_ASSIST_DISTANCE: float = 520.0
 const TARGET_ASSIST_Y_WEIGHT: float = 1.35
 const TARGET_ASSIST_MAX_VERTICAL_RATIO: float = 0.65
+const MIN_PROJECTILE_ORIGIN_FORWARD: float = 18.0
+const MAX_PROJECTILE_ORIGIN_FORWARD: float = 56.0
+const MAX_PROJECTILE_ORIGIN_CROSS_AXIS: float = 30.0
 const FOOTPRINT_RADIUS: float = 13.0
 const FOOTPRINT_OFFSET: Vector2 = Vector2(0.0, 15.0)
 const DEFAULT_DODGE_SECONDS: float = 0.22
@@ -376,10 +379,29 @@ func attack_origin(projectile_kind: String = "none") -> Vector2:
 	# Projectile origin remains on the accepted bounded combat path. Direction
 	# authority is frozen independently from the held-ink display transform, so
 	# a larger display profile cannot move a muzzle past a nearby locked target.
-	var local_origin: Vector2 = weapon_visual.projectile_spawn_local(projectile_kind)
-	var legacy_scale: Vector2 = Vector2(local_origin.x * facing, local_origin.y)
-	var legacy_rotation: float = _current_swing_offset() * facing
-	return global_position + WEAPON_REST_POSITION + legacy_scale.rotated(legacy_rotation)
+	var safe_direction: Vector2 = _attack_direction.normalized()
+	if safe_direction.length_squared() <= 0.001:
+		safe_direction = Vector2(facing, 0.0)
+	var visual_origin: Vector2 = weapon_visual.projectile_spawn_global(
+		projectile_kind,
+	)
+	var visual_offset: Vector2 = visual_origin - global_position
+	var cross_axis := Vector2(-safe_direction.y, safe_direction.x)
+	var forward_offset := clampf(
+		visual_offset.dot(safe_direction),
+		MIN_PROJECTILE_ORIGIN_FORWARD,
+		MAX_PROJECTILE_ORIGIN_FORWARD,
+	)
+	var cross_offset := clampf(
+		visual_offset.dot(cross_axis),
+		-MAX_PROJECTILE_ORIGIN_CROSS_AXIS,
+		MAX_PROJECTILE_ORIGIN_CROSS_AXIS,
+	)
+	return (
+		global_position
+		+ safe_direction * forward_offset
+		+ cross_axis * cross_offset
+	)
 
 
 func aim_direction() -> Vector2:

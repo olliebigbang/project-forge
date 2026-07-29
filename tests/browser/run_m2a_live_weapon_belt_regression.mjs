@@ -1255,6 +1255,71 @@ report.unicode_transport = await runIsolated(
   },
 );
 
+report.visual_size_regression = [];
+for (const visualCase of [
+  { id: "compact-span", width: 0.12, height: 0.32 },
+  { id: "wide-span", width: 0.50, height: 0.32 },
+]) {
+  report.visual_size_regression.push(
+    await runIsolated(
+      `visual-size-${visualCase.id}`,
+      viewports[1],
+      async (page) => {
+        await openForge(page);
+        await forgeCommand(page, "m2a_live_route_fixture", {
+          pattern: "straight_projectile",
+          element: "normal",
+          confirm: true,
+          visual_width_fraction: visualCase.width,
+          visual_height_fraction: visualCase.height,
+        });
+        const belt = await waitForLiveBelt(page);
+        await beltCommand(page, "pause_enemies", { enabled: false });
+        const audit = belt.player?.held_visual_audit || {};
+        const fitted = audit.fitted_bounds || {};
+        const screenshot = join(
+          destination,
+          `${browserName}-visual-size-${visualCase.id}.png`,
+        );
+        await page.screenshot({ path: screenshot });
+        return {
+          id: visualCase.id,
+          normalized_height: Number(
+            belt.geometry_profile?.normalized_height || 0,
+          ),
+          occupancy: Number(audit.visual_occupancy_ratio || 0),
+          multiplier: Number(audit.visual_scale_multiplier || 0),
+          fitted_width: Number(fitted.width || 0),
+          fitted_height: Number(fitted.height || 0),
+          fitted_area:
+            Number(fitted.width || 0) * Number(fitted.height || 0),
+          source_preserved: audit.source_strokes_preserved === true,
+          screenshot,
+        };
+      },
+    ),
+  );
+}
+{
+  const [compact, wide] = report.visual_size_regression;
+  assert(
+    Math.abs(compact.normalized_height - wide.normalized_height) < 0.001,
+    "visual size: same-height ranged fixtures did not reproduce device input",
+  );
+  assert(
+    wide.occupancy > compact.occupancy + 0.10 &&
+      wide.multiplier > compact.multiplier + 0.20,
+    "visual size: 2D occupancy did not create a distinct overall scale",
+  );
+  assert(
+    wide.fitted_area >= compact.fitted_area * 1.45 &&
+      wide.fitted_width >= compact.fitted_width * 1.60 &&
+      compact.source_preserved &&
+      wide.source_preserved,
+    "visual size: wide gun was only re-fit, not visibly larger overall",
+  );
+}
+
 report.one_shot_reload = await runIsolated(
   "one-shot-refresh",
   viewports[0],

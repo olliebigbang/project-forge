@@ -118,6 +118,21 @@ func qa_fit_state() -> Dictionary:
 			if geometry_profile != null
 			else 0.0
 		),
+		"visual_occupancy_ratio": (
+			geometry_profile.visual_occupancy_ratio
+			if geometry_profile != null
+			else 0.0
+		),
+		"visual_linear_extent": (
+			geometry_profile.visual_linear_extent
+			if geometry_profile != null
+			else 0.0
+		),
+		"visual_scale_multiplier": (
+			geometry_profile.visual_scale_multiplier
+			if geometry_profile != null
+			else 1.0
+		),
 		"canonical_forward_axis": {"x": 1.0, "y": 0.0},
 		"source_strokes_preserved": true,
 	}

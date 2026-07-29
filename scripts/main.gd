@@ -2381,6 +2381,44 @@ func _start_m2a_live_route_fixture(payload: Dictionary) -> void:
 			finish,
 		]),
 	]
+	if payload.has("visual_width_fraction"):
+		var visual_width := canvas_size.x * clampf(
+			float(payload.get("visual_width_fraction", 0.30)),
+			0.08,
+			0.72,
+		)
+		var visual_height := canvas_size.y * clampf(
+			float(payload.get("visual_height_fraction", 0.32)),
+			0.12,
+			0.70,
+		)
+		var visual_left := canvas_size.x * 0.12
+		var visual_top := canvas_size.y * 0.50 - visual_height * 0.5
+		var visual_right := visual_left + visual_width
+		var body_bottom := visual_top + visual_height * 0.38
+		fixture_strokes = [
+			PackedVector2Array([
+				Vector2(visual_left, visual_top),
+				Vector2(visual_right, visual_top),
+				Vector2(visual_right, body_bottom),
+				Vector2(visual_left, body_bottom),
+				Vector2(visual_left, visual_top),
+			]),
+			PackedVector2Array([
+				Vector2(
+					visual_left + visual_width * 0.34,
+					body_bottom,
+				),
+				Vector2(
+					visual_left + visual_width * 0.34,
+					visual_top + visual_height,
+				),
+				Vector2(
+					visual_left + visual_width * 0.52,
+					visual_top + visual_height,
+				),
+			]),
+		]
 	var pattern_descriptions: Dictionary = {
 		"melee_slash": "balanced sword",
 		"straight_projectile": "fast bow with straight arrows",
