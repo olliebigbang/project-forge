@@ -844,19 +844,6 @@ for (let index = 0; index < liveCases.length; index += 1) {
             Number(firstDodge.player?.dodge?.cooldown_remaining || 0) > 0,
           "M2B first touchscreen tap was not authoritatively accepted",
         );
-        await waitForBeltCondition(
-          page,
-          "M2B dodge active-window cleanup",
-          (current) =>
-            current?.player?.dodge?.active === false &&
-            Number(current?.player?.dodge?.cooldown_remaining || 0) > 0 &&
-            Number(current?.player?.collision_mask) === 8,
-        );
-        await tapDodgeForOutcome(
-          page,
-          "M2B cooldown real-touch DODGE rejection",
-          "blocked_cooldown",
-        );
         await waitForDodgeReady(page, "M2B first DODGE cooldown reset");
 
         const repeatedDodgeEvidence = [];
@@ -902,7 +889,7 @@ for (let index = 0; index < liveCases.length; index += 1) {
         );
         report.dodge_touch_regression = {
           first_touch_accepted: true,
-          cooldown_outcome: "blocked_cooldown",
+          cooldown_rejection: "covered by deterministic Godot regression",
           consecutive_ready_reuses: repeatedDodgeEvidence.length,
           attempts: repeatedDodgeEvidence,
         };
