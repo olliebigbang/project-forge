@@ -81,6 +81,9 @@ defensive technique, dodge timing, victory, defeat, reward, and Reforge?
 | M2B-16 | Portrait gate, iOS keyboard return, Safari toolbar resize, simultaneous movement/action touches, and orientation recovery do not lock input |
 | M2B-17 | Godot, Worker/security, Web/Sites builds, Chromium, and WebKit pass with zero provider calls and no new application console errors |
 | M2B-18 | An isolated public preview passes physical-iPhone feel and readability acceptance before merge or production deployment |
+| M2B-19 | A real touch DODGE resolves on release, reports accepted/busy/cooldown/terminal outcomes, and remains reusable for at least 20 cooldown cycles without a stuck pointer or permanently disabled control |
+| M2B-20 | Confirmation exposes an explicit `FLIP DRAWING` correction; its `ink_forward_sign` survives the Forge-to-belt route. With no right-stick aim, ATTACK preserves a valid forward target or auto-faces the nearest valid target when every live target is behind; held ink, projectiles, impact direction, and all five attacks then follow one frozen direction without double mirroring |
+| M2B-21 | Non-melee held ink selects bounded small/standard/large display profiles from frozen raw bounds. Larger source drawings remain visibly larger, X/Y use one uniform scale with 8%-12% padding, source strokes remain byte-for-byte equivalent, and gameplay range/projectile authority is unchanged |
 
 ## Completion gate
 
@@ -90,12 +93,13 @@ branches, worktrees, screenshots, and rollback packages unchanged until then.
 
 ## Current evidence
 
-- **CONFIRMED:** Godot import, deterministic/runtime tests, the 381-assertion
+- **CONFIRMED:** Godot import, deterministic/runtime tests, the 427-assertion
   belt suite, Worker/D1/Anthropic/security tests, and Web export pass.
 - **CONFIRMED:** Chromium and WebKit pass the provider-free live regression with
   all five patterns, exact route identity, DODGE, WARD, victory/reward, Unicode
-  request transport, the three compact landscape sizes, and zero application
-  console errors.
+  request transport, the three compact landscape sizes, 20 real-touch DODGE
+  reuse cycles, explicit drawing flip, bounded non-melee visual sizing, and zero
+  application console errors.
 - **TO VALIDATE:** isolated public preview and physical-iPhone acceptance.
 
 Full evidence and known limitations are recorded in
