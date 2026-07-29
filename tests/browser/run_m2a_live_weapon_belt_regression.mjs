@@ -840,8 +840,9 @@ for (let index = 0; index < liveCases.length; index += 1) {
           "accepted",
         );
         assert(
-          firstDodge.player?.dodge?.active === true,
-          "M2B first touchscreen tap did not activate DODGE",
+          firstDodge.player?.dodge?.last_request_outcome === "accepted" &&
+            Number(firstDodge.player?.dodge?.cooldown_remaining || 0) > 0,
+          "M2B first touchscreen tap was not authoritatively accepted",
         );
         await waitForBeltCondition(
           page,
