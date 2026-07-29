@@ -36,10 +36,11 @@ larger level/reward system.
   authored direction without claiming M1B2 image understanding. The internal
   sign survives the route; combat applies one fitted-copy mirror and one target
   rotation while preserving source strokes.
-- **CONFIRMED:** Non-melee held drawings use bounded small/standard/large visual
-  profiles derived from raw bounds relative to the frozen Canvas. Fit remains
-  uniform with 10% padding and does not alter projectile range or collision
-  authority.
+- **CONFIRMED:** Non-melee held drawings use continuous bounded overall scale
+  derived from geometric-mean two-dimensional raw-bounds occupancy relative to
+  the frozen Canvas. Source aspect remains uniform with 10% padding. A separate
+  bounded player-forward launch origin prevents large visuals from reversing or
+  moving projectile authority.
 
 ## Automated evidence
 
@@ -47,13 +48,13 @@ larger level/reward system.
 | --- | --- |
 | Godot import and script parse | **PASS** |
 | Deterministic compiler/runtime suite | **PASS** |
-| M2B belt-combat suite | **PASS — 427 assertions, 0 failed** |
+| M2B belt-combat suite | **PASS — 435 assertions, 0 failed** |
 | 30/60/120 Hz DODGE displacement profile | **PASS — bounded within 12 px** |
 | Main-scene headless smoke | **PASS** |
 | Worker, Schema, D1, Anthropic adapter, budget, and security suites | **PASS** |
 | Web export | **PASS** |
-| Chromium live regression | **PASS — five patterns in both directions, explicit flip, bounded ranged sizing, 20 real-touch DODGE cycles, route identity, WARD, victory/reward, Unicode transport, 0 console errors** |
-| WebKit live regression | **PASS — five patterns in both directions, explicit flip, bounded ranged sizing, 20 real-touch DODGE cycles, route identity, WARD, victory/reward, Unicode transport, 0 console errors** |
+| Chromium live regression | **PASS — five patterns in both directions, explicit flip, compact/wide 2D occupancy sizing, bounded muzzle, 20 real-touch DODGE cycles, route identity, WARD, victory/reward, Unicode transport, 0 console errors** |
+| WebKit live regression | **PASS — five patterns in both directions, explicit flip, compact/wide 2D occupancy sizing, bounded muzzle, 20 real-touch DODGE cycles, route identity, WARD, victory/reward, Unicode transport, 0 console errors** |
 | Provider policy | **PASS — 0 Provider calls** |
 
 ## Reopened physical-iPhone blockers and repair evidence
@@ -63,6 +64,12 @@ The product-owner's first M2B device pass found three independent blockers:
 1. DODGE could work once and then stop responding.
 2. Asymmetric player ink could point away from the target after changing sides.
 3. Large ranged drawings were normalized into the same small held box.
+
+The first v7 repair was rejected on physical iPhone because its max-axis
+small/standard/large profile could classify a short/high gun and a long/high gun
+the same whenever both used an equal fraction of Canvas height. The v8 repair
+therefore uses 2D occupancy and a continuous overall scale rather than another
+discrete target-box adjustment.
 
 The repaired deterministic and browser suites verify:
 
@@ -75,8 +82,12 @@ The repaired deterministic and browser suites verify:
   movement-facing direction and ATTACK auto-faces the nearest one;
 - explicit `ink_forward_sign` +1/-1, confirmation-page flip, and route
   persistence;
-- strictly increasing but bounded small/standard/large non-melee held visuals;
+- strictly increasing and bounded same-shape small/standard/large visuals;
+- same-height compact/wide gun fixtures whose rendered width grows by at least
+  60% and fitted area by at least 45%;
 - equal X/Y fit scale, preserved point count and source SHA-256 signature;
+- bounded projectile origin so a large held visual cannot reverse the frozen
+  outbound direction at close range;
 - 844x390, 852x393 and 915x412 controls, exact Chinese request transport, zero
   Provider calls and zero application console errors.
 
@@ -107,8 +118,9 @@ These generated artifacts are intentionally not committed to Git.
 - **TO VALIDATE:** Real iPhone Safari confirms `FLIP DRAWING` makes an
   asymmetric gun point toward targets on both sides and that the choice survives
   confirmation, Retry, and Reforge as intended.
-- **TO VALIDATE:** Real iPhone Safari confirms small and large ranged drawings
-  remain visibly different while neither obscures the player or controls.
+- **TO VALIDATE:** Real iPhone Safari confirms a compact gun and a wide gun with
+  the same drawn height remain clearly different in overall presence while
+  neither obscures the player or controls.
 - **TO VALIDATE:** Real-device timing readability for the bruiser telegraph,
   charger locked lane, dodge window, and WARD window.
 - **TO VALIDATE:** Portrait/landscape recovery and Safari toolbar changes in the
