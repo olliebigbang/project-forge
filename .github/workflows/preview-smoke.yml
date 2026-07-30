@@ -1,0 +1,55 @@
+name: Project Forge deployed preview smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      preview_url:
+        description: "HTTPS URL of the deployed Project Forge preview"
+        required: true
+        type: string
+      expected_release:
+        description: "Exact project-forge-build marker expected from that deployment"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deployed-mobile-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install locked test dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium and system dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Run provider-free deployed mobile smoke
+        env:
+          FORGE_PREVIEW_URL: ${{ inputs.preview_url }}
+          EXPECTED_RELEASE: ${{ inputs.expected_release }}
+        run: npm run test:e2e:preview
+
+      - name: Upload fixed screenshots and HTML report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: project-forge-preview-smoke-${{ github.run_id }}
+          path: |
+            output/playwright/smoke/screenshots
+            output/playwright/html-report
+            output/playwright/test-results
+          if-no-files-found: warn
+          retention-days: 14
