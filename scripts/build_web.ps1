@@ -43,6 +43,28 @@ $html = $html.Replace(
     'width=device-width, user-scalable=no, initial-scale=1.0',
     'width=device-width, user-scalable=no, initial-scale=1.0, viewport-fit=cover'
 )
+
+# Embed a build identity in the generated shell so a deployed smoke test can
+# prove which source artifact it loaded. A URL query parameter is not accepted
+# as provenance because Safari may reuse older JS/WASM/PCK resources.
+$buildId = $env:FORGE_BUILD_ID
+if ([string]::IsNullOrWhiteSpace($buildId)) {
+    $buildId = (& git -C $repoRoot rev-parse --short=12 HEAD 2>$null)
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($buildId)) {
+        $buildId = "unversioned"
+    }
+}
+$buildId = $buildId.Trim()
+if ($buildId -notmatch '^[A-Za-z0-9._/-]{1,128}$') {
+    throw "FORGE_BUILD_ID contains unsupported characters."
+}
+$buildIdJson = ConvertTo-Json -Compress $buildId
+$buildIdentityTag = "<meta name=`"project-forge-build`" content=`"$buildId`">`n<script>window.__forgeBuildInfo=Object.freeze({buildId:$buildIdJson});</script>"
+if (-not $html.Contains("</head>")) {
+    throw "Godot HTML shell is missing the head closing tag."
+}
+$html = $html.Replace("</head>", "$buildIdentityTag`n</head>")
+
 $guardPath = Join-Path $PSScriptRoot "web_canvas_guard.js"
 $inputPath = Join-Path $PSScriptRoot "web_mobile_input.js"
 foreach ($webScript in @($guardPath, $inputPath)) {

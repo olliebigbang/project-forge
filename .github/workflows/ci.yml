@@ -23,6 +23,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
+          cache: npm
+
+      - name: Install locked repository test dependencies
+        run: npm ci
 
       - name: Install Godot 4.7.1 and Web export templates
         shell: bash
@@ -67,11 +71,6 @@ jobs:
         shell: pwsh
         run: ./scripts/build_sites_preview.ps1
 
-      - name: Install provider-free Chromium smoke dependency
-        run: |
-          npm install --no-save --package-lock=false --ignore-scripts \
-            playwright-core@1.61.1
-
       - name: Run provider-free Chromium mobile smoke
         shell: bash
         run: |
@@ -97,7 +96,7 @@ jobs:
           done
           test "$ready" -eq 1
 
-          PLAYWRIGHT_MODULE_PATH="$GITHUB_WORKSPACE/node_modules/playwright-core" \
+          PLAYWRIGHT_MODULE_PATH="$GITHUB_WORKSPACE/node_modules/playwright" \
           M1B1_QA_BROWSER_EXECUTABLE="$browser" \
           M1B1_QA_SCREENSHOT_DIR="$GITHUB_WORKSPACE/output/ci-browser/screenshots" \
             node tests/browser/run_m1b1_anthropic_mobile_regression.mjs \
@@ -118,7 +117,7 @@ jobs:
             if (report.applicationConsoleErrors !== 0) throw new Error("Application console errors found");
           '
 
-          PLAYWRIGHT_MODULE_PATH="$GITHUB_WORKSPACE/node_modules/playwright-core" \
+          PLAYWRIGHT_MODULE_PATH="$GITHUB_WORKSPACE/node_modules/playwright" \
           M1B1_QA_BROWSER_EXECUTABLE="$browser" \
             node tests/browser/run_m2a_live_weapon_belt_regression.mjs \
               chromium \
@@ -172,12 +171,14 @@ jobs:
           grep -Fq 'viewport-fit=cover' build/web/index.html
           grep -Fq 'data-forge-canvas-guard' build/web/index.html
           grep -Fq 'data-forge-mobile-input' build/web/index.html
+          grep -Fq 'name="project-forge-build"' build/web/index.html
           grep -Fq '"canvasResizePolicy":0' build/web/index.html
 
           # Prove that Sites contains the guarded shell plus its WASM loader.
           grep -Fq 'viewport-fit=cover' dist/client/index.html
           grep -Fq 'data-forge-canvas-guard' dist/client/index.html
           grep -Fq 'data-forge-mobile-input' dist/client/index.html
+          grep -Fq 'name="project-forge-build"' dist/client/index.html
           grep -Fq '<script src="wasm_chunk_loader.js"></script>' dist/client/index.html
           test ! -e dist/client/index.wasm
 

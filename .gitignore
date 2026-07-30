@@ -24,6 +24,7 @@ output/browser-temp/
 output/*server.stdout.log
 output/*server.stderr.log
 output/playwright/*
+output/npm-cache/
 !output/playwright/10-mobile-touch-drawing.png
 !output/playwright/14-mobile-844x390-hit-final.png
 !output/playwright/15-mobile-915x412-combat.png
