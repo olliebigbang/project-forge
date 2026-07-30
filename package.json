@@ -1,0 +1,11 @@
+{
+  "name": "project-forge",
+  "private": true,
+  "scripts": {
+    "postinstall": "node scripts/prepare_node_modules.mjs",
+    "test:e2e:preview": "playwright test tests/e2e/deployed-mobile-smoke.spec.mjs --project=mobile-chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1"
+  }
+}

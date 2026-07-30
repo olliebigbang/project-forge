@@ -83,6 +83,15 @@ part of ordinary local verification.
 ## 5. Browser and device evidence
 
 - Browser behavior includes application console-error inspection.
+- The repository-owned deployed-preview smoke uses the locked Playwright Test
+  dependency and requires both `FORGE_PREVIEW_URL` and `EXPECTED_RELEASE`.
+  `EXPECTED_RELEASE` must equal the build-time `project-forge-build` marker in
+  the deployed HTML; changing a URL query string is not release provenance.
+- The first formal smoke is deliberately narrow: Chromium, 390x844 portrait
+  gate, 844x390 Forge entry, Description keyboard open/close, stable Canvas,
+  fixed screenshots, HTML report, and high-priority console/resource errors.
+  Existing deeper custom Chromium/WebKit runners remain authoritative for their
+  milestone matrices and are not migrated into this smoke.
 - Chromium is the fast automation gate. WebKit is a release-candidate gate for
   Safari-sensitive work.
 - Physical iPhone Safari acceptance cannot be replaced by a simulator when the
