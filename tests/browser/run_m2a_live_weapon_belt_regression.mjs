@@ -658,7 +658,15 @@ const viewports = [
 ];
 const liveCases = [
   { id: "melee-normal", pattern: "melee_slash", element: "normal" },
-  { id: "bow-ice", pattern: "straight_projectile", element: "ice" },
+  {
+    id: "bow-ice",
+    pattern: "straight_projectile",
+    element: "ice",
+    // Deliberately asymmetric gun-like ink: the second stroke is a grip below
+    // the barrel, so a PI rotation is visible and cannot pass as a valid mirror.
+    visual_width_fraction: 0.46,
+    visual_height_fraction: 0.35,
+  },
   { id: "boomerang-electric", pattern: "boomerang", element: "electric" },
   { id: "grenade-fire", pattern: "area_blast", element: "fire" },
   { id: "piercing-normal", pattern: "piercing", element: "normal" },
@@ -771,6 +779,8 @@ for (let index = 0; index < liveCases.length; index += 1) {
         pattern: liveCase.pattern,
         element: liveCase.element,
         confirm: false,
+        visual_width_fraction: liveCase.visual_width_fraction,
+        visual_height_fraction: liveCase.visual_height_fraction,
       });
       const confirmation = await waitForConfirmation(page);
       assert(
@@ -1042,10 +1052,15 @@ for (let index = 0; index < liveCases.length; index += 1) {
         );
       }
 
+      const rightScreenshot = join(
+        destination,
+        `${browserName}-${safeName(liveCase.id)}-right-facing.png`,
+      );
       const rightDirection = await runDirectionalAttack(
         page,
         liveCase,
         1,
+        rightScreenshot,
       );
 
       const beforeRetry = await beltState(page);

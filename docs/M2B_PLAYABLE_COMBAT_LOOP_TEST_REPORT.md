@@ -112,6 +112,10 @@ Representative evidence:
 - `chromium/chromium-m2b-ward-success.png`
 - `chromium/chromium-m2b-victory-reward.png`
 - `chromium/chromium-unicode-request-in-flight.png`
+- `chromium/chromium-bow-ice-right-facing.png` and
+  `chromium/chromium-bow-ice-left-facing.png` use deliberately asymmetric
+  gun-like ink with a grip below the barrel; the matching WebKit pair verifies
+  horizontal reflection without vertical inversion
 - corresponding WebKit screenshots and JSON report
 
 These generated artifacts are intentionally not committed to Git.
