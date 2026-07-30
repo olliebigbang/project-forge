@@ -478,13 +478,32 @@ async function runDirectionalAttack(
   const heldForward = normalizedVector(
     committedState.player?.weapon_visual_forward,
   );
+  const heldDown = normalizedVector(
+    committedState.player?.weapon_visual_down,
+  );
   const heldAudit = committedState.player?.held_visual_audit || {};
   const auditedForward = normalizedVector(heldAudit.final_visual_forward);
+  const auditedDown = normalizedVector(heldAudit.final_visual_down);
   assert(
     dot(heldForward, committedDirection) > 0.72 &&
       dot(auditedForward, committedDirection) > 0.72,
     `${liveCase.id} ${side}: held ink did not follow frozen direction ` +
       `${JSON.stringify({ heldForward, auditedForward, committedDirection })}`,
+  );
+  assert(
+    heldDown.y > 0.90 && auditedDown.y > 0.90,
+    `${liveCase.id} ${side}: held ink turned vertically upside down ` +
+      `${JSON.stringify({ heldDown, auditedDown })}`,
+  );
+  const heldScale = committedState.player?.weapon_visual_scale || {};
+  assert(
+    Math.sign(Number(heldScale.x || 0)) === horizontalSign &&
+      Math.abs(
+        Math.abs(Number(heldScale.x || 0)) -
+          Number(heldScale.y || 0),
+      ) <= 1e-6,
+    `${liveCase.id} ${side}: held ink did not use one uniform horizontal mirror ` +
+      `${JSON.stringify(heldScale)}`,
   );
   assert(
     Number(heldAudit.ink_forward_sign || 0) ===

@@ -446,12 +446,19 @@ func is_dead() -> bool:
 
 func qa_state() -> Dictionary:
 	var weapon_forward: Vector2 = Vector2.ZERO
+	var weapon_down: Vector2 = Vector2.DOWN
 	var weapon_position: Vector2 = Vector2.ZERO
 	var weapon_rotation: float = 0.0
 	var weapon_scale: Vector2 = Vector2.ONE
 	var held_visual_audit: Dictionary = {}
 	if is_instance_valid(weapon_visual):
-		weapon_forward = Vector2.RIGHT.rotated(weapon_visual.rotation)
+		var visual_origin: Vector2 = weapon_visual.to_global(Vector2.ZERO)
+		weapon_forward = (
+			weapon_visual.to_global(Vector2.RIGHT) - visual_origin
+		).normalized()
+		weapon_down = (
+			weapon_visual.to_global(Vector2.DOWN) - visual_origin
+		).normalized()
 		weapon_position = weapon_visual.position
 		weapon_rotation = weapon_visual.rotation
 		weapon_scale = weapon_visual.scale
@@ -460,13 +467,17 @@ func qa_state() -> Dictionary:
 			"x": weapon_forward.x,
 			"y": weapon_forward.y,
 		}
+		held_visual_audit["final_visual_down"] = {
+			"x": weapon_down.x,
+			"y": weapon_down.y,
+		}
 		held_visual_audit["final_visual_scale"] = {
 			"x": weapon_scale.x,
 			"y": weapon_scale.y,
 		}
 		held_visual_audit["transform_rule"] = (
 			"explicit ink_forward_sign canonicalizes fitted copy once; "
-			+ "canonical +X rotates once to locked attack direction"
+			+ "combat mirrors local X for left facing and keeps local Y upright"
 		)
 	return {
 		"health": health,
@@ -516,6 +527,7 @@ func qa_state() -> Dictionary:
 			"configured_charges": _configured_ward_charges,
 		},
 		"weapon_visual_forward": {"x": weapon_forward.x, "y": weapon_forward.y},
+		"weapon_visual_down": {"x": weapon_down.x, "y": weapon_down.y},
 		"weapon_visual_position": {"x": weapon_position.x, "y": weapon_position.y},
 		"weapon_visual_rotation": weapon_rotation,
 		"weapon_visual_scale": {"x": weapon_scale.x, "y": weapon_scale.y},
@@ -687,15 +699,25 @@ func _apply_weapon_transform(direction: Vector2, swing_offset: float) -> void:
 	var safe_direction: Vector2 = direction.normalized()
 	if safe_direction.length_squared() <= 0.001:
 		safe_direction = Vector2(facing, 0.0)
-	# Player ink is fitted grip-to-tip along local +X. Rotate that one canonical
-	# geometry toward the frozen attack vector instead of combining a negative
-	# X scale with another directional rotation (which mirrors left attacks twice).
+	var horizontal_sign: float = signf(safe_direction.x)
+	if is_zero_approx(horizontal_sign):
+		horizontal_sign = 1.0 if facing >= 0.0 else -1.0
+	# Local +X is the canonical weapon-forward axis, while local +Y is authored
+	# screen-down. A PI rotation would point +X left but would also turn the
+	# authored grip/stock upside down. Mirror only local X for left-facing ink,
+	# then use a bounded rotation for the depth component. Swing offsets mirror
+	# with the facing sign so the complete pose remains horizontally symmetric.
+	var upright_aim: Vector2 = Vector2(
+		absf(safe_direction.x),
+		safe_direction.y * horizontal_sign,
+	)
+	var base_rotation: float = upright_aim.angle()
 	weapon_visual.position = Vector2(
-		WEAPON_REST_POSITION.x * (1.0 if safe_direction.x >= 0.0 else -1.0),
+		WEAPON_REST_POSITION.x * horizontal_sign,
 		WEAPON_REST_POSITION.y,
 	)
-	weapon_visual.rotation = safe_direction.angle() + swing_offset
-	weapon_visual.scale = Vector2.ONE
+	weapon_visual.rotation = base_rotation + swing_offset * horizontal_sign
+	weapon_visual.scale = Vector2(horizontal_sign, 1.0)
 
 
 func _resolve_dodge_request(outcome: String) -> bool:

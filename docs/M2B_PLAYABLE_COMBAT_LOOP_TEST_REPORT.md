@@ -34,8 +34,10 @@ larger level/reward system.
   explicit outcome instead of disabling the Button during the same touch.
 - **CONFIRMED:** An explicit confirmation-page `FLIP DRAWING` action records
   authored direction without claiming M1B2 image understanding. The internal
-  sign survives the route; combat applies one fitted-copy mirror and one target
-  rotation while preserving source strokes.
+  sign survives the route and selects the authored front/muzzle. Combat uses a
+  single horizontal reflection for left-facing held ink while preserving local
+  screen-down, so an asymmetric grip/stock remains below the barrel. Source
+  strokes remain unchanged.
 - **CONFIRMED:** Non-melee held drawings use continuous bounded overall scale
   derived from geometric-mean two-dimensional raw-bounds occupancy relative to
   the frozen Canvas. Source aspect remains uniform with 10% padding. A separate
@@ -48,7 +50,7 @@ larger level/reward system.
 | --- | --- |
 | Godot import and script parse | **PASS** |
 | Deterministic compiler/runtime suite | **PASS** |
-| M2B belt-combat suite | **PASS — 435 assertions, 0 failed** |
+| M2B belt-combat suite | **PASS — 443 assertions, 0 failed** |
 | 30/60/120 Hz DODGE displacement profile | **PASS — bounded within 12 px** |
 | Main-scene headless smoke | **PASS** |
 | Worker, Schema, D1, Anthropic adapter, budget, and security suites | **PASS** |
@@ -82,6 +84,9 @@ The repaired deterministic and browser suites verify:
   movement-facing direction and ATTACK auto-faces the nearest one;
 - explicit `ink_forward_sign` +1/-1, confirmation-page flip, and route
   persistence;
+- left/right held-ink orientation for both `ink_forward_sign` values, including
+  an asymmetric local-down reference that fails if a left-facing weapon is
+  rotated 180 degrees instead of reflected horizontally;
 - strictly increasing and bounded same-shape small/standard/large visuals;
 - same-height compact/wide gun fixtures whose rendered width grows by at least
   60% and fitted area by at least 45%;
@@ -118,6 +123,9 @@ These generated artifacts are intentionally not committed to Git.
 - **TO VALIDATE:** Real iPhone Safari confirms `FLIP DRAWING` makes an
   asymmetric gun point toward targets on both sides and that the choice survives
   confirmation, Retry, and Reforge as intended.
+- **TO VALIDATE:** Real iPhone Safari confirms an asymmetric grip/stock remains
+  below the barrel when the player changes sides repeatedly; the weapon must
+  never become vertically inverted.
 - **TO VALIDATE:** Real iPhone Safari confirms a compact gun and a wide gun with
   the same drawn height remain clearly different in overall presence while
   neither obscures the player or controls.

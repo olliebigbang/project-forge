@@ -893,6 +893,12 @@ func _test_gun_like_authored_forward_directions() -> void:
 			var visual_forward_data: Dictionary = (
 				_spike.player.qa_state().get("weapon_visual_forward", {})
 			)
+			var visual_down_data: Dictionary = (
+				_spike.player.qa_state().get("weapon_visual_down", {})
+			)
+			var visual_scale_data: Dictionary = (
+				_spike.player.qa_state().get("weapon_visual_scale", {})
+			)
 			var held_visual_audit: Dictionary = (
 				_spike.player.qa_state().get("held_visual_audit", {})
 			)
@@ -900,10 +906,28 @@ func _test_gun_like_authored_forward_directions() -> void:
 				float(visual_forward_data.get("x", 0.0)),
 				float(visual_forward_data.get("y", 0.0)),
 			).normalized()
+			var visual_down: Vector2 = Vector2(
+				float(visual_down_data.get("x", 0.0)),
+				float(visual_down_data.get("y", 0.0)),
+			).normalized()
 			_check(
 				signf(frozen_direction.x) == target_side
 				and visual_forward.dot(frozen_direction) > 0.80,
 				"gun-like ink sign %d has one final forward toward target side %d"
+				% [ink_forward_sign, int(target_side)],
+			)
+			_check(
+				visual_down.dot(Vector2.DOWN) > 0.90,
+				"gun-like ink sign %d keeps its grip below the barrel toward side %d"
+				% [ink_forward_sign, int(target_side)],
+			)
+			_check(
+				signf(float(visual_scale_data.get("x", 0.0))) == target_side
+				and is_equal_approx(
+					absf(float(visual_scale_data.get("x", 0.0))),
+					float(visual_scale_data.get("y", 0.0)),
+				),
+				"gun-like ink sign %d uses one uniform horizontal combat mirror toward side %d"
 				% [ink_forward_sign, int(target_side)],
 			)
 			_check(
