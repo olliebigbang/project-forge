@@ -44,22 +44,20 @@ assets, balance data, or development direction from Cat Battle or another projec
   and merged through PR #18 as `7fa6f7e` on 2026-07-28. Belt combat is the normal
   post-confirmation destination; the side-view Combat Lab remains an explicit
   Developer/QA regression route.
-- **CONFIRMED** M2B final branch candidate `c95f2c7` passed deterministic,
-  Chromium, WebKit, CI, and physical-iPhone acceptance on 2026-07-31. Accepted
-  Sites Version 31 embeds runtime marker `0577e936b0dd`; the later
-  `0577e93..c95f2c7` diff is test/report-only, so v31 is runtime-content
-  equivalent to the branch candidate but is not its exact build.
-  Release closeout is active: merge, rebuild from `main`, stable deployment,
-  smoke, and tag remain pending. Do not start M2C until that closeout completes.
+- **CONFIRMED** M2B passed deterministic, Chromium, WebKit, CI, and physical
+  iPhone acceptance on 2026-07-31. PR #21 merged as `3da0189`; exact merged
+  `main` is deployed as Sites Version 32 with marker `3da018917193` and tagged
+  `v0.6.0-m2b-playable-loop`. Version 31 remains the accepted-device rollback.
+  M2C is not started and requires a separate executable gate.
 - The M1A forge uses five persistent attack-pattern test buttons. Never restore
   an `OptionButton`, `PopupMenu`, or full-screen modal selector for this flow.
 
 Do not add paid AI, secrets, production levels or art, voice, accounts, cloud
 saves, sharing, monetization, multiplayer, or store submission in M1A.
 
-## Current scope: M2B release closeout
+## Current scope: stable M2B baseline
 
-- PR #21 final candidate `c95f2c7` owns the accepted one-room playable loop.
+- PR #21 merge `3da0189` owns the accepted one-room playable loop.
   Preserve exact `WeaponSpec`, frozen geometry, original strokes, Description
   restoration, fixture isolation, and the explicit side-view QA route while
   completing release integration.
@@ -73,9 +71,9 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
   progress label.
 - Do not start B2, M1B2, cadence, grenade charge, levels, or production art
   without a separately approved executable gate.
-- Keep Sites Version 31, the PR branch/worktree, screenshots, and release
-  archives until merged-main deployment and smoke are recorded. Cleanup always
-  requires a later explicit decision.
+- Keep Sites Versions 31 and 32, the PR branch/worktree, screenshots, and release
+  archives as rollback evidence. Cleanup always requires a later explicit
+  decision.
 
 ## Preserved Weapon Physics B1 baseline
 
@@ -183,12 +181,10 @@ npm.cmd run test:e2e:preview
 
 - Follow `docs/DEVELOPMENT_WORKFLOW.md`; every major task starts from a scoped
   issue and an isolated worktree based on current `origin/main`.
-- Stable repository source before M2B merge: `main` at `7aa45a6` when this guide
-  was last reconciled. The active public candidate is Sites Version 31 with
-  embedded runtime marker `0577e936b0dd`; PR #21 HEAD `c95f2c7` differs only by
-  test/report evidence. It is not the stable Git release until merged-main
-  rebuild, deployment, smoke, and tag complete.
-- Current stable tag: `v0.4.0-weapon-exposure-b1.5`.
+- Stable repository source: PR #21 merge `3da0189` on `main` when this guide was
+  last reconciled. Sites Version 32 embeds exact marker `3da018917193`.
+- Current stable tag: `v0.6.0-m2b-playable-loop`.
+- Prior stable tag: `v0.4.0-weapon-exposure-b1.5`.
 - Direct accepted-runtime rollback: Sites Version 29 from `1365f0d`.
   Prior stable tag `v0.3.0-weapon-physics-b1` and historical tags
   `v0.2.1-m1b1.2`, `v0.2.0-m1b1`, and `v0.1.0-m1a` remain retained.
