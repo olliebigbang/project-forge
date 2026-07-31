@@ -25,12 +25,15 @@ func _run() -> void:
 
 	await _test_weapon_fixtures()
 	await _test_player_and_developer_presentation()
+	await _test_m2b_playable_loop()
 	await _test_live_payload_identity_and_copy_boundary()
 	await _test_invalid_live_payload_fails_closed()
 	await _test_live_elements()
 	await _test_xy_movement_and_bounds()
 	await _test_assist_and_horizontal_lock()
+	await _test_non_melee_held_visual_fit()
 	await _test_all_pattern_attack_directions()
+	await _test_gun_like_authored_forward_directions()
 	await _test_footprint_collision_and_defeated_passage()
 	await _test_five_attack_adaptations()
 	await _test_terminal_cleanup_and_retry()
@@ -132,6 +135,191 @@ func _test_player_and_developer_presentation() -> void:
 	)
 	live_spike.queue_free()
 	await process_frame
+
+
+func _test_m2b_playable_loop() -> void:
+	var packed_scene: PackedScene = load("res://scenes/belt_combat_spike.tscn") as PackedScene
+	var playable: BeltCombatSpike = packed_scene.instantiate() as BeltCombatSpike
+	playable.developer_test_mode = false
+	root.add_child(playable)
+	await process_frame
+	await physics_frame
+	var source: Dictionary = _make_live_weapon("melee_slash", "normal")
+	var expected_spec: Dictionary = (source.spec as WeaponSpec).to_dict().duplicate(true)
+	_check(
+		playable.equip_weapon(source.spec, source.strokes, source.geometry),
+		"M2B playable room accepts the exact routed weapon",
+	)
+	_check(
+		playable.current_encounter == BeltCombatSpike.PLAYABLE_ENCOUNTER
+		and playable.enemies.size() == 2,
+		"M2B normal-player route starts one two-enemy room",
+	)
+	var kinds: Array[String] = []
+	for enemy: BeltEnemy in playable.enemies:
+		kinds.append(enemy.enemy_kind)
+		enemy.set_simulation_enabled(false)
+	_check(
+		kinds.has("bruiser") and kinds.has("charger"),
+		"M2B room composes distinct bruiser and charger archetypes",
+	)
+	_check(
+		playable.player.current_spec.to_dict() == expected_spec,
+		"M2B room mechanics do not rewrite WeaponSpec",
+	)
+
+	var starting_health: int = playable.player.health
+	playable.set_touch_move(Vector2.RIGHT)
+	_check(playable.request_dodge(), "DODGE accepts a directional touch request")
+	var dodge_state: Dictionary = playable.player.qa_state().get("dodge", {})
+	_check(
+		bool(dodge_state.get("active", false))
+		and playable.player.collision_mask == 0,
+		"DODGE opens one bounded enemy-passage window",
+	)
+	_check(
+		playable.player.receive_enemy_strike(30) == "dodged"
+		and playable.player.health == starting_health,
+		"DODGE invulnerability negates an incoming strike without damage",
+	)
+	await _wait_physics_frames(18)
+	dodge_state = playable.player.qa_state().get("dodge", {})
+	_check(
+		not bool(dodge_state.get("active", true))
+		and float(dodge_state.get("invulnerable_remaining", -1.0)) == 0.0
+		and playable.player.collision_mask == 8,
+		"DODGE restores normal collision and vulnerability after its active window",
+	)
+	_check(
+		playable.player.receive_enemy_strike(5) == "damaged"
+		and playable.player.health == starting_health - 5,
+		"DODGE cannot retain hidden invulnerability after movement ends",
+	)
+	starting_health = playable.player.health
+	_check(
+		not playable.request_dodge(),
+		"DODGE cannot be retriggered during its authoritative cooldown",
+	)
+
+	var bruiser: BeltEnemy
+	var charger: BeltEnemy
+	for enemy: BeltEnemy in playable.enemies:
+		if enemy.enemy_kind == "bruiser":
+			bruiser = enemy
+		elif enemy.enemy_kind == "charger":
+			charger = enemy
+	_check(bruiser != null and charger != null, "M2B enemy handles remain addressable")
+	if bruiser != null:
+		bruiser.global_position = playable.player.global_position + Vector2(45.0, 0.0)
+		bruiser.set_simulation_enabled(true)
+		_check(playable.request_ward(), "WARD consumes the room's one baseline charge")
+		bruiser._set_phase(BeltEnemy.Phase.STRIKE, 0.2)
+		await physics_frame
+		var ward_state: Dictionary = playable.player.qa_state().get("ward", {})
+		_check(
+			playable.player.health == starting_health
+			and int(ward_state.get("charges", -1)) == 0,
+			"WARD negates exactly one strike and leaves no baseline charge",
+		)
+		_check(
+			bruiser.phase_name() == "recover"
+			and float(bruiser.qa_state().get("stagger_remaining", 0.0)) > 0.0,
+			"successful WARD forces the attacker into visible recovery",
+		)
+		bruiser.set_simulation_enabled(false)
+
+	if charger != null:
+		charger.global_position = playable.player.global_position + Vector2(180.0, 45.0)
+		charger._set_phase(BeltEnemy.Phase.STRIKE, 0.4)
+		var locked_before: Dictionary = charger.qa_state().get("strike_direction", {})
+		playable.player.global_position += Vector2(0.0, -90.0)
+		await physics_frame
+		var locked_after: Dictionary = charger.qa_state().get("strike_direction", {})
+		_check(
+			locked_after == locked_before,
+			"charger freezes its two-dimensional dash direction after telegraph",
+		)
+
+	for enemy: BeltEnemy in playable.enemies:
+		if not enemy.is_defeated():
+			enemy.take_damage(enemy.health)
+	await process_frame
+	_check(
+		playable.round_state == "victory",
+		"defeating both M2B enemies produces one victory terminal",
+	)
+	_check(
+		playable.select_reward("ward_plus"),
+		"victory accepts exactly one bounded next-attempt reward",
+	)
+	await physics_frame
+	var rewarded_ward: Dictionary = playable.player.qa_state().get("ward", {})
+	_check(
+		playable.round_state == "active"
+		and playable.qa_state().get("active_attempt_reward", "") == "ward_plus"
+		and int(rewarded_ward.get("charges", 0)) == 2,
+		"WARD+ grants two charges to the next attempt only",
+	)
+	_check(
+		not playable.select_reward("dodge_plus"),
+		"a second reward cannot be selected outside the victory gate",
+	)
+	playable.retry_round()
+	await physics_frame
+	var baseline_ward: Dictionary = playable.player.qa_state().get("ward", {})
+	_check(
+		playable.qa_state().get("active_attempt_reward", "unexpected") == ""
+		and int(baseline_ward.get("charges", 0)) == 1,
+		"the reward expires after exactly one subsequent attempt",
+	)
+	playable.player.take_damage(BeltPlayer.MAX_HEALTH)
+	await process_frame
+	_check(
+		playable.round_state == "defeat"
+		and not bool(playable.player.qa_state().get("dodge", {}).get("active", false))
+		and not bool(playable.player.qa_state().get("ward", {}).get("active", false)),
+		"defeat clears all defensive transient state",
+	)
+	_check(
+		playable.player.current_spec.to_dict() == expected_spec,
+		"complete M2B loop preserves exact routed WeaponSpec identity",
+	)
+	playable.queue_free()
+	await process_frame
+	await _test_m2b_dodge_tick_profiles()
+
+
+func _test_m2b_dodge_tick_profiles() -> void:
+	var distances: Array[float] = []
+	var original_physics_ticks: int = Engine.physics_ticks_per_second
+	for fps: int in [30, 60, 120]:
+		Engine.physics_ticks_per_second = fps
+		var profile_player: BeltPlayer = BeltPlayer.new()
+		root.add_child(profile_player)
+		await process_frame
+		await physics_frame
+		profile_player.arena_bounds = Rect2(0.0, 0.0, 2200.0, 1200.0)
+		profile_player.reset_for_round(Vector2(600.0, 600.0))
+		profile_player.set_combat_enabled(true)
+		profile_player.set_touch_move(Vector2.RIGHT)
+		var start_x: float = profile_player.global_position.x
+		_check(profile_player.request_dodge(), "DODGE accepts at %d FPS profile" % fps)
+		for _step: int in ceili(0.36 * float(fps)):
+			await physics_frame
+		distances.append(profile_player.global_position.x - start_x)
+		_check(
+			not bool(profile_player.qa_state().get("dodge", {}).get("active", true)),
+			"DODGE ends at %d FPS profile" % fps,
+		)
+		profile_player.queue_free()
+		await process_frame
+	Engine.physics_ticks_per_second = original_physics_ticks
+	var minimum_distance: float = distances.min()
+	var maximum_distance: float = distances.max()
+	_check(
+		maximum_distance - minimum_distance <= 12.0,
+		"DODGE displacement remains bounded across 30/60/120 FPS",
+	)
 
 
 func _test_xy_movement_and_bounds() -> void:
@@ -487,6 +675,277 @@ func _test_all_pattern_attack_directions() -> void:
 						"%s/%s impact effect stays on the frozen side"
 						% [pattern, side_label],
 					)
+
+
+func _test_non_melee_held_visual_fit() -> void:
+	var previous_size: Vector2 = Vector2.ZERO
+	var previous_occupancy: float = 0.0
+	var previous_multiplier: float = 0.0
+	for fixture: Dictionary in [
+		{"id": "small", "scale": 0.45, "profile": "small"},
+		{"id": "medium", "scale": 1.0, "profile": "standard"},
+		{"id": "large", "scale": 1.8, "profile": "large"},
+	]:
+		var source_strokes: Array[PackedVector2Array] = _gun_like_strokes(
+			float(fixture.scale),
+			1.0,
+		)
+		var source: Dictionary = _make_live_weapon_with_strokes(
+			"straight_projectile",
+			"normal",
+			source_strokes,
+		)
+		var expected_signature: Dictionary = _stroke_signature(source_strokes)
+		_check(
+			_spike.equip_weapon(source.spec, source.strokes, source.geometry),
+			"%s ranged gun-like raw-bounds fixture equips" % fixture.id,
+		)
+		await physics_frame
+		var visual: WeaponVisual = _spike.player.weapon_visual
+		var audit: Dictionary = (
+			_spike.player.qa_state().get("held_visual_audit", {})
+		)
+		var fitted_strokes: Array[PackedVector2Array] = visual.fitted_strokes()
+		var source_bounds: Rect2 = StrokeFit.actual_bounds(source_strokes)
+		var fitted_bounds: Rect2 = StrokeFit.actual_bounds(fitted_strokes)
+		var scale_x: float = fitted_bounds.size.x / maxf(source_bounds.size.x, 0.001)
+		var scale_y: float = fitted_bounds.size.y / maxf(source_bounds.size.y, 0.001)
+		var padding: float = clampf(
+			visual.fit_padding,
+			StrokeFit.MIN_PADDING,
+			StrokeFit.MAX_PADDING,
+		)
+		var inset: Vector2 = visual.fit_target_rect.size * padding
+		var bounded_rect: Rect2 = Rect2(
+			visual.fit_target_rect.position + inset,
+			visual.fit_target_rect.size - inset * 2.0,
+		)
+		_check(
+			fitted_bounds.size.x > previous_size.x + 0.01
+			and fitted_bounds.size.y > previous_size.y + 0.01,
+			"%s ranged held ink grows monotonically from raw bounds" % fixture.id,
+		)
+		_check(
+			is_equal_approx(scale_x, scale_y)
+			and is_equal_approx(
+				float(audit.get("fit_scale_x", 0.0)),
+				float(audit.get("fit_scale_y", -1.0)),
+			),
+			"%s ranged held ink uses one uniform X/Y scale" % fixture.id,
+		)
+		_check(
+			bounded_rect.encloses(fitted_bounds)
+			or (
+				bounded_rect.grow(0.01).encloses(fitted_bounds)
+			),
+			"%s ranged held ink stays inside its bounded fit rectangle" % fixture.id,
+		)
+		_check(
+			_stroke_signature(_spike.player.current_strokes) == expected_signature
+			and _stroke_point_count(fitted_strokes) == int(expected_signature.point_count)
+			and str(audit.get("source_signature", "")) == str(expected_signature.sha256)
+			and int(audit.get("point_count", -1)) == int(expected_signature.point_count),
+			"%s ranged held fit preserves source hash and point count" % fixture.id,
+		)
+		_check(
+			str(audit.get("visual_size_profile", "")) == str(fixture.profile)
+			and bool(audit.get("source_strokes_preserved", false)),
+			"%s ranged raw bounds select the bounded %s held profile"
+			% [fixture.id, fixture.profile],
+		)
+		var occupancy: float = float(
+			audit.get("visual_occupancy_ratio", 0.0)
+		)
+		var multiplier: float = float(
+			audit.get("visual_scale_multiplier", 0.0)
+		)
+		_check(
+			occupancy > previous_occupancy
+			and multiplier > previous_multiplier,
+			"%s ranged held ink preserves continuous 2D occupancy sizing"
+			% fixture.id,
+		)
+		previous_size = fitted_bounds.size
+		previous_occupancy = occupancy
+		previous_multiplier = multiplier
+
+	# Physical-iPhone v7 exposed the max-axis blind spot: a short and a long
+	# gun can occupy the same canvas height. Their overall fitted area must still
+	# differ, rather than normalizing both into the same standard target box.
+	var same_height_results: Array[Dictionary] = []
+	for fixture: Dictionary in [
+		{"id": "compact-span", "scale": Vector2(0.42, 1.0)},
+		{"id": "wide-span", "scale": Vector2(1.35, 1.0)},
+	]:
+		var axis_scale: Vector2 = fixture.get("scale", Vector2.ONE)
+		var source_strokes: Array[PackedVector2Array] = (
+			_gun_like_strokes_with_axis_scale(axis_scale)
+		)
+		var source: Dictionary = _make_live_weapon_with_strokes(
+			"straight_projectile",
+			"normal",
+			source_strokes,
+		)
+		_check(
+			_spike.equip_weapon(source.spec, source.strokes, source.geometry),
+			"%s same-height ranged fixture equips" % fixture.id,
+		)
+		await physics_frame
+		var audit: Dictionary = (
+			_spike.player.qa_state().get("held_visual_audit", {})
+		)
+		var fitted_bounds: Rect2 = _spike.player.weapon_visual.fitted_bounds()
+		same_height_results.append({
+			"id": fixture.id,
+			"normalized_height": source.geometry.normalized_height,
+			"occupancy": float(
+				audit.get("visual_occupancy_ratio", 0.0)
+			),
+			"multiplier": float(
+				audit.get("visual_scale_multiplier", 0.0)
+			),
+			"area": fitted_bounds.size.x * fitted_bounds.size.y,
+			"width": fitted_bounds.size.x,
+		})
+	var compact: Dictionary = same_height_results[0]
+	var wide: Dictionary = same_height_results[1]
+	_check(
+		is_equal_approx(
+			float(compact.normalized_height),
+			float(wide.normalized_height),
+		),
+		"same-height ranged fixtures reproduce the physical-iPhone max-axis case",
+	)
+	_check(
+		float(wide.occupancy) > float(compact.occupancy) + 0.10
+		and float(wide.multiplier) > float(compact.multiplier) + 0.20,
+		"wide-span ranged ink receives a distinct continuous overall scale",
+	)
+	_check(
+		float(wide.area) >= float(compact.area) * 1.45
+		and float(wide.width) >= float(compact.width) * 1.60,
+		"wide-span ranged ink is visibly larger overall, not only re-fit longer",
+	)
+
+
+func _test_gun_like_authored_forward_directions() -> void:
+	for ink_forward_sign: int in [-1, 1]:
+		var gun_strokes: Array[PackedVector2Array] = _gun_like_strokes()
+		var gun_source: Dictionary = _make_live_weapon_with_strokes(
+			"straight_projectile",
+			"electric",
+			gun_strokes,
+		)
+		var gun_geometry: DrawingGeometryProfile = gun_source.geometry
+		gun_geometry.set_ink_forward_sign(ink_forward_sign)
+		var expected_signature: Dictionary = _stroke_signature(gun_strokes)
+		for target_side: float in [-1.0, 1.0]:
+			_spike.select_encounter("moving")
+			_check(
+				_spike.equip_weapon(
+					gun_source.spec,
+					gun_source.strokes,
+					gun_source.geometry,
+				),
+				"gun-like ink sign %d equips for target side %d"
+				% [ink_forward_sign, int(target_side)],
+			)
+			await physics_frame
+			var enemy: BeltEnemy = _spike.enemies[0]
+			enemy.set_simulation_enabled(false)
+			var target_position: Vector2 = _spike.player.arena_bounds.get_center()
+			enemy.global_position = target_position
+			_spike.player.global_position = (
+				target_position - Vector2(target_side * 220.0, 0.0)
+			)
+			# Reproduce the physical-iPhone report: the player has crossed the
+			# enemy and still faces away from it when ATTACK is pressed.
+			_spike.player.facing = -target_side
+			await physics_frame
+			_check(
+				int(
+					_spike.player.current_geometry_profile.to_dict().get(
+						"ink_forward_sign",
+						0,
+					)
+				) == ink_forward_sign,
+				"gun-like authored ink sign %d survives belt equip"
+				% ink_forward_sign,
+			)
+			_check(
+				_stroke_signature(_spike.player.current_strokes) == expected_signature,
+				"gun-like ink sign %d keeps original strokes for target side %d"
+				% [ink_forward_sign, int(target_side)],
+			)
+			_check(
+				_spike.request_attack(),
+				"gun-like ink sign %d auto-faces target side %d from stale facing"
+				% [ink_forward_sign, int(target_side)],
+			)
+			var frozen_data: Dictionary = (
+				_spike.player.qa_state().get("attack_direction", {})
+			)
+			var frozen_direction: Vector2 = Vector2(
+				float(frozen_data.get("x", 0.0)),
+				float(frozen_data.get("y", 0.0)),
+			).normalized()
+			await _wait_physics_frames(2)
+			var visual_forward_data: Dictionary = (
+				_spike.player.qa_state().get("weapon_visual_forward", {})
+			)
+			var visual_down_data: Dictionary = (
+				_spike.player.qa_state().get("weapon_visual_down", {})
+			)
+			var visual_scale_data: Dictionary = (
+				_spike.player.qa_state().get("weapon_visual_scale", {})
+			)
+			var held_visual_audit: Dictionary = (
+				_spike.player.qa_state().get("held_visual_audit", {})
+			)
+			var visual_forward: Vector2 = Vector2(
+				float(visual_forward_data.get("x", 0.0)),
+				float(visual_forward_data.get("y", 0.0)),
+			).normalized()
+			var visual_down: Vector2 = Vector2(
+				float(visual_down_data.get("x", 0.0)),
+				float(visual_down_data.get("y", 0.0)),
+			).normalized()
+			_check(
+				signf(frozen_direction.x) == target_side
+				and visual_forward.dot(frozen_direction) > 0.80,
+				"gun-like ink sign %d has one final forward toward target side %d"
+				% [ink_forward_sign, int(target_side)],
+			)
+			_check(
+				visual_down.dot(Vector2.DOWN) > 0.90,
+				"gun-like ink sign %d keeps its grip below the barrel toward side %d"
+				% [ink_forward_sign, int(target_side)],
+			)
+			_check(
+				signf(float(visual_scale_data.get("x", 0.0))) == target_side
+				and is_equal_approx(
+					absf(float(visual_scale_data.get("x", 0.0))),
+					float(visual_scale_data.get("y", 0.0)),
+				),
+				"gun-like ink sign %d uses one uniform horizontal combat mirror toward side %d"
+				% [ink_forward_sign, int(target_side)],
+			)
+			_check(
+				int(held_visual_audit.get("ink_forward_sign", 0))
+				== ink_forward_sign
+				and str(held_visual_audit.get("source_signature", ""))
+				== str(expected_signature.sha256)
+				and bool(held_visual_audit.get("source_strokes_preserved", false)),
+				"gun-like ink sign %d audit proves one non-destructive mirror"
+				% ink_forward_sign,
+			)
+			await _wait_until_projectile(64)
+			var projectile_direction: Vector2 = _transient_direction("")
+			_check(
+				projectile_direction.dot(frozen_direction) > 0.90,
+				"gun-like ink sign %d projectile follows frozen target side %d"
+				% [ink_forward_sign, int(target_side)],
+			)
 
 
 func _test_bounded_diagonal_aim() -> void:
@@ -948,13 +1407,32 @@ func _test_compact_layouts() -> void:
 		await process_frame
 		var state: Dictionary = _spike.qa_state()
 		var layout: Dictionary = state.get("layout", {})
-		for control_name: String in ["joystick", "attack", "retry", "reforge"]:
+		var action_rects: Array[Rect2] = []
+		for control_name: String in [
+			"joystick",
+			"attack",
+			"dodge",
+			"ward",
+			"retry",
+			"reforge",
+		]:
 			var rect: Rect2 = _dictionary_rect(layout.get(control_name, {}))
 			_check(rect.size.x >= 44.0 and rect.size.y >= 44.0, "%s keeps %s touch target" % [compact_size, control_name])
 			_check(
 				rect.end.x <= float(compact_size.x) + 0.1 and rect.end.y <= float(compact_size.y) + 0.1,
 				"%s keeps %s on screen" % [compact_size, control_name],
 			)
+			action_rects.append(rect)
+		for first_index: int in action_rects.size():
+			for second_index: int in range(first_index + 1, action_rects.size()):
+				_check(
+					not action_rects[first_index].intersects(action_rects[second_index]),
+					"%s keeps touch controls %d/%d separate" % [
+						compact_size,
+						first_index,
+						second_index,
+					],
+				)
 		var arena: Rect2 = _dictionary_rect(state.get("arena_css_bounds", {}))
 		var joystick_rect: Rect2 = _dictionary_rect(layout.get("joystick", {}))
 		_check(arena.end.y <= joystick_rect.position.y + 0.1, "%s keeps the arena above touch controls" % compact_size)
@@ -982,12 +1460,20 @@ func _equip_live_weapon(pattern: String, element: String) -> bool:
 
 
 func _make_live_weapon(pattern: String, element: String) -> Dictionary:
-	var canvas_size: Vector2 = Vector2(760.0, 220.0)
 	var strokes: Array[PackedVector2Array] = _live_strokes_for(pattern)
+	return _make_live_weapon_with_strokes(pattern, element, strokes)
+
+
+func _make_live_weapon_with_strokes(
+	pattern: String,
+	element: String,
+	strokes: Array[PackedVector2Array],
+) -> Dictionary:
+	var canvas_size: Vector2 = Vector2(760.0, 220.0)
 	var drawing_summary: Dictionary = DrawingCanvas.summarize_strokes(strokes, canvas_size)
 	var descriptions: Dictionary = {
 		"melee_slash": "a %s balanced sword" % element,
-		"straight_projectile": "a %s fast bow with straight arrows" % element,
+		"straight_projectile": "a %s fast gun with straight bullets" % element,
 		"boomerang": "a %s returning boomerang" % element,
 		"area_blast": "a %s thrown grenade with an explosion" % element,
 		"piercing": "a %s piercing spear" % element,
@@ -1012,21 +1498,58 @@ func _make_live_weapon(pattern: String, element: String) -> Dictionary:
 	}
 
 
+func _gun_like_strokes(
+	size_scale: float = 1.0,
+	ink_forward_sign: float = 1.0,
+) -> Array[PackedVector2Array]:
+	return _gun_like_strokes_with_axis_scale(
+		Vector2.ONE * size_scale,
+		ink_forward_sign,
+	)
+
+
+func _gun_like_strokes_with_axis_scale(
+	axis_scale: Vector2,
+	ink_forward_sign: float = 1.0,
+) -> Array[PackedVector2Array]:
+	var origin: Vector2 = Vector2(84.0, 110.0)
+	var canonical: Array[PackedVector2Array] = [
+		PackedVector2Array([
+			Vector2(0.0, 0.0),
+			Vector2(210.0, 0.0),
+			Vector2(210.0, -26.0),
+			Vector2(285.0, -26.0),
+			Vector2(285.0, 18.0),
+			Vector2(180.0, 18.0),
+			Vector2(150.0, 72.0),
+			Vector2(112.0, 72.0),
+			Vector2(126.0, 18.0),
+			Vector2(0.0, 18.0),
+			Vector2(0.0, 0.0),
+		]),
+		PackedVector2Array([
+			Vector2(54.0, -16.0),
+			Vector2(112.0, -16.0),
+		]),
+	]
+	var output: Array[PackedVector2Array] = []
+	for canonical_stroke: PackedVector2Array in canonical:
+		var transformed := PackedVector2Array()
+		var indexes: Array[int] = []
+		for index: int in canonical_stroke.size():
+			indexes.append(index)
+		if ink_forward_sign < 0.0:
+			indexes.reverse()
+		for index: int in indexes:
+			transformed.append(origin + canonical_stroke[index] * axis_scale)
+		output.append(transformed)
+	return output
+
+
 func _live_strokes_for(pattern: String) -> Array[PackedVector2Array]:
 	match pattern:
 		"straight_projectile":
-			return [
-				PackedVector2Array([
-					Vector2(110.0, 48.0),
-					Vector2(76.0, 110.0),
-					Vector2(110.0, 172.0),
-				]),
-				PackedVector2Array([
-					Vector2(110.0, 48.0),
-					Vector2(164.0, 110.0),
-					Vector2(110.0, 172.0),
-				]),
-			]
+			return _gun_like_strokes()
 		"boomerang":
 			return [PackedVector2Array([
 				Vector2(84.0, 166.0),
@@ -1085,6 +1608,13 @@ func _stroke_signature(strokes: Array[PackedVector2Array]) -> Dictionary:
 		"point_count": point_count,
 		"sha256": "|".join(parts).sha256_text(),
 	}
+
+
+func _stroke_point_count(strokes: Array[PackedVector2Array]) -> int:
+	var point_count: int = 0
+	for stroke: PackedVector2Array in strokes:
+		point_count += stroke.size()
+	return point_count
 
 
 func _dictionary_rect(value: Variant) -> Rect2:

@@ -175,6 +175,43 @@ async function tapRect(page, rect, label) {
   );
 }
 
+async function tapDodgeForOutcome(page, label, expectedOutcome) {
+  const before = await beltState(page);
+  const beforeSequence = Number(before.event_sequence || 0);
+  const expectedOutcomes = Array.isArray(expectedOutcome)
+    ? expectedOutcome
+    : [expectedOutcome];
+  const controls = await beltControls(page);
+  assertRect(controls.dodge, await page.viewportSize(), `${label} DODGE`);
+  await tapRect(page, controls.dodge, `${label} DODGE`);
+  return waitForBeltCondition(
+    page,
+    label,
+    (current, expected) =>
+      (current?.combat_events || []).some(
+        (event) =>
+          event.kind === "dodge_request" &&
+          Number(event.sequence) > expected.beforeSequence &&
+          expected.expectedOutcomes.includes(event.outcome),
+      ),
+    { beforeSequence, expectedOutcomes },
+    5_000,
+  );
+}
+
+async function waitForDodgeReady(page, label) {
+  return waitForBeltCondition(
+    page,
+    label,
+    (current) =>
+      current?.round_state === "active" &&
+      current?.player?.dodge?.active === false &&
+      Number(current?.player?.dodge?.cooldown_remaining || 0) <= 0.001,
+    {},
+    5_000,
+  );
+}
+
 function assertRect(rect, viewport, label) {
   assert(
     rect?.width >= 43.5 && rect?.height >= 43.5,
@@ -297,6 +334,18 @@ async function stageDirectionalAttack(page, pattern, horizontalSign) {
     ...targetPosition,
     simulation_enabled: false,
   });
+  if (pattern === "straight_projectile") {
+    for (const [index, extra] of staged.enemies.slice(1).entries()) {
+      await beltCommand(page, "set_enemy", {
+        id: extra.id,
+        x:
+          playerPosition.x +
+          horizontalSign * (targetDistance + 80 + index * 20),
+        y: playerPosition.y,
+        simulation_enabled: false,
+      });
+    }
+  }
   return waitForBeltCondition(
     page,
     `${pattern} ${horizontalSign < 0 ? "left" : "right"} target lock`,
@@ -339,11 +388,66 @@ async function runDirectionalAttack(
   screenshotPath = "",
 ) {
   const side = horizontalSign < 0 ? "left" : "right";
-  const staged = await stageDirectionalAttack(
+  let staged = await stageDirectionalAttack(
     page,
     liveCase.pattern,
     horizontalSign,
   );
+  if (liveCase.pattern === "straight_projectile") {
+    const stagedPlayerPosition = {
+      x: Number(staged.player?.position?.x),
+      y: Number(staged.player?.position?.y),
+    };
+    await beltCommand(page, "move", { x: -horizontalSign, y: 0 });
+    await waitForBeltCondition(
+      page,
+      `${liveCase.id} ${side} stale opposite facing`,
+      (current, expected) =>
+        Math.sign(Number(current?.player?.facing || 0)) ===
+        -Number(expected.horizontalSign),
+      { horizontalSign },
+    );
+    await beltCommand(page, "move", { x: 0, y: 0 });
+    // A loaded CI runner can take long enough to observe the stale facing that
+    // the held movement walks outside target-assist range. Restore the staged
+    // position after releasing movement, then wait for the exact scenario the
+    // regression owns: stale opposite facing, zero input, and all live targets
+    // still behind but inside the normal assist envelope.
+    await beltCommand(page, "set_player", stagedPlayerPosition);
+    staged = await waitForBeltCondition(
+      page,
+      `${liveCase.id} ${side} stable opposite-facing target setup`,
+      (current, expected) => {
+        const playerPosition = current?.player?.position || {};
+        const liveTargets = (current?.enemies || []).filter(
+          (enemy) => Number(enemy?.health || 0) > 0,
+        );
+        return (
+          Math.abs(Number(playerPosition.x) - expected.playerPosition.x) <=
+            1.5 &&
+          Math.abs(Number(playerPosition.y) - expected.playerPosition.y) <=
+            1.5 &&
+          Number(current?.player?.touch_move?.x || 0) === 0 &&
+          Number(current?.player?.touch_move?.y || 0) === 0 &&
+          Math.sign(Number(current?.player?.facing || 0)) ===
+            -Number(expected.horizontalSign) &&
+          String(current?.player?.assist_target || "") === "" &&
+          liveTargets.length > 0 &&
+          liveTargets.every((enemy) => {
+            const offsetX =
+              Number(enemy?.position?.x) - Number(playerPosition.x);
+            const offsetY =
+              Number(enemy?.position?.y) - Number(playerPosition.y);
+            return (
+              Math.sign(offsetX) === Number(expected.horizontalSign) &&
+              Math.hypot(offsetX, offsetY) <= 520
+            );
+          })
+        );
+      },
+      { horizontalSign, playerPosition: stagedPlayerPosition },
+    );
+  }
   const beforeSequence = Number(staged.event_sequence);
   const beforeCount = Number(staged.accepted_attack_count);
   await beltCommand(page, "attack");
@@ -374,10 +478,39 @@ async function runDirectionalAttack(
   const heldForward = normalizedVector(
     committedState.player?.weapon_visual_forward,
   );
+  const heldDown = normalizedVector(
+    committedState.player?.weapon_visual_down,
+  );
+  const heldAudit = committedState.player?.held_visual_audit || {};
+  const auditedForward = normalizedVector(heldAudit.final_visual_forward);
+  const auditedDown = normalizedVector(heldAudit.final_visual_down);
   assert(
-    dot(heldForward, committedDirection) > 0.72,
+    dot(heldForward, committedDirection) > 0.72 &&
+      dot(auditedForward, committedDirection) > 0.72,
     `${liveCase.id} ${side}: held ink did not follow frozen direction ` +
-      `${JSON.stringify({ heldForward, committedDirection })}`,
+      `${JSON.stringify({ heldForward, auditedForward, committedDirection })}`,
+  );
+  assert(
+    heldDown.y > 0.90 && auditedDown.y > 0.90,
+    `${liveCase.id} ${side}: held ink turned vertically upside down ` +
+      `${JSON.stringify({ heldDown, auditedDown })}`,
+  );
+  const heldScale = committedState.player?.weapon_visual_scale || {};
+  assert(
+    Math.sign(Number(heldScale.x || 0)) === horizontalSign &&
+      Math.abs(
+        Math.abs(Number(heldScale.x || 0)) -
+          Number(heldScale.y || 0),
+      ) <= 1e-6,
+    `${liveCase.id} ${side}: held ink did not use one uniform horizontal mirror ` +
+      `${JSON.stringify(heldScale)}`,
+  );
+  assert(
+    Number(heldAudit.ink_forward_sign || 0) ===
+        Number(committedState.geometry_profile?.ink_forward_sign || 0) &&
+      heldAudit.source_signature === committedState.stroke_signature?.sha256 &&
+      heldAudit.source_strokes_preserved === true,
+    `${liveCase.id} ${side}: held ink orientation audit lost source identity`,
   );
   assert(
     Math.sign(Number(committedState.player?.weapon_visual_position?.x || 0)) ===
@@ -508,6 +641,8 @@ async function runDirectionalAttack(
     side,
     committed_direction: committedDirection,
     held_forward: heldForward,
+    ink_forward_sign: Number(heldAudit.ink_forward_sign),
+    held_source_signature: heldAudit.source_signature,
     held_local_position: committedState.player?.weapon_visual_position,
     outbound_position: outboundPosition,
     impact_position: impactPosition,
@@ -523,19 +658,28 @@ const viewports = [
 ];
 const liveCases = [
   { id: "melee-normal", pattern: "melee_slash", element: "normal" },
-  { id: "bow-ice", pattern: "straight_projectile", element: "ice" },
+  {
+    id: "bow-ice",
+    pattern: "straight_projectile",
+    element: "ice",
+    // Deliberately asymmetric gun-like ink: the second stroke is a grip below
+    // the barrel, so a PI rotation is visible and cannot pass as a valid mirror.
+    visual_width_fraction: 0.46,
+    visual_height_fraction: 0.35,
+  },
   { id: "boomerang-electric", pattern: "boomerang", element: "electric" },
   { id: "grenade-fire", pattern: "area_blast", element: "fire" },
   { id: "piercing-normal", pattern: "piercing", element: "normal" },
 ];
 
 const report = {
-  suite: "M2A live WeaponSpec belt route provider-free regression",
+  suite: "M2A route + M2B playable loop provider-free regression",
   browser: browserName,
   target: targetUrl,
   provider_policy: "NO PROVIDER CALLS",
   captured_at: new Date().toISOString(),
   live_cases: [],
+  dodge_touch_regression: {},
   unicode_transport: {},
   invalid_route: {},
   one_shot_reload: {},
@@ -635,6 +779,8 @@ for (let index = 0; index < liveCases.length; index += 1) {
         pattern: liveCase.pattern,
         element: liveCase.element,
         confirm: false,
+        visual_width_fraction: liveCase.visual_width_fraction,
+        visual_height_fraction: liveCase.visual_height_fraction,
       });
       const confirmation = await waitForConfirmation(page);
       assert(
@@ -647,13 +793,48 @@ for (let index = 0; index < liveCases.length; index += 1) {
           confirmation.spec.element === liveCase.element,
         `${liveCase.id}: deterministic confirmation identity drifted`,
       );
+      let expectedInkForwardSign = Number(
+        confirmation.geometry_profile?.ink_forward_sign || 1,
+      );
+      if (liveCase.pattern === "straight_projectile") {
+        assert(
+          expectedInkForwardSign === 1,
+          `${liveCase.id}: fixture did not start AS DRAWN`,
+        );
+        await tapRect(
+          page,
+          (await forgeControls(page)).flip_drawing,
+          `${liveCase.id} FLIP DRAWING`,
+        );
+        const flipped = await page.waitForFunction(
+          () => {
+            const current = window.__forgeM1B1Test?.state?.();
+            return Number(current?.geometry_profile?.ink_forward_sign || 0) === -1
+              ? current
+              : false;
+          },
+          null,
+          { timeout: 10_000 },
+        );
+        const flippedState = await flipped.jsonValue();
+        await flipped.dispose();
+        expectedInkForwardSign = -1;
+        assert(
+          String(flippedState.review_details || "").includes("FLIPPED"),
+          `${liveCase.id}: confirmation did not expose FLIPPED orientation`,
+        );
+      }
       const expected = {
         description: confirmation.description,
         drawing_count: confirmation.drawing_count,
         spec: confirmation.spec,
         corrections: confirmation.result?.corrections || [],
         budget: confirmation.result?.power_budget || {},
-        geometry: confirmation.geometry_profile,
+        geometry:
+          liveCase.pattern === "straight_projectile"
+            ? (await forgeState(page)).geometry_profile
+            : confirmation.geometry_profile,
+        ink_forward_sign: expectedInkForwardSign,
       };
       await tapRect(
         page,
@@ -661,6 +842,7 @@ for (let index = 0; index < liveCases.length; index += 1) {
         `${liveCase.id} CONFIRM`,
       );
       const belt = await waitForLiveBelt(page);
+      await beltCommand(page, "pause_enemies", { enabled: false });
       assert(
         belt.developer_test_mode === false,
         `${liveCase.id}: live route entered Developer/Test presentation`,
@@ -684,6 +866,11 @@ for (let index = 0; index < liveCases.length; index += 1) {
         `${liveCase.id}: DrawingGeometryProfile changed at the scene boundary`,
       );
       assert(
+        Number(belt.geometry_profile?.ink_forward_sign || 0) ===
+          expected.ink_forward_sign,
+        `${liveCase.id}: authored ink forward sign was lost at the belt boundary`,
+      );
+      assert(
         belt.stroke_signature?.stroke_count === expected.drawing_count &&
           belt.stroke_signature?.point_count > 0 &&
           /^[a-f0-9]{64}$/.test(belt.stroke_signature?.sha256 || ""),
@@ -691,14 +878,189 @@ for (let index = 0; index < liveCases.length; index += 1) {
       );
       const controls = await beltControls(page);
       assertFixtureControlsHidden(controls, liveCase.id);
-      for (const action of ["joystick", "attack", "retry", "reforge"]) {
+      for (const action of [
+        "joystick",
+        "attack",
+        "dodge",
+        "ward",
+        "retry",
+        "reforge",
+      ]) {
         assertRect(controls[action], viewport, `${liveCase.id} ${action}`);
       }
+      assert(
+        belt.encounter === "playable" &&
+          belt.enemies?.length === 2 &&
+          belt.enemies.some((enemy) => enemy.kind === "bruiser") &&
+          belt.enemies.some((enemy) => enemy.kind === "charger"),
+        `${liveCase.id}: normal route did not enter the two-archetype playable room`,
+      );
 
+      if (index === 0) {
+        await page.screenshot({
+          path: join(
+            destination,
+            `${browserName}-m2b-playable-room-844x390.png`,
+          ),
+        });
+        const startingHealth = Number(belt.player?.health);
+        await beltCommand(page, "move", { x: 1, y: 0 });
+        const firstDodge = await tapDodgeForOutcome(
+          page,
+          "M2B first real-touch DODGE",
+          "accepted",
+        );
+        assert(
+          firstDodge.player?.dodge?.last_request_outcome === "accepted" &&
+            Number(firstDodge.player?.dodge?.cooldown_remaining || 0) > 0,
+          "M2B first touchscreen tap was not authoritatively accepted",
+        );
+        await waitForDodgeReady(page, "M2B first DODGE cooldown reset");
+
+        const repeatedDodgeEvidence = [];
+        for (let attempt = 1; attempt <= 20; attempt += 1) {
+          const accepted = await tapDodgeForOutcome(
+            page,
+            `M2B repeated real-touch DODGE ${attempt}/20`,
+            "accepted",
+          );
+          repeatedDodgeEvidence.push({
+            attempt,
+            event_sequence: accepted.event_sequence,
+            cooldown_seconds: Number(
+              accepted.player?.dodge?.cooldown_seconds || 0,
+            ),
+          });
+          await waitForDodgeReady(
+            page,
+            `M2B repeated DODGE ${attempt}/20 reset`,
+          );
+          assertRect(
+            (await beltControls(page)).dodge,
+            viewport,
+            `M2B repeated DODGE ${attempt}/20 reset control`,
+          );
+        }
+        await beltCommand(page, "dodge_then_force_enemy_strike", {
+          id: "bruiser",
+          x: 1,
+          y: 0,
+        });
+        await waitForBeltCondition(
+          page,
+          "M2B authoritative dodge negates strike",
+          (current, expected) =>
+            Number(current?.player?.health) === expected.startingHealth &&
+            (current?.combat_events || []).some(
+              (event) =>
+                event.kind === "enemy_strike_resolved" &&
+                event.outcome === "dodged",
+            ),
+          { startingHealth },
+        );
+        report.dodge_touch_regression = {
+          first_touch_accepted: true,
+          cooldown_rejection: "covered by deterministic Godot regression",
+          consecutive_ready_reuses: repeatedDodgeEvidence.length,
+          attempts: repeatedDodgeEvidence,
+        };
+        await beltCommand(page, "move", { x: 0, y: 0 });
+        await beltCommand(page, "retry");
+        await waitForBeltCondition(
+          page,
+          "M2B retry before ward",
+          (current) =>
+            current?.round_state === "active" &&
+            Number(current?.player?.ward?.charges) === 1,
+        );
+        await beltCommand(page, "pause_enemies", { enabled: false });
+        await beltCommand(page, "ward_then_force_enemy_strike", {
+          id: "bruiser",
+        });
+        await waitForBeltCondition(
+          page,
+          "M2B ward negates and staggers",
+          (current) => {
+            const bruiser = current?.enemies?.find(
+              (enemy) => enemy.id === "bruiser",
+            );
+            return (
+              Number(current?.player?.ward?.charges) === 0 &&
+              current?.player?.ward?.active === false &&
+              (current?.combat_events || []).some(
+                (event) =>
+                  event.kind === "ward_request" &&
+                  event.outcome === "accepted",
+              ) &&
+              bruiser?.phase === "recover" &&
+              Number(bruiser?.stagger_remaining) > 0 &&
+              (current?.combat_events || []).some(
+                (event) =>
+                  event.kind === "enemy_strike_resolved" &&
+                  event.outcome === "warded",
+              )
+            );
+          },
+        );
+        await page.screenshot({
+          path: join(destination, `${browserName}-m2b-ward-success.png`),
+        });
+        await beltCommand(page, "retry");
+        await beltCommand(page, "pause_enemies", { enabled: false });
+        await beltCommand(page, "defeat_all");
+        await waitForBeltCondition(
+          page,
+          "M2B victory reward gate",
+          (current) => current?.round_state === "victory",
+        );
+        await page.screenshot({
+          path: join(destination, `${browserName}-m2b-victory-reward.png`),
+        });
+        const rewardControls = await beltControls(page);
+        assertRect(
+          rewardControls.reward_ward_plus,
+          viewport,
+          "M2B WARD+ reward",
+        );
+        assertRect(
+          rewardControls.reward_dodge_plus,
+          viewport,
+          "M2B DODGE+ reward",
+        );
+        await beltCommand(page, "reward", { id: "ward_plus" });
+        await waitForBeltCondition(
+          page,
+          "M2B one-attempt reward",
+          (current) =>
+            current?.round_state === "active" &&
+            current?.active_attempt_reward === "ward_plus" &&
+            Number(current?.player?.ward?.charges) === 2,
+        );
+        const postReward = await beltState(page);
+        assert(
+          deepEqual(postReward.weapon_spec, expected.spec),
+          "M2B reward changed routed WeaponSpec",
+        );
+        await beltCommand(page, "retry");
+        await waitForBeltCondition(
+          page,
+          "M2B reward expires",
+          (current) =>
+            current?.round_state === "active" &&
+            current?.active_attempt_reward === "" &&
+            Number(current?.player?.ward?.charges) === 1,
+        );
+      }
+
+      const rightScreenshot = join(
+        destination,
+        `${browserName}-${safeName(liveCase.id)}-right-facing.png`,
+      );
       const rightDirection = await runDirectionalAttack(
         page,
         liveCase,
         1,
+        rightScreenshot,
       );
 
       const beforeRetry = await beltState(page);
@@ -927,6 +1289,71 @@ report.unicode_transport = await runIsolated(
   },
 );
 
+report.visual_size_regression = [];
+for (const visualCase of [
+  { id: "compact-span", width: 0.12, height: 0.32 },
+  { id: "wide-span", width: 0.50, height: 0.32 },
+]) {
+  report.visual_size_regression.push(
+    await runIsolated(
+      `visual-size-${visualCase.id}`,
+      viewports[1],
+      async (page) => {
+        await openForge(page);
+        await forgeCommand(page, "m2a_live_route_fixture", {
+          pattern: "straight_projectile",
+          element: "normal",
+          confirm: true,
+          visual_width_fraction: visualCase.width,
+          visual_height_fraction: visualCase.height,
+        });
+        const belt = await waitForLiveBelt(page);
+        await beltCommand(page, "pause_enemies", { enabled: false });
+        const audit = belt.player?.held_visual_audit || {};
+        const fitted = audit.fitted_bounds || {};
+        const screenshot = join(
+          destination,
+          `${browserName}-visual-size-${visualCase.id}.png`,
+        );
+        await page.screenshot({ path: screenshot });
+        return {
+          id: visualCase.id,
+          normalized_height: Number(
+            belt.geometry_profile?.normalized_height || 0,
+          ),
+          occupancy: Number(audit.visual_occupancy_ratio || 0),
+          multiplier: Number(audit.visual_scale_multiplier || 0),
+          fitted_width: Number(fitted.width || 0),
+          fitted_height: Number(fitted.height || 0),
+          fitted_area:
+            Number(fitted.width || 0) * Number(fitted.height || 0),
+          source_preserved: audit.source_strokes_preserved === true,
+          screenshot,
+        };
+      },
+    ),
+  );
+}
+{
+  const [compact, wide] = report.visual_size_regression;
+  assert(
+    Math.abs(compact.normalized_height - wide.normalized_height) < 0.001,
+    "visual size: same-height ranged fixtures did not reproduce device input",
+  );
+  assert(
+    wide.occupancy > compact.occupancy + 0.10 &&
+      wide.multiplier > compact.multiplier + 0.20,
+    "visual size: 2D occupancy did not create a distinct overall scale",
+  );
+  assert(
+    wide.fitted_area >= compact.fitted_area * 1.45 &&
+      wide.fitted_width >= compact.fitted_width * 1.60 &&
+      compact.source_preserved &&
+      wide.source_preserved,
+    "visual size: wide gun was only re-fit, not visibly larger overall",
+  );
+}
+
 report.one_shot_reload = await runIsolated(
   "one-shot-refresh",
   viewports[0],
@@ -1055,6 +1482,10 @@ try {
   assert(
     new Set(report.live_cases.map((entry) => entry.element)).size === 4,
     "four live elements did not run",
+  );
+  assert(
+    report.dodge_touch_regression?.consecutive_ready_reuses >= 20,
+    "DODGE did not survive 20 consecutive real-touch cooldown cycles",
   );
   assert(report.console_errors.length === 0, "application console errors recorded");
   await writeFile(

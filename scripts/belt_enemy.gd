@@ -13,6 +13,8 @@ signal damage_report(enemy: BeltEnemy, amount: int, note: String)
 signal defeated(enemy: BeltEnemy)
 ## Emitted when a committed strike damages the player.
 signal strike_landed(enemy: BeltEnemy, amount: int)
+## Emitted for every authoritative strike result, including zero-damage defenses.
+signal strike_resolved(enemy: BeltEnemy, outcome: String, amount: int)
 
 enum Phase {
 	INACTIVE,
@@ -34,6 +36,22 @@ const STRIKE_DAMAGE: int = 20
 const GROUP_FOOTPRINT_RADIUS: float = 12.0
 const STANDARD_FOOTPRINT_RADIUS: float = 15.0
 const FOOTPRINT_OFFSET: Vector2 = Vector2(0.0, 17.0)
+const BRUISER_APPROACH_SCALE: float = 0.72
+const BRUISER_ATTACK_DISTANCE: float = 102.0
+const BRUISER_STRIKE_LEASH: float = 132.0
+const BRUISER_TELEGRAPH_SECONDS: float = 0.86
+const BRUISER_STRIKE_SECONDS: float = 0.28
+const BRUISER_RECOVERY_SECONDS: float = 1.08
+const BRUISER_DAMAGE: int = 30
+const CHARGER_APPROACH_SCALE: float = 1.06
+const CHARGER_ATTACK_DISTANCE: float = 230.0
+const CHARGER_STRIKE_LEASH: float = 68.0
+const CHARGER_TELEGRAPH_SECONDS: float = 0.64
+const CHARGER_STRIKE_SECONDS: float = 0.42
+const CHARGER_RECOVERY_SECONDS: float = 1.12
+const CHARGER_DAMAGE: int = 24
+const CHARGER_DASH_SPEED: float = 560.0
+const WARD_STAGGER_SECONDS: float = 0.72
 
 var enemy_id: String = "enemy"
 var enemy_kind: String = "moving"
@@ -54,6 +72,8 @@ var _status_epoch: int = 0
 var _spawn_position: Vector2 = Vector2.ZERO
 var _formation_offset: Vector2 = Vector2.ZERO
 var _collision_shape: CollisionShape2D
+var _locked_strike_direction: Vector2 = Vector2.LEFT
+var _last_strike_outcome: String = "none"
 
 
 func configure(
@@ -107,12 +127,17 @@ func _physics_process(delta: float) -> void:
 			_process_approach()
 		Phase.TELEGRAPH:
 			velocity = Vector2.ZERO
-			_tick_phase(delta, Phase.STRIKE, STRIKE_SECONDS)
+			_tick_phase(delta, Phase.STRIKE, _strike_seconds())
 		Phase.STRIKE:
-			velocity = Vector2.ZERO
+			if enemy_kind == "charger":
+				velocity = _locked_strike_direction * CHARGER_DASH_SPEED
+				move_and_slide()
+				_clamp_to_arena()
+			else:
+				velocity = Vector2.ZERO
 			if not _strike_applied:
 				_apply_strike()
-			_tick_phase(delta, Phase.RECOVER, RECOVERY_SECONDS)
+			_tick_phase(delta, Phase.RECOVER, _recovery_seconds())
 		Phase.RECOVER:
 			velocity = Vector2.ZERO
 			_tick_phase(delta, Phase.APPROACH)
@@ -145,6 +170,8 @@ func reset_enemy() -> void:
 	_flash_remaining = 0.0
 	_slow_remaining = 0.0
 	_stagger_remaining = 0.0
+	_locked_strike_direction = Vector2.LEFT
+	_last_strike_outcome = "none"
 	_set_phase(Phase.INACTIVE)
 	_set_collision_enabled(true)
 	queue_redraw()
@@ -242,6 +269,16 @@ func qa_state() -> Dictionary:
 		"facing": {"x": facing.x, "y": facing.y},
 		"slow_remaining": _slow_remaining,
 		"stagger_remaining": _stagger_remaining,
+		"attack_distance": _attack_distance(),
+		"telegraph_seconds": _telegraph_seconds(),
+		"strike_seconds": _strike_seconds(),
+		"recovery_seconds": _recovery_seconds(),
+		"strike_damage": _strike_damage(),
+		"strike_direction": {
+			"x": _locked_strike_direction.x,
+			"y": _locked_strike_direction.y,
+		},
+		"last_strike_outcome": _last_strike_outcome,
 		"collision_enabled": collision_layer != 0,
 		"collision_layer": collision_layer,
 		"collision_mask": collision_mask,
@@ -260,14 +297,14 @@ func _process_approach() -> void:
 	var desired_position: Vector2 = _target.global_position + _formation_offset
 	var offset: Vector2 = desired_position - global_position
 	var distance: float = offset.length()
-	if distance <= ATTACK_DISTANCE:
+	if distance <= _attack_distance():
 		facing = global_position.direction_to(_target.global_position)
 		if facing.length_squared() <= 0.001:
 			facing = Vector2.LEFT
-		_set_phase(Phase.TELEGRAPH, TELEGRAPH_SECONDS)
+		_set_phase(Phase.TELEGRAPH, _telegraph_seconds())
 		return
 	var speed_scale: float = 0.35 if _slow_remaining > 0.0 else 1.0
-	var kind_scale: float = 1.12 if enemy_kind == "moving" else (0.82 if enemy_kind == "shield" else 0.96)
+	var kind_scale: float = _approach_scale()
 	var move_direction: Vector2 = offset.normalized()
 	facing = global_position.direction_to(_target.global_position)
 	velocity = move_direction * BASE_APPROACH_SPEED * kind_scale * speed_scale
@@ -282,13 +319,23 @@ func _tick_phase(delta: float, next_phase: Phase, next_duration: float = 0.0) ->
 
 
 func _apply_strike() -> void:
-	_strike_applied = true
 	var offset: Vector2 = _target.global_position - global_position
-	var actual: int = 0
-	if offset.length() <= STRIKE_LEASH:
-		actual = _target.take_damage(STRIKE_DAMAGE)
-	if actual > 0:
+	if offset.length() > _strike_leash():
+		if enemy_kind != "charger":
+			_strike_applied = true
+			_last_strike_outcome = "missed"
+			strike_resolved.emit(self, "missed", 0)
+		return
+	_strike_applied = true
+	var outcome: String = _target.receive_enemy_strike(_strike_damage())
+	_last_strike_outcome = outcome
+	var actual: int = _strike_damage() if outcome == "damaged" else 0
+	if outcome == "damaged":
 		strike_landed.emit(self, actual)
+	elif outcome == "warded":
+		_stagger_remaining = WARD_STAGGER_SECONDS
+		_set_phase(Phase.RECOVER, _recovery_seconds() + WARD_STAGGER_SECONDS)
+	strike_resolved.emit(self, outcome, actual)
 
 
 func _set_phase(next_phase: Phase, duration: float = 0.0) -> void:
@@ -298,6 +345,12 @@ func _set_phase(next_phase: Phase, duration: float = 0.0) -> void:
 	_phase_remaining = duration
 	if phase == Phase.STRIKE:
 		_strike_applied = false
+		_locked_strike_direction = global_position.direction_to(_target.global_position)
+		if _locked_strike_direction.length_squared() <= 0.001:
+			_locked_strike_direction = facing
+		else:
+			_locked_strike_direction = _locked_strike_direction.normalized()
+		facing = _locked_strike_direction
 	phase_changed.emit(self, phase_name(), duration)
 	queue_redraw()
 
@@ -322,6 +375,75 @@ func _apply_burn(epoch: int) -> void:
 
 func _append_note(existing: String, addition: String) -> String:
 	return addition if existing.is_empty() or existing == "NONE" else "%s / %s" % [existing, addition]
+
+
+func _approach_scale() -> float:
+	match enemy_kind:
+		"moving":
+			return 1.12
+		"shield":
+			return 0.82
+		"group":
+			return 0.96
+		"bruiser":
+			return BRUISER_APPROACH_SCALE
+		"charger":
+			return CHARGER_APPROACH_SCALE
+	return 0.96
+
+
+func _attack_distance() -> float:
+	match enemy_kind:
+		"bruiser":
+			return BRUISER_ATTACK_DISTANCE
+		"charger":
+			return CHARGER_ATTACK_DISTANCE
+	return ATTACK_DISTANCE
+
+
+func _strike_leash() -> float:
+	match enemy_kind:
+		"bruiser":
+			return BRUISER_STRIKE_LEASH
+		"charger":
+			return CHARGER_STRIKE_LEASH
+	return STRIKE_LEASH
+
+
+func _telegraph_seconds() -> float:
+	match enemy_kind:
+		"bruiser":
+			return BRUISER_TELEGRAPH_SECONDS
+		"charger":
+			return CHARGER_TELEGRAPH_SECONDS
+	return TELEGRAPH_SECONDS
+
+
+func _strike_seconds() -> float:
+	match enemy_kind:
+		"bruiser":
+			return BRUISER_STRIKE_SECONDS
+		"charger":
+			return CHARGER_STRIKE_SECONDS
+	return STRIKE_SECONDS
+
+
+func _recovery_seconds() -> float:
+	match enemy_kind:
+		"bruiser":
+			return BRUISER_RECOVERY_SECONDS
+		"charger":
+			return CHARGER_RECOVERY_SECONDS
+	return RECOVERY_SECONDS
+
+
+func _strike_damage() -> int:
+	match enemy_kind:
+		"bruiser":
+			return BRUISER_DAMAGE
+		"charger":
+			return CHARGER_DAMAGE
+	return STRIKE_DAMAGE
 
 
 func _set_collision_enabled(enabled: bool) -> void:
@@ -356,9 +478,15 @@ func _draw() -> void:
 		"moving": Color("#71d6bc"),
 		"shield": Color("#9a8cff"),
 		"group": Color("#ff8fa4"),
+		"bruiser": Color("#e29a62"),
+		"charger": Color("#e36e72"),
 	}.get(enemy_kind, Color("#d493a9"))
 	var body_color: Color = defeated_color if is_defeated() else (Color("#fff4cf") if _flash_remaining > 0.0 else palette)
-	var body_scale: float = 0.82 if enemy_kind == "group" else 1.0
+	var body_scale: float = (
+		0.82
+		if enemy_kind == "group"
+		else (1.18 if enemy_kind == "bruiser" else 1.0)
+	)
 	draw_ellipse(
 		Vector2(0.0, 18.0),
 		28.0 * body_scale,
@@ -368,6 +496,22 @@ func _draw() -> void:
 	if phase == Phase.TELEGRAPH:
 		var pulse: float = 1.0 + 0.08 * sin(Time.get_ticks_msec() * 0.025)
 		draw_circle(Vector2(0.0, -24.0), 38.0 * body_scale * pulse, Color("#ffbf69", 0.25))
+		if enemy_kind == "charger":
+			var lane_direction: Vector2 = (
+				global_position.direction_to(_target.global_position)
+				if is_instance_valid(_target)
+				else facing
+			)
+			if lane_direction.length_squared() <= 0.001:
+				lane_direction = Vector2.LEFT
+			lane_direction = lane_direction.normalized()
+			draw_line(
+				Vector2.ZERO,
+				lane_direction * CHARGER_ATTACK_DISTANCE,
+				Color("#ff7b79", 0.58),
+				12.0,
+				true,
+			)
 	draw_circle(Vector2(0.0, -38.0 * body_scale), 25.0 * body_scale, body_color)
 	draw_rect(
 		Rect2(-22.0 * body_scale, -20.0 * body_scale, 44.0 * body_scale, 54.0 * body_scale),

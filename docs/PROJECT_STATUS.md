@@ -1,6 +1,6 @@
 # Project Forge current status
 
-Last updated: **2026-07-28 (Australia/Sydney)**
+Last updated: **2026-07-31 (Australia/Sydney)**
 
 This is the fast-moving runtime and delivery-status entry point. It does not
 replace `GDD.md`, `ARCHITECTURE.md`, `DECISIONS.md`, or milestone acceptance
@@ -19,48 +19,51 @@ reports.
 | M2A live-WeaponSpec belt integration merge | **CONFIRMED:** PR #18, merge `7fa6f7ee2684b44af2c51796d763c80910fff5fd` |
 | Current Git milestone tag | **CONFIRMED:** `v0.5.0-m2-belt-spike` |
 | Current deployed stable tag | **CONFIRMED:** `v0.4.0-weapon-exposure-b1.5` |
-| Production Site | **CONFIRMED:** Version 30 at <https://project-forge-weapon-lab.hongningliu0130.chatgpt.site> |
-| Production archive content hash | **CONFIRMED:** `sha256:dd7e8684c5efba9c42f9a67c7b0321348388c8bcbd496150404a96cb48e7a3fe` |
-| Accepted-device build | **CONFIRMED:** Sites Version 29 from PR #12 HEAD `1365f0d` |
+| Active public candidate | **CONFIRMED:** Sites Version 31, embedded runtime marker `0577e936b0dd`, at <https://project-forge-weapon-lab.hongningliu0130.chatgpt.site> |
+| Accepted v31 candidate archive hash | **CONFIRMED:** `sha256:3c328c5aa9acd7860c8fadfa413dc8634fe4dc1489e90042c8dd07ed3eb0b5df` |
+| Accepted-device build | **CONFIRMED:** Sites Version 31 runtime `0577e936b0dd`; final PR #21 branch candidate `c95f2c7` adds test/report evidence only |
 | Repository visibility | **CONFIRMED:** Public; Issues enabled |
 
-Sites Version 30 records and deploys the B1.5 merge from `main` at `d88ee97`.
-Version 29 deployed runtime commit `1365f0d` and passed the authoritative physical
-iPhone Safari gate. The commits differ because `698008a` added acceptance
-documentation and `d88ee97` is the merge commit; no gameplay runtime change
-exists between the accepted v29 runtime and the v30 release source.
-Governance-only commits may advance the Git branch without changing this runtime
-identity; deployment status must be stated separately from repository
-integration status.
+Sites Version 31 is the current active public M2B candidate and embeds runtime
+marker `0577e936b0dd`. It passed the authoritative physical-iPhone Safari gate
+on 2026-07-31. Final PR #21 branch candidate `c95f2c7` differs only by browser
+test/report evidence, so it is runtime-content equivalent but not an exact v31
+build. It is not yet the stable Git release because PR #21, the merged-main
+rebuild, stable tag, and post-merge deployment remain pending. Sites Version 30
+is the direct stable rollback at B1.5 merge `d88ee97`; Version 29 remains its
+accepted-device runtime rollback. Deployment status must be stated separately
+from repository integration status.
 
-PR #15 later advanced `main` to `ee2583c` and tag
-`v0.5.0-m2-belt-spike` records that accepted Git milestone. It does not change
-the production Site, which remains Version 30 on the B1.5 runtime. The belt scene
-remains behind its explicit prototype route, and the side-view Combat Lab remains
-the public default and rollback baseline.
+PR #15 advanced `main` to `ee2583c` and tag `v0.5.0-m2-belt-spike` records that
+accepted Git milestone. The side-view Combat Lab remains an executable regression
+and rollback baseline.
 
-PR #18 later advanced `main` to `7fa6f7e` and makes belt combat the normal
+PR #18 advanced `main` to `7fa6f7e` and makes belt combat the normal
 post-confirmation destination while retaining the side-view Combat Lab as an
-explicit Developer/QA route. The product owner accepted repository integration
-after physical-iPhone testing of the isolated preview and final automated
-left-facing/CJK regression evidence. The corrected Sites archive was not
-uploaded; production therefore still remains Version 30 on B1.5.
+explicit Developer/QA route. Sites Version 31 now includes that corrected route
+plus the unmerged M2B candidate; the remaining release task is to reproduce it
+from the eventual PR #21 merge on `main`.
 
 ## Rollback chain
 
-1. **CONFIRMED direct accepted-runtime rollback:** Sites Version 29 from
+1. **CONFIRMED current accepted runtime:** Sites Version 31 with embedded marker
+   `0577e936b0dd`; PR #21 candidate `c95f2c7a2016049c987e35254f43afd588cb89dd`
+   differs only by test/report evidence.
+2. **CONFIRMED direct stable Sites rollback:** Sites Version 30 at B1.5 merge
+   `d88ee9710e1d253e421e6b64f05167579d649fc2`.
+3. **CONFIRMED accepted-device B1.5 rollback:** Sites Version 29 from
    `1365f0d420a77cb03efc3d83850ebecbae7c90dd`.
-2. **CONFIRMED accepted M2 Git milestone:**
+4. **CONFIRMED accepted M2 Git milestone:**
    `v0.5.0-m2-belt-spike` at PR #15 merge `ee2583c`.
-3. **CONFIRMED accepted M2A repository integration:** PR #18 merge
+5. **CONFIRMED accepted M2A repository integration:** PR #18 merge
    `7fa6f7ee2684b44af2c51796d763c80910fff5fd`.
-4. **CONFIRMED direct deployed Git release point:**
+6. **CONFIRMED direct deployed Git release point:**
    `v0.4.0-weapon-exposure-b1.5` at `d88ee9710e1d253e421e6b64f05167579d649fc2`.
-5. **CONFIRMED prior B1 stable point:** Sites Version 25 plus
+7. **CONFIRMED prior B1 stable point:** Sites Version 25 plus
    `v0.3.0-weapon-physics-b1`.
-6. **CONFIRMED historical M1B1 stable point:** `v0.2.0-m1b1` at
+8. **CONFIRMED historical M1B1 stable point:** `v0.2.0-m1b1` at
    `e363e7321705f5b13983c4ee8731bc5eb9a9c555`.
-7. **CONFIRMED historical M1A stable point:** `v0.1.0-m1a` at
+9. **CONFIRMED historical M1A stable point:** `v0.1.0-m1a` at
    `b09bd8fb6fa7d4466251f73e6d647823682d513e`.
 
 Retained release archives, test evidence, branches, and worktrees are part of
@@ -82,16 +85,17 @@ rollback readiness. No cleanup is authorized by this governance task.
 | Weapon Exposure B1.5 | **CONFIRMED complete; physical iPhone v29 accepted, Sites v30 stable, tag `v0.4.0-weapon-exposure-b1.5`** |
 | M1B2 | **CONFIRMED not started** |
 | M2 belt-combat comparison spike | **CONFIRMED complete and merged by PR #15 / `ee2583c`; physical-iPhone runtime `39b077e` accepted; belt combat approved as the future primary direction; stable Combat Lab remains the current default regression baseline** |
-| M2A live-WeaponSpec belt integration | **CONFIRMED repository integration and product-owner acceptance:** PR #18 merged as `7fa6f7e`; final corrected Sites deployment remains **TO VALIDATE**; B2/M1B2 and cadence remain unstarted |
+| M2A live-WeaponSpec belt integration | **CONFIRMED repository integration, device acceptance, and deployed inclusion:** PR #18 merged as `7fa6f7e`; its corrected route is included in accepted Sites Version 31; B2/M1B2 and cadence remain unstarted |
+| M2B minimum playable belt-combat loop | **PHYSICAL IPHONE ACCEPTED / RELEASE CLOSEOUT IN PROGRESS:** Issue #20; Sites Version 31 runtime `0577e936b0dd` passed the product-owner device gate, and final PR #21 candidate `c95f2c7` adds test/report evidence only; merge, stable-main rebuild, deployment and tag remain pending |
 
 B2 and M1B2 descriptions remain roadmap candidates only. They are not
 authorization to begin development.
 
 ## Work currently allowed
 
-- **CONFIRMED:** M2A documentation closeout, retained-evidence audit, and an
-  eventual explicit deployment of the already-built corrected Sites archive.
-  Deployment must be recorded separately from repository integration.
+- **CONFIRMED:** M2B release closeout for accepted PR #21 candidate `c95f2c7`,
+  including final review, merge, reproducible `main` build, stable deployment,
+  tag, smoke, and retained rollback evidence.
 - **CONFIRMED:** documentation closeout and read-only verification of the merged
   M2 belt-combat comparison spike. PR #15 merged as `ee2583c`,
   `v0.5.0-m2-belt-spike` records the accepted Git milestone, and production
@@ -123,10 +127,10 @@ authorization to begin development.
 
 ## Work currently prohibited
 
-- Deleting the stable side-view Combat Lab or claiming the corrected M2A archive
-  is deployed/live-verified before a real Sites upload and smoke test.
-- Starting B2, M1B2, cadence/automatic firearms, charged grenades, or gameplay
-  work until a separate next-milestone contract is approved.
+- Deleting the stable side-view Combat Lab or treating Sites Version 31 as the
+  final stable Git release before PR #21 merge and merged-main deployment.
+- Starting M2C, B2, M1B2, cadence/automatic firearms, charged grenades, or other
+  gameplay work during M2B release closeout.
 - Changing player UI, public `WeaponSpec` Schema, `PowerBudget` pricing,
   Provider, D1, or deployment business logic. Gameplay and weapon-physics changes
   are limited to the approved B1.5 acceptance contract.

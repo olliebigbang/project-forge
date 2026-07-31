@@ -7,12 +7,39 @@ const MIN_EFFECTIVE_REACH := WeaponPhysicalProfile.MIN_EFFECTIVE_REACH
 const NOMINAL_EFFECTIVE_REACH := WeaponPhysicalProfile.NOMINAL_EFFECTIVE_REACH
 const MAX_EFFECTIVE_REACH := WeaponPhysicalProfile.MAX_EFFECTIVE_REACH
 const MAX_HELD_CROSS_AXIS := WeaponPhysicalProfile.MAX_HELD_CROSS_AXIS
+const VISUAL_SIZE_SMALL: String = "small"
+const VISUAL_SIZE_STANDARD: String = "standard"
+const VISUAL_SIZE_LARGE: String = "large"
+const SMALL_VISUAL_MAX_OCCUPANCY: float = 0.24
+const LARGE_VISUAL_MIN_OCCUPANCY: float = 0.54
+const MIN_VISUAL_OCCUPANCY: float = 0.10
+const MAX_VISUAL_OCCUPANCY: float = 0.68
+const MIN_VISUAL_LINEAR_EXTENT: float = 52.0
+const MAX_VISUAL_LINEAR_EXTENT: float = 108.0
+const STANDARD_VISUAL_LINEAR_EXTENT: float = 80.0
+const MAX_NON_MELEE_VISUAL_WIDTH: float = 190.0
+const MAX_NON_MELEE_VISUAL_HEIGHT: float = 124.0
 
 var source_bounds := Rect2()
 var canvas_size := Vector2.ONE
 var normalized_length := 0.0
 var normalized_height := 0.0
 var ink_aspect := 1.0
+## Explicit internal orientation of the authored ink. M1B1 cannot infer this
+## from numeric drawing_summary, so the deterministic default is local +X.
+## A future confirmation-page control may explicitly set -1; it is not AI data.
+var ink_forward_sign: int = 1
+## Largest raw-bounds axis as a fraction of its corresponding frozen canvas axis.
+var visual_extent_ratio: float = 0.0
+## Geometric-mean 2D occupancy. Unlike max-axis extent, this distinguishes a
+## short gun from a long gun when both happen to use the same canvas height.
+var visual_occupancy_ratio: float = 0.0
+## Bounded square-equivalent rendered extent derived only from frozen raw bounds.
+var visual_linear_extent: float = MIN_VISUAL_LINEAR_EXTENT
+var visual_scale_multiplier: float = (
+	MIN_VISUAL_LINEAR_EXTENT / STANDARD_VISUAL_LINEAR_EXTENT
+)
+var visual_size_profile: String = VISUAL_SIZE_SMALL
 var reach_profile := "short"
 var effective_reach := MIN_EFFECTIVE_REACH
 var mass_profile := "light"
@@ -34,6 +61,19 @@ static func from_snapshot(
 	profile.normalized_length = profile.geometry_evidence.normalized_length
 	profile.normalized_height = profile.geometry_evidence.normalized_cross_axis
 	profile.ink_aspect = profile.geometry_evidence.ink_aspect
+	profile.visual_extent_ratio = maxf(
+		profile.normalized_length,
+		profile.normalized_height,
+	)
+	profile.visual_occupancy_ratio = sqrt(
+		maxf(profile.normalized_length, 0.0)
+		* maxf(profile.normalized_height, 0.0)
+	)
+	profile.visual_linear_extent = profile._derive_visual_linear_extent()
+	profile.visual_scale_multiplier = (
+		profile.visual_linear_extent / STANDARD_VISUAL_LINEAR_EXTENT
+	)
+	profile.visual_size_profile = profile._derive_visual_size_profile()
 	profile.effective_reach = profile.physical_profile.effective_reach
 	profile.reach_profile = profile.physical_profile.reach_profile
 	profile.mass_profile = profile.physical_profile.mass_profile
@@ -58,6 +98,16 @@ static func melee_reaches_point(
 
 func applies_to(spec: WeaponSpec) -> bool:
 	return spec != null and spec.delivery == "held" and spec.attack_pattern == "melee_slash"
+
+
+## Sets the only authored-forward correction allowed before M1B2. The sign is
+## explicit player/UI state, never inferred from the drawing or provider output.
+func set_ink_forward_sign(value: int) -> void:
+	ink_forward_sign = -1 if value < 0 else 1
+
+
+func flip_ink_forward() -> void:
+	ink_forward_sign *= -1
 
 
 func apply_to_spec(spec: WeaponSpec) -> void:
@@ -103,6 +153,40 @@ func held_target_rect(padding_fraction: float = StrokeFit.DEFAULT_PADDING) -> Re
 	return Rect2(Vector2(-outer_size.x * padding, -outer_size.y * 0.5), outer_size)
 
 
+## Selects a bounded held-ink box without changing gameplay reach. Melee keeps
+## its accepted grip-to-tip authority. Every other held visual separates shape
+## from size: source aspect determines the box shape while 2D canvas occupancy
+## determines one continuous, bounded overall scale.
+func held_visual_target_rect(
+	spec: WeaponSpec,
+	padding_fraction: float = StrokeFit.DEFAULT_PADDING,
+) -> Rect2:
+	if applies_to(spec):
+		return held_target_rect(padding_fraction)
+	var padding := clampf(
+		padding_fraction,
+		StrokeFit.MIN_PADDING,
+		StrokeFit.MAX_PADDING,
+	)
+	var inner_fraction := 1.0 - padding * 2.0
+	var safe_aspect := maxf(ink_aspect, 0.001)
+	var aspect_root := sqrt(safe_aspect)
+	var inner_size := Vector2(
+		visual_linear_extent * aspect_root,
+		visual_linear_extent / aspect_root,
+	)
+	var bounding_scale := minf(
+		1.0,
+		minf(
+			MAX_NON_MELEE_VISUAL_WIDTH / maxf(inner_size.x, 0.001),
+			MAX_NON_MELEE_VISUAL_HEIGHT / maxf(inner_size.y, 0.001),
+		),
+	)
+	inner_size *= bounding_scale
+	var target_size := inner_size / inner_fraction
+	return Rect2(Vector2(2.0, -target_size.y * 0.5), target_size)
+
+
 func to_dict() -> Dictionary:
 	return {
 		"source_bounds": _rect_dict(source_bounds),
@@ -110,6 +194,12 @@ func to_dict() -> Dictionary:
 		"normalized_length": normalized_length,
 		"normalized_height": normalized_height,
 		"ink_aspect": ink_aspect,
+		"ink_forward_sign": ink_forward_sign,
+		"visual_extent_ratio": visual_extent_ratio,
+		"visual_occupancy_ratio": visual_occupancy_ratio,
+		"visual_linear_extent": visual_linear_extent,
+		"visual_scale_multiplier": visual_scale_multiplier,
+		"visual_size_profile": visual_size_profile,
 		"reach_profile": reach_profile,
 		"effective_reach": effective_reach,
 		"mass_profile": mass_profile,
@@ -118,6 +208,31 @@ func to_dict() -> Dictionary:
 		"combat_derived": combat_derived.to_dict() if combat_derived != null else {},
 		"threshold_status": "TO VALIDATE",
 	}
+
+
+func _derive_visual_size_profile() -> String:
+	if visual_occupancy_ratio <= SMALL_VISUAL_MAX_OCCUPANCY:
+		return VISUAL_SIZE_SMALL
+	if visual_occupancy_ratio >= LARGE_VISUAL_MIN_OCCUPANCY:
+		return VISUAL_SIZE_LARGE
+	return VISUAL_SIZE_STANDARD
+
+
+func _derive_visual_linear_extent() -> float:
+	var normalized := inverse_lerp(
+		MIN_VISUAL_OCCUPANCY,
+		MAX_VISUAL_OCCUPANCY,
+		clampf(
+			visual_occupancy_ratio,
+			MIN_VISUAL_OCCUPANCY,
+			MAX_VISUAL_OCCUPANCY,
+		),
+	)
+	return lerpf(
+		MIN_VISUAL_LINEAR_EXTENT,
+		MAX_VISUAL_LINEAR_EXTENT,
+		normalized,
+	)
 
 
 func _rect_dict(rect: Rect2) -> Dictionary:

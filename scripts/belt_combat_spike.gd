@@ -15,6 +15,7 @@ signal forge_return_requested
 signal combat_event(kind: String, detail: Dictionary)
 
 const ENCOUNTERS: PackedStringArray = ["moving", "shield", "group"]
+const PLAYABLE_ENCOUNTER: String = "playable"
 const ATTACK_PATTERNS: PackedStringArray = [
 	"melee_slash",
 	"straight_projectile",
@@ -55,8 +56,13 @@ var _outcome_panel: PanelContainer
 var _outcome_label: Label
 var _orientation_prompt: RotationPrompt
 var _attack_button: Button
+var _dodge_button: Button
+var _ward_button: Button
 var _retry_button: Button
 var _reforge_button: Button
+var _reward_row: HBoxContainer
+var _ward_reward_button: Button
+var _dodge_reward_button: Button
 var _encounter_buttons: Dictionary = {}
 var _weapon_buttons: Dictionary = {}
 var _joystick: BeltJoystick
@@ -72,6 +78,9 @@ var _last_layout_css_size: Vector2 = Vector2.ZERO
 var _layout_refresh_elapsed: float = 0.0
 var _equipment_source: String = "none"
 var _route_payload_consumed: bool = false
+var _next_attempt_reward: String = ""
+var _active_attempt_reward: String = ""
+var _reward_selected_this_victory: bool = false
 
 
 func _ready() -> void:
@@ -86,6 +95,9 @@ func _ready() -> void:
 	player.damaged.connect(_on_player_damaged)
 	player.died.connect(_on_player_died)
 	player.attack_request_resolved.connect(_on_attack_request_resolved)
+	player.dodge_request_resolved.connect(_on_dodge_request_resolved)
+	player.ward_request_resolved.connect(_on_ward_request_resolved)
+	player.incoming_strike_resolved.connect(_on_incoming_strike_resolved)
 	_arena_actors.add_child(player)
 	if developer_test_mode:
 		_build_local_weapon_fixtures()
@@ -94,6 +106,8 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
 	if developer_test_mode:
 		select_weapon(current_pattern)
+	else:
+		current_encounter = PLAYABLE_ENCOUNTER
 	select_encounter(current_encounter)
 	if not developer_test_mode:
 		round_state = "awaiting_weapon"
@@ -126,6 +140,7 @@ func _exit_tree() -> void:
 func _process(delta: float) -> void:
 	if not is_inside_tree():
 		return
+	_refresh_ability_hud()
 	if OS.has_feature("web"):
 		_update_web_qa_state()
 		_layout_refresh_elapsed += delta
@@ -261,7 +276,9 @@ func _external_strokes_are_drawable(
 
 ## Selects one of the three explicitly scoped test encounters.
 func select_encounter(encounter_id: String) -> bool:
-	if encounter_id not in ENCOUNTERS:
+	if encounter_id not in ENCOUNTERS and encounter_id != PLAYABLE_ENCOUNTER:
+		return false
+	if encounter_id == PLAYABLE_ENCOUNTER and developer_test_mode:
 		return false
 	current_encounter = encounter_id
 	_round_generation += 1
@@ -278,6 +295,15 @@ func select_encounter(encounter_id: String) -> bool:
 	var viewport_size: Vector2 = get_viewport_rect().size
 	var scale_value: Vector2 = _arena_scale(viewport_size)
 	player.arena_bounds = _scaled_arena(viewport_size)
+	_active_attempt_reward = _next_attempt_reward
+	_next_attempt_reward = ""
+	match _active_attempt_reward:
+		"ward_plus":
+			player.configure_room_abilities(2, 1.0)
+		"dodge_plus":
+			player.configure_room_abilities(1, 0.72)
+		_:
+			player.configure_room_abilities(1, 1.0)
 	player.reset_for_round(_scaled_point(PLAYER_SPAWN_REFERENCE, scale_value))
 	player.set_target_candidates(enemies)
 	round_state = "active"
@@ -285,6 +311,7 @@ func select_encounter(encounter_id: String) -> bool:
 	for enemy: BeltEnemy in enemies:
 		enemy.set_simulation_enabled(true)
 	_outcome_panel.hide()
+	_reward_selected_this_victory = false
 	_refresh_health_hud()
 	_update_selected_buttons()
 	_update_orientation_gate()
@@ -333,6 +360,28 @@ func request_attack() -> bool:
 	return player.request_attack()
 
 
+func request_dodge() -> bool:
+	return player.request_dodge()
+
+
+func request_ward() -> bool:
+	return player.request_ward()
+
+
+func select_reward(reward_id: String) -> bool:
+	if (
+		round_state != "victory"
+		or _reward_selected_this_victory
+		or reward_id not in ["ward_plus", "dodge_plus"]
+	):
+		return false
+	_reward_selected_this_victory = true
+	_next_attempt_reward = reward_id
+	_record_event("reward_selected", {"reward": reward_id})
+	retry_round()
+	return true
+
+
 ## Restarts the current encounter with the currently equipped weapon.
 func retry_round() -> void:
 	select_encounter(current_encounter)
@@ -341,6 +390,9 @@ func retry_round() -> void:
 
 ## Stops the round, clears attack state, and delegates Forge navigation to the integrator.
 func request_reforge() -> void:
+	_next_attempt_reward = ""
+	_active_attempt_reward = ""
+	_reward_selected_this_victory = false
 	if round_state == "active":
 		_set_terminal_state("reforge")
 	else:
@@ -402,6 +454,9 @@ func qa_state() -> Dictionary:
 		"forge_description_length": forge_description_draft.length(),
 		"round_state": round_state,
 		"encounter": current_encounter,
+		"active_attempt_reward": _active_attempt_reward,
+		"next_attempt_reward": _next_attempt_reward,
+		"reward_selected_this_victory": _reward_selected_this_victory,
 		"fixture": current_encounter,
 		"weapon_pattern": current_pattern,
 		"weapon": spec.to_dict() if spec != null else {},
@@ -489,6 +544,28 @@ func qa_command(command: String, payload: Dictionary = {}) -> void:
 			))
 		"attack":
 			request_attack()
+		"dodge":
+			request_dodge()
+		"ward":
+			request_ward()
+		"reward":
+			select_reward(str(payload.get("id", "")))
+		"dodge_then_force_enemy_strike":
+			set_touch_move(Vector2(
+				clampf(float(payload.get("x", 1.0)), -1.0, 1.0),
+				clampf(float(payload.get("y", 0.0)), -1.0, 1.0),
+			))
+			request_dodge()
+			_qa_force_enemy_strike(str(payload.get("id", "")))
+		"ward_then_force_enemy_strike":
+			request_ward()
+			_qa_force_enemy_strike(str(payload.get("id", "")))
+		"force_enemy_strike":
+			_qa_force_enemy_strike(str(payload.get("id", "")))
+		"defeat_all":
+			for enemy: BeltEnemy in enemies:
+				if not enemy.is_defeated():
+					enemy.take_damage(enemy.health)
 		"retry", "reset":
 			retry_round()
 		"reforge":
@@ -539,6 +616,18 @@ func qa_command(command: String, payload: Dictionary = {}) -> void:
 				30,
 				120,
 			)
+
+
+func _qa_force_enemy_strike(strike_enemy_id: String) -> void:
+	for enemy: BeltEnemy in enemies:
+		if enemy.enemy_id == strike_enemy_id or strike_enemy_id.is_empty():
+			enemy.global_position = player.global_position + Vector2(48.0, 0.0)
+			enemy._set_phase(BeltEnemy.Phase.STRIKE, 0.24)
+			# Resolve in the same QA callback so browser/JSBridge latency cannot
+			# outlive the short DODGE/WARD windows. Normal combat still resolves
+			# strikes in BeltEnemy physics.
+			enemy._apply_strike()
+			break
 
 
 ## Provider-free layout test hook. Web runtime reads visualViewport directly.
@@ -642,6 +731,23 @@ func _spawn_encounter(encounter_id: String) -> void:
 	var scale_value: Vector2 = _arena_scale(viewport_size)
 	var definitions: Array[Dictionary] = []
 	match encounter_id:
+		"playable":
+			definitions = [
+				{
+					"id": "bruiser",
+					"kind": "bruiser",
+					"health": 155,
+					"position": Vector2(900.0, 392.0),
+					"formation": Vector2(24.0, -46.0),
+				},
+				{
+					"id": "charger",
+					"kind": "charger",
+					"health": 112,
+					"position": Vector2(1010.0, 536.0),
+					"formation": Vector2(58.0, 54.0),
+				},
+			]
 		"moving":
 			definitions = [{
 				"id": "runner",
@@ -698,6 +804,7 @@ func _spawn_encounter(encounter_id: String) -> void:
 		enemy.damage_report.connect(_on_enemy_damage_report)
 		enemy.defeated.connect(_on_enemy_defeated)
 		enemy.strike_landed.connect(_on_enemy_strike_landed)
+		enemy.strike_resolved.connect(_on_enemy_strike_resolved)
 		_arena_actors.add_child(enemy)
 		enemies.append(enemy)
 
@@ -916,6 +1023,41 @@ func _on_attack_request_resolved(outcome: String) -> void:
 		_status_label.text = "One melee attack buffered."
 
 
+func _on_dodge_request_resolved(outcome: String) -> void:
+	match outcome:
+		"accepted":
+			_status_label.text = "DODGE: brief invulnerability and enemy passage."
+		"blocked_cooldown":
+			var dodge_state: Dictionary = player.qa_state().get("dodge", {})
+			_status_label.text = "DODGE BLOCKED: cooldown %.1fs." % float(
+				dodge_state.get("cooldown_remaining", 0.0),
+			)
+		"blocked_busy":
+			_status_label.text = "DODGE BLOCKED: finish the current action."
+		"blocked_terminal":
+			_status_label.text = "DODGE BLOCKED: the room is not active."
+		_:
+			_status_label.text = "DODGE BLOCKED: %s." % outcome
+	_record_event("dodge_request", {"outcome": outcome})
+
+
+func _on_ward_request_resolved(outcome: String) -> void:
+	if outcome == "accepted":
+		_status_label.text = "WARD active. Time it against one enemy strike."
+	_record_event("ward_request", {"outcome": outcome})
+
+
+func _on_incoming_strike_resolved(outcome: String, amount: int) -> void:
+	if outcome == "warded":
+		_status_label.text = "WARD! Strike negated; attacker forced into recovery."
+	elif outcome == "dodged":
+		_status_label.text = "DODGED. No damage."
+	_record_event("incoming_strike_resolved", {
+		"outcome": outcome,
+		"amount": amount,
+	})
+
+
 func _on_enemy_phase_changed(
 	enemy: BeltEnemy,
 	phase_name: String,
@@ -963,6 +1105,18 @@ func _on_enemy_strike_landed(enemy: BeltEnemy, amount: int) -> void:
 	_record_event("enemy_strike", {"enemy": enemy.enemy_id, "amount": amount})
 
 
+func _on_enemy_strike_resolved(
+	enemy: BeltEnemy,
+	outcome: String,
+	amount: int,
+) -> void:
+	_record_event("enemy_strike_resolved", {
+		"enemy": enemy.enemy_id,
+		"outcome": outcome,
+		"amount": amount,
+	})
+
+
 func _set_terminal_state(outcome: String) -> void:
 	if round_state != "active":
 		return
@@ -976,7 +1130,7 @@ func _set_terminal_state(outcome: String) -> void:
 			enemy.clear_transient_status()
 	_clear_transient_attacks()
 	_outcome_label.text = (
-		"VICTORY\nRetry this weapon or request Reforge."
+		"VICTORY\nChoose one reward for the next attempt."
 		if outcome == "victory"
 		else (
 			"DEFEAT\nRetry the same controlled encounter or request Reforge."
@@ -984,6 +1138,7 @@ func _set_terminal_state(outcome: String) -> void:
 			else "REFORGE REQUESTED\nCommitted Forge input remains owned by the parent flow."
 		)
 	)
+	_reward_row.visible = outcome == "victory"
 	_outcome_panel.show()
 	outcome_changed.emit(outcome)
 	_record_event("round_terminal", {"outcome": outcome})
@@ -1077,6 +1232,19 @@ func _build_hud() -> void:
 	_attack_button.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
 	_attack_button.button_down.connect(request_attack)
 	_hud_root.add_child(_attack_button)
+	_dodge_button = _button("DODGE", CYAN, 14)
+	_dodge_button.name = "Dodge"
+	# DODGE resolves on a complete press/release gesture. Disabling a Button in
+	# the same frame as button_down can swallow the real touch release and leave
+	# mobile Godot's internal press pointer latched after the first use.
+	_dodge_button.action_mode = BaseButton.ACTION_MODE_BUTTON_RELEASE
+	_dodge_button.pressed.connect(request_dodge)
+	_hud_root.add_child(_dodge_button)
+	_ward_button = _button("WARD ×1", CYAN, 14)
+	_ward_button.name = "Ward"
+	_ward_button.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
+	_ward_button.button_down.connect(request_ward)
+	_hud_root.add_child(_ward_button)
 	_retry_button = _button("RETRY", CYAN, 14)
 	_retry_button.name = "Retry"
 	_retry_button.pressed.connect(retry_round)
@@ -1094,9 +1262,27 @@ func _build_hud() -> void:
 	for side: String in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
 		outcome_margin.add_theme_constant_override(side, 18)
 	_outcome_panel.add_child(outcome_margin)
+	var outcome_stack: VBoxContainer = VBoxContainer.new()
+	outcome_stack.add_theme_constant_override("separation", 12)
+	outcome_margin.add_child(outcome_stack)
 	_outcome_label = _label("", 22, TEXT)
 	_outcome_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	outcome_margin.add_child(_outcome_label)
+	outcome_stack.add_child(_outcome_label)
+	_reward_row = HBoxContainer.new()
+	_reward_row.name = "RewardChoices"
+	_reward_row.add_theme_constant_override("separation", 10)
+	outcome_stack.add_child(_reward_row)
+	_ward_reward_button = _button("WARD+  NEXT: 2 CHARGES", CYAN, 12)
+	_ward_reward_button.name = "RewardWardPlus"
+	_ward_reward_button.custom_minimum_size = Vector2(190.0, 48.0)
+	_ward_reward_button.pressed.connect(select_reward.bind("ward_plus"))
+	_reward_row.add_child(_ward_reward_button)
+	_dodge_reward_button = _button("DODGE+  NEXT: FASTER", CYAN, 12)
+	_dodge_reward_button.name = "RewardDodgePlus"
+	_dodge_reward_button.custom_minimum_size = Vector2(190.0, 48.0)
+	_dodge_reward_button.pressed.connect(select_reward.bind("dodge_plus"))
+	_reward_row.add_child(_dodge_reward_button)
+	_reward_row.hide()
 	_outcome_panel.hide()
 
 	_orientation_prompt = RotationPrompt.new()
@@ -1157,6 +1343,8 @@ func _layout_for_viewport() -> void:
 
 
 func _layout_regular_landscape(viewport_size: Vector2) -> void:
+	_ward_reward_button.custom_minimum_size = Vector2(190.0, 48.0)
+	_dodge_reward_button.custom_minimum_size = Vector2(190.0, 48.0)
 	_title_label.position = Vector2(20.0, 14.0)
 	_title_label.size = Vector2(300.0, 34.0)
 	_health_label.position = Vector2(20.0, 50.0)
@@ -1182,10 +1370,14 @@ func _layout_regular_landscape(viewport_size: Vector2) -> void:
 	_joystick.size = Vector2(112.0, 112.0)
 	_attack_button.position = Vector2(viewport_size.x - 170.0, bottom_y - 4.0)
 	_attack_button.size = Vector2(150.0, 78.0)
-	_retry_button.position = Vector2(viewport_size.x - 334.0, bottom_y + 8.0)
-	_retry_button.size = Vector2(76.0, 58.0)
-	_reforge_button.position = Vector2(viewport_size.x - 252.0, bottom_y + 8.0)
-	_reforge_button.size = Vector2(76.0, 58.0)
+	_dodge_button.position = Vector2(viewport_size.x - 286.0, bottom_y + 8.0)
+	_dodge_button.size = Vector2(108.0, 58.0)
+	_ward_button.position = Vector2(viewport_size.x - 402.0, bottom_y + 8.0)
+	_ward_button.size = Vector2(108.0, 58.0)
+	_reforge_button.position = Vector2(viewport_size.x - 500.0, bottom_y + 8.0)
+	_reforge_button.size = Vector2(90.0, 58.0)
+	_retry_button.position = Vector2(viewport_size.x - 598.0, bottom_y + 8.0)
+	_retry_button.size = Vector2(90.0, 58.0)
 	_outcome_panel.position = Vector2(
 		(viewport_size.x - 500.0) * 0.5,
 		(viewport_size.y - 190.0) * 0.5,
@@ -1199,6 +1391,14 @@ func _layout_compact_landscape(viewport_size: Vector2, css_size: Vector2) -> voi
 	var logical_per_css: Vector2 = Vector2(
 		viewport_size.x / maxf(css_size.x, 1.0),
 		viewport_size.y / maxf(css_size.y, 1.0),
+	)
+	_ward_reward_button.custom_minimum_size = Vector2(
+		190.0 * logical_per_css.x,
+		48.0 * logical_per_css.y,
+	)
+	_dodge_reward_button.custom_minimum_size = Vector2(
+		190.0 * logical_per_css.x,
+		48.0 * logical_per_css.y,
 	)
 	_apply_css_rect(_title_label, Rect2(MARGIN, 4.0, 280.0, 28.0), logical_per_css)
 	_title_label.add_theme_font_size_override("font_size", 18)
@@ -1242,7 +1442,7 @@ func _layout_compact_landscape(viewport_size: Vector2, css_size: Vector2) -> voi
 	_apply_css_rect(_joystick, Rect2(MARGIN, controls_y, 96.0, 96.0), logical_per_css)
 	_apply_css_rect(
 		_status_label,
-		Rect2(112.0, controls_y + 2.0, maxf(css_size.x - 468.0, 210.0), 42.0),
+		Rect2(112.0, controls_y + 2.0, maxf(css_size.x - 590.0, 160.0), 42.0),
 		logical_per_css,
 	)
 	_status_label.add_theme_font_size_override("font_size", 11)
@@ -1253,14 +1453,26 @@ func _layout_compact_landscape(viewport_size: Vector2, css_size: Vector2) -> voi
 	)
 	_attack_button.add_theme_font_size_override("font_size", 15)
 	_apply_css_rect(
+		_dodge_button,
+		Rect2(css_size.x - 202.0, controls_y + 24.0, 90.0, 52.0),
+		logical_per_css,
+	)
+	_dodge_button.add_theme_font_size_override("font_size", 11)
+	_apply_css_rect(
+		_ward_button,
+		Rect2(css_size.x - 296.0, controls_y + 24.0, 90.0, 52.0),
+		logical_per_css,
+	)
+	_ward_button.add_theme_font_size_override("font_size", 11)
+	_apply_css_rect(
 		_reforge_button,
-		Rect2(css_size.x - 180.0, controls_y + 24.0, 70.0, 52.0),
+		Rect2(css_size.x - 382.0, controls_y + 24.0, 82.0, 52.0),
 		logical_per_css,
 	)
 	_reforge_button.add_theme_font_size_override("font_size", 10)
 	_apply_css_rect(
 		_retry_button,
-		Rect2(css_size.x - 256.0, controls_y + 24.0, 70.0, 52.0),
+		Rect2(css_size.x - 468.0, controls_y + 24.0, 82.0, 52.0),
 		logical_per_css,
 	)
 	_retry_button.add_theme_font_size_override("font_size", 10)
@@ -1325,6 +1537,31 @@ func _refresh_health_hud() -> void:
 		enemy_maximum_total,
 		current_encounter.to_upper(),
 	]
+
+
+func _refresh_ability_hud() -> void:
+	if (
+		not is_instance_valid(player)
+		or not is_instance_valid(_dodge_button)
+		or not is_instance_valid(_ward_button)
+	):
+		return
+	var state: Dictionary = player.qa_state()
+	var dodge: Dictionary = state.get("dodge", {})
+	var ward: Dictionary = state.get("ward", {})
+	var dodge_cooldown: float = float(dodge.get("cooldown_remaining", 0.0))
+	var ward_charges: int = int(ward.get("charges", 0))
+	_dodge_button.text = (
+		"DODGE %.1f" % dodge_cooldown
+		if dodge_cooldown > 0.05
+		else "DODGE"
+	)
+	_ward_button.text = "WARD ×%d" % ward_charges
+	var terminal: bool = round_state != "active" or player.is_dead()
+	# Keep cooldown/busy DODGE presses routable so every rejected gesture emits
+	# a deterministic blocked outcome. Only terminal state disables the control.
+	_dodge_button.disabled = terminal
+	_ward_button.disabled = terminal or ward_charges <= 0
 
 
 func _update_role_hud() -> void:
@@ -1397,9 +1634,13 @@ func _update_web_qa_state() -> void:
 		return
 	var controls: Dictionary = {
 		"attack": _control_css_rect(_attack_button),
+		"dodge": _control_css_rect(_dodge_button),
+		"ward": _control_css_rect(_ward_button),
 		"retry": _control_css_rect(_retry_button),
 		"reforge": _control_css_rect(_reforge_button),
 		"joystick": _control_css_rect(_joystick),
+		"reward_ward_plus": _control_css_rect(_ward_reward_button),
+		"reward_dodge_plus": _control_css_rect(_dodge_reward_button),
 	}
 	var encounter_controls: Dictionary = {}
 	for encounter_id: String in _encounter_buttons:
@@ -1458,10 +1699,14 @@ func _layout_qa_state() -> Dictionary:
 	return {
 		"joystick": _control_css_rect(_joystick),
 		"attack": _control_css_rect(_attack_button),
+		"dodge": _control_css_rect(_dodge_button),
+		"ward": _control_css_rect(_ward_button),
 		"retry": _control_css_rect(_retry_button),
 		"reforge": _control_css_rect(_reforge_button),
 		"status": _control_css_rect(_status_label),
 		"outcome": _control_css_rect(_outcome_panel),
+		"reward_ward_plus": _control_css_rect(_ward_reward_button),
+		"reward_dodge_plus": _control_css_rect(_dodge_reward_button),
 		"encounters": encounter_layout,
 		"weapons": weapon_layout,
 	}

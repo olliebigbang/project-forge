@@ -44,27 +44,38 @@ assets, balance data, or development direction from Cat Battle or another projec
   and merged through PR #18 as `7fa6f7e` on 2026-07-28. Belt combat is the normal
   post-confirmation destination; the side-view Combat Lab remains an explicit
   Developer/QA regression route.
-- **TO VALIDATE** The corrected M2A Sites archive has not been uploaded.
-  Production remains B1.5 Sites Version 30; do not describe `main` and the public
-  runtime as identical until a later deployment and smoke test.
+- **CONFIRMED** M2B final branch candidate `c95f2c7` passed deterministic,
+  Chromium, WebKit, CI, and physical-iPhone acceptance on 2026-07-31. Accepted
+  Sites Version 31 embeds runtime marker `0577e936b0dd`; the later
+  `0577e93..c95f2c7` diff is test/report-only, so v31 is runtime-content
+  equivalent to the branch candidate but is not its exact build.
+  Release closeout is active: merge, rebuild from `main`, stable deployment,
+  smoke, and tag remain pending. Do not start M2C until that closeout completes.
 - The M1A forge uses five persistent attack-pattern test buttons. Never restore
   an `OptionButton`, `PopupMenu`, or full-screen modal selector for this flow.
 
 Do not add paid AI, secrets, production levels or art, voice, accounts, cloud
 saves, sharing, monetization, multiplayer, or store submission in M1A.
 
-## Current scope: stable M2A repository baseline
+## Current scope: M2B release closeout
 
-- PR #18 merged the one-shot, fail-closed Forge-to-belt route as `7fa6f7e`.
+- PR #21 final candidate `c95f2c7` owns the accepted one-room playable loop.
   Preserve exact `WeaponSpec`, frozen geometry, original strokes, Description
-  restoration, fixture isolation, and the explicit side-view QA route.
+  restoration, fixture isolation, and the explicit side-view QA route while
+  completing release integration.
 - Preserve bidirectional visual parity: held ink, slash effects, projectiles,
   and impacts derive from one frozen attack direction without double mirroring.
+- Preserve complete press/release DODGE routing, one-charge WARD behavior,
+  bruiser/charger telegraphs, victory/defeat, Retry/Reforge, and the bounded
+  next-attempt reward choice.
 - Preserve exact Unicode in the native HTML Description overlay and frozen
   request body. Do not expose unsupported CJK fallback glyphs through a Godot
   progress label.
 - Do not start B2, M1B2, cadence, grenade charge, levels, or production art
   without a separately approved executable gate.
+- Keep Sites Version 31, the PR branch/worktree, screenshots, and release
+  archives until merged-main deployment and smoke are recorded. Cleanup always
+  requires a later explicit decision.
 
 ## Preserved Weapon Physics B1 baseline
 
@@ -163,15 +174,20 @@ saves, sharing, monetization, multiplayer, or store submission in M1A.
 ./scripts/test.ps1
 ./scripts/build_web.ps1
 ./scripts/build_sites_preview.ps1
+$env:FORGE_PREVIEW_URL='<deployed-url>'
+$env:EXPECTED_RELEASE='<build-id>'
+npm.cmd run test:e2e:preview
 ```
 
 ## Git and agent workflow
 
 - Follow `docs/DEVELOPMENT_WORKFLOW.md`; every major task starts from a scoped
   issue and an isolated worktree based on current `origin/main`.
-- Stable repository source: `main` at `7fa6f7e` when this guide was last
-  reconciled. The deployed runtime is separately B1.5 Sites Version 30 at
-  `d88ee97`; governance and repository integration do not imply deployment.
+- Stable repository source before M2B merge: `main` at `7aa45a6` when this guide
+  was last reconciled. The active public candidate is Sites Version 31 with
+  embedded runtime marker `0577e936b0dd`; PR #21 HEAD `c95f2c7` differs only by
+  test/report evidence. It is not the stable Git release until merged-main
+  rebuild, deployment, smoke, and tag complete.
 - Current stable tag: `v0.4.0-weapon-exposure-b1.5`.
 - Direct accepted-runtime rollback: Sites Version 29 from `1365f0d`.
   Prior stable tag `v0.3.0-weapon-physics-b1` and historical tags
