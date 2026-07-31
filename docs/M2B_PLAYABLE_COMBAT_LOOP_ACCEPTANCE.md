@@ -1,6 +1,6 @@
 # M2B Minimum Playable Belt-Combat Loop Acceptance
 
-Status: **AUTOMATED PASS / PHYSICAL IPHONE TO VALIDATE**
+Status: **ACCEPTED ON PHYSICAL IPHONE / RELEASE CLOSEOUT IN PROGRESS**
 
 GitHub Issue: [#20](https://github.com/olliebigbang/project-forge/issues/20)
 
@@ -87,9 +87,11 @@ defensive technique, dodge timing, victory, defeat, reward, and Reforge?
 
 ## Completion gate
 
-M2B remains **TO VALIDATE** until deterministic, browser, isolated-preview, and
-physical-iPhone evidence pass. Keep M2A production/runtime status, tags,
-branches, worktrees, screenshots, and rollback packages unchanged until then.
+The M2B implementation gate passed deterministic, browser, isolated-preview,
+and physical-iPhone evidence on 2026-07-31. Release integration remains a
+separate step: keep branches, worktrees, screenshots, accepted Sites Version
+31, and rollback packages until PR #21 is merged, rebuilt from `main`, deployed,
+and smoke-tested.
 
 ## Current evidence
 
@@ -100,7 +102,13 @@ branches, worktrees, screenshots, and rollback packages unchanged until then.
   request transport, the three compact landscape sizes, 20 real-touch DODGE
   reuse cycles, explicit drawing flip, continuous two-dimensional non-melee
   visual sizing, bounded projectile origin, and zero application console errors.
-- **TO VALIDATE:** isolated public preview and physical-iPhone acceptance.
+- **CONFIRMED:** Sites Version 31 at the public Project Forge URL embeds runtime
+  marker `0577e936b0dd`. Final PR #21 branch candidate `c95f2c7` differs from it
+  only by test/report evidence, so it is runtime-content equivalent rather than
+  an exact v31 build. After the final asymmetric held-ink orientation repair,
+  the product owner reported no remaining physical-iPhone blocker on
+  2026-07-31. This closes M2B-18 and the reopened M2B-19 through M2B-21 device
+  gate without authorizing cleanup or M2C implementation.
 
 Full evidence and known limitations are recorded in
 `docs/M2B_PLAYABLE_COMBAT_LOOP_TEST_REPORT.md`.

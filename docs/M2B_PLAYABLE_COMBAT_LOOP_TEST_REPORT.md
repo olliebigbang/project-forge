@@ -1,10 +1,12 @@
 # M2B Minimum Playable Belt-Combat Loop Test Report
 
-Status: **AUTOMATED REPAIR PASS / PHYSICAL IPHONE REVALIDATION REQUIRED**
+Status: **AUTOMATED AND PHYSICAL IPHONE PASS / RELEASE CLOSEOUT IN PROGRESS**
 
-Date: 2026-07-29
-Branch: `codex/feat/m2b-playable-combat-loop`  
-Base: `origin/main` at `3101eafa781a247da9b3fae87eae541ccb8d5812`  
+Date: 2026-07-31
+Branch: `codex/feat/m2b-playable-combat-loop`
+Final accepted candidate: `c95f2c7a2016049c987e35254f43afd588cb89dd`
+Accepted deployed runtime marker: `0577e936b0dd` (Sites Version 31)
+Current PR base: `origin/main` at `7aa45a624137e79cc8d31dc33574053d9653d939`
 Issue: [#20](https://github.com/olliebigbang/project-forge/issues/20)
 
 ## Scope
@@ -57,6 +59,7 @@ larger level/reward system.
 | Web export | **PASS** |
 | Chromium live regression | **PASS — five patterns in both directions, explicit flip, compact/wide 2D occupancy sizing, bounded muzzle, 20 real-touch DODGE cycles, route identity, WARD, victory/reward, Unicode transport, 0 console errors** |
 | WebKit live regression | **PASS — five patterns in both directions, explicit flip, compact/wide 2D occupancy sizing, bounded muzzle, 20 real-touch DODGE cycles, route identity, WARD, victory/reward, Unicode transport, 0 console errors** |
+| Formal Playwright deployed-preview smoke | **PASS — Sites v31 HTTP/game load, build marker `0577e936b0dd`, 390x844 portrait gate, 844x390 Forge/keyboard/Canvas recovery, 0 high-priority console errors** |
 | Provider policy | **PASS — 0 Provider calls** |
 
 ## Reopened physical-iPhone blockers and repair evidence
@@ -104,7 +107,7 @@ non-overlapping, and at least 44 CSS pixels in their effective touch dimension.
 
 Browser reports and screenshots are retained under the ignored directory:
 
-`output/playwright/m2b-input-visual-fix/`
+`output/playwright/m2b-closeout/`
 
 Representative evidence:
 
@@ -120,26 +123,26 @@ Representative evidence:
 
 These generated artifacts are intentionally not committed to Git.
 
-## Known limitations and physical-device gate
+## Physical-iPhone result and known limitations
 
-- **TO VALIDATE:** Real iPhone Safari confirms DODGE remains usable after at
-  least 10-20 cooldown cycles and while movement touch is held.
-- **TO VALIDATE:** Real iPhone Safari confirms `FLIP DRAWING` makes an
-  asymmetric gun point toward targets on both sides and that the choice survives
-  confirmation, Retry, and Reforge as intended.
-- **TO VALIDATE:** Real iPhone Safari confirms an asymmetric grip/stock remains
-  below the barrel when the player changes sides repeatedly; the weapon must
-  never become vertically inverted.
-- **TO VALIDATE:** Real iPhone Safari confirms a compact gun and a wide gun with
-  the same drawn height remain clearly different in overall presence while
-  neither obscures the player or controls.
-- **TO VALIDATE:** Real-device timing readability for the bruiser telegraph,
-  charger locked lane, dodge window, and WARD window.
-- **TO VALIDATE:** Portrait/landscape recovery and Safari toolbar changes in the
-  new M2B room. Existing M2A/CJK regression paths passed automation, but physical
-  M2B acceptance remains authoritative.
+- **CONFIRMED:** Sites Version 31 embeds runtime marker `0577e936b0dd`. Final PR
+  #21 candidate `c95f2c7` adds only browser test/report evidence after that
+  runtime and is content-equivalent, not an exact v31 build. The product owner
+  completed the final physical-iPhone pass after the DODGE, authored
+  direction, compact/wide sizing, and vertical-orientation repair sequence and
+  reported no remaining blocker on 2026-07-31.
+- **CONFIRMED:** The retained accepted candidate archive is
+  `sha256:3c328c5aa9acd7860c8fadfa413dc8634fe4dc1489e90042c8dd07ed3eb0b5df`.
+- **CONFIRMED:** `git diff 0577e93..c95f2c7` contains no runtime files. The
+  accepted device runtime and final branch candidate therefore have identical
+  gameplay content, while their provenance identifiers remain deliberately
+  distinct.
 - **TO VALIDATE:** Whether `WARD+` and `DODGE+` produce a meaningful next-attempt
   choice rather than an obvious dominant option.
+- **TO VALIDATE:** M2B proves a minimum executable loop, not sustained fun,
+  production balance, final enemy tuning, or a complete level. Those questions
+  belong to a separately authorized M2C playability gate.
 
-M2B must remain unmerged and must not replace production until an isolated
-preview passes the product owner's physical-iPhone acceptance.
+M2B is eligible for final review and release integration. Preserve Version 31,
+the branch, worktree, screenshots, and archives until the merged `main` build is
+deployed and independently smoke-tested.
