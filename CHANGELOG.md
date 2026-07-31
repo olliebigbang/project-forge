@@ -1,5 +1,39 @@
 # Changelog
 
+## v0.6.0-m2b-playable-loop — 2026-07-31
+
+### Added
+
+- A minimum playable belt-combat room with bruiser and charger enemies,
+  player health, victory/defeat, Retry/Reforge, one-charge WARD, reusable DODGE,
+  and one bounded next-attempt reward choice.
+- Provider-free deterministic, Chromium, WebKit, CI, and deployed-preview
+  coverage for all five attack patterns, bidirectional visuals, touch reuse,
+  Unicode transport, weapon sizing, and the complete M2B loop.
+
+### Fixed
+
+- Preserved authored vertical orientation while reflecting asymmetric held ink
+  horizontally when the player changes facing direction.
+- Kept compact and wide ranged drawings visibly distinct with one uniform
+  aspect-preserving scale and a separate bounded projectile launch origin.
+- Routed DODGE through a complete touch press/release gesture so repeated iPhone
+  activations cannot lose their release event during cooldown transitions.
+
+### Released
+
+- **CONFIRMED:** PR #21 merged as
+  `3da018917193d269429354ae0d93cac70cf2cf8c` after two successful CI runs and
+  an independent release review.
+- **CONFIRMED:** Sites Version 31 runtime `0577e936b0dd` passed physical-iPhone
+  acceptance; its difference from the final PR runtime was test/report-only.
+- **CONFIRMED:** Sites Version 32 was rebuilt from exact merged `main`, embeds
+  marker `3da018917193`, and passed HTTP, formal Playwright mobile, full public
+  five-pattern M2B, Worker-log, and zero-Provider smoke checks.
+- **CONFIRMED:** Stable tag `v0.6.0-m2b-playable-loop` points to the exact M2B
+  merge. Version 31, Version 30, prior tags, worktrees, screenshots, and release
+  archives remain retained rollback evidence.
+
 ## v0.4.0-weapon-exposure-b1.5 — 2026-07-27
 
 ### Added

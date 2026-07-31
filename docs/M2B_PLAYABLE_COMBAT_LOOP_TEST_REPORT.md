@@ -1,6 +1,6 @@
 # M2B Minimum Playable Belt-Combat Loop Test Report
 
-Status: **AUTOMATED AND PHYSICAL IPHONE PASS / RELEASE CLOSEOUT IN PROGRESS**
+Status: **COMPLETE / RELEASED**
 
 Date: 2026-07-31
 Branch: `codex/feat/m2b-playable-combat-loop`
@@ -143,6 +143,27 @@ These generated artifacts are intentionally not committed to Git.
   production balance, final enemy tuning, or a complete level. Those questions
   belong to a separately authorized M2C playability gate.
 
-M2B is eligible for final review and release integration. Preserve Version 31,
-the branch, worktree, screenshots, and archives until the merged `main` build is
-deployed and independently smoke-tested.
+The physical-device candidate was eligible for final review and release
+integration after these checks. The following closeout records the completed
+merge and exact-main deployment.
+
+## Final release closeout
+
+- **CONFIRMED:** Independent release review returned GO; PR #21 merged as
+  `3da018917193d269429354ae0d93cac70cf2cf8c` after both required CI runs passed.
+- **CONFIRMED:** The exact merge was rebuilt with Godot 4.7.1; deterministic,
+  Worker/security, Web, and Sites builds passed from a clean detached-main
+  release worktree.
+- **CONFIRMED:** Sites Version 32 records exact source `3da0189`, embeds marker
+  `3da018917193`, and is publicly available at the stable Project Forge URL.
+- **CONFIRMED:** Formal deployed-mobile Playwright smoke and the full public
+  provider-free M2B Chromium regression passed. The latter covered five attack
+  patterns in both directions, 20 DODGE reuse cycles, WARD, victory/reward,
+  Unicode transport, weapon-size comparison, 0 Provider calls, and 0 console
+  errors. Recent production Worker error events: 0.
+- **CONFIRMED:** Stable tag `v0.6.0-m2b-playable-loop` points to `3da0189`.
+  Retained local release archive SHA-256:
+  `1e0001bfaeb32f8e115ff0c21245a4f80f94a199e073fe4134ea9292a6ae15fb`.
+
+M2B is closed. Preserve Versions 31/32, the branch, worktrees, screenshots, and
+archives as rollback evidence. M2C remains unstarted.

@@ -1,6 +1,6 @@
 # M2B Minimum Playable Belt-Combat Loop Acceptance
 
-Status: **ACCEPTED ON PHYSICAL IPHONE / RELEASE CLOSEOUT IN PROGRESS**
+Status: **COMPLETE / RELEASED**
 
 GitHub Issue: [#20](https://github.com/olliebigbang/project-forge/issues/20)
 
@@ -88,10 +88,11 @@ defensive technique, dodge timing, victory, defeat, reward, and Reforge?
 ## Completion gate
 
 The M2B implementation gate passed deterministic, browser, isolated-preview,
-and physical-iPhone evidence on 2026-07-31. Release integration remains a
-separate step: keep branches, worktrees, screenshots, accepted Sites Version
-31, and rollback packages until PR #21 is merged, rebuilt from `main`, deployed,
-and smoke-tested.
+and physical-iPhone evidence on 2026-07-31. PR #21 then merged as `3da0189`,
+exact merged `main` was rebuilt and deployed as Sites Version 32, public smoke
+passed, and `v0.6.0-m2b-playable-loop` recorded the stable source. Keep branches,
+worktrees, screenshots, Sites Versions 31/32, and rollback packages until a
+separate cleanup decision.
 
 ## Current evidence
 
@@ -109,6 +110,11 @@ and smoke-tested.
   the product owner reported no remaining physical-iPhone blocker on
   2026-07-31. This closes M2B-18 and the reopened M2B-19 through M2B-21 device
   gate without authorizing cleanup or M2C implementation.
+- **CONFIRMED:** PR #21 merged as `3da0189`; Sites Version 32 embeds exact marker
+  `3da018917193` and passed formal Playwright mobile smoke, full provider-free
+  public M2B regression, HTTP 200, zero application console errors, and zero
+  recent Worker errors. Stable tag `v0.6.0-m2b-playable-loop` points to the same
+  merge commit.
 
 Full evidence and known limitations are recorded in
 `docs/M2B_PLAYABLE_COMBAT_LOOP_TEST_REPORT.md`.
